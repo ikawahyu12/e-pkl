@@ -204,8 +204,8 @@ ob_start();
                                 <span class="sl-badge <?= $s['status'] === 'Selesai' ? 'sl-badge-selesai' : 'sl-badge-aktif' ?>"><?= $e($s['status']) ?></span>
                             </td>
                             <td class="sl-aksi">
-                                <a class="a-detail" href="detail.php?id=<?= (int) $s['id'] ?>">Detail</a>
-                                <a class="a-edit" href="edit.php?id=<?= (int) $s['id'] ?>">Edit</a>
+                                <a class="a-detail" href="?page=detail&id=<?= (int) $s['id'] ?>">Detail</a>
+                                <a class="a-edit" href="?page=edit&id=<?= (int) $s['id'] ?>">Edit</a>
                                 <button type="button" class="a-hapus sl-hapus"
                                         data-nama="<?= $e($s['nama']) ?>"
                                         data-nisn="<?= $e($s['nisn']) ?>"

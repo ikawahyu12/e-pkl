@@ -20,4 +20,12 @@ switch ($page) {
     case 'create':
         require dirname(__DIR__) . '/app/Views/admin/siswa/create.php';
         break;
+
+    case 'edit':
+       require dirname(__DIR__) . '/app/Views/admin/siswa/edit.php';
+       break;
+
+    case 'detail':
+       require dirname(__DIR__) . '/app/Views/admin/siswa/detail.php';
+       break;
 }
