@@ -4,7 +4,7 @@
  *
  * File ini berdiri sendiri. Satu-satunya yang dibutuhkan: app/Views/layouts/admin.php
  * Letak file: app/Views/admin/guru/detail.php
- * Data guru diambil dari array dummy berdasarkan ?id= (contoh: ?page=detail&id=1)
+ * Data guru diambil dari array dummy berdasarkan ?id= (contoh: ?page=detail-guru&id=1)
  */
 
 // 1. Alamat asset (dipakai hanya jika halaman dibuka langsung dari folder app/Views)
@@ -15,9 +15,10 @@ if (!isset($assetBaseUrl)) {
     }
 }
 
-// 2. Alamat tombol
+// 2. Alamat tombol (DIPERBAIKI)
 $urlDaftar = '?page=data-guru';
-$urlEdit   = '?page=edit&id=';
+$urlEdit   = '?page=edit-guru&id=';
+$urlDelete = '?page=delete-guru&id=';
 
 // 3. Data dummy Guru Pembimbing
 $guruList = [
@@ -77,7 +78,7 @@ foreach (array_slice(preg_split('/\s+/', trim($g['nama'])), 0, 2) as $kata) {
 
 // 4. Variabel layouts/admin.php
 $pageTitle  = 'Detail Data Guru';
-$activePage = 'guru'; // samakan dengan kunci menu "Data Guru" di sidebar.php
+$activePage = 'data-guru'; // DIPERBAIKI: Disamakan dengan kunci menu "Data Guru"
 
 ob_start();
 ?>
@@ -280,9 +281,10 @@ ob_start();
     window.addEventListener('load', function () {
         var $ = window.jQuery;
         $('#dtHapus').on('click', function () { $('#dtModalHapus').modal('show'); });
+        
+        // DIPERBAIKI: Mengarahkan eksekusi hapus ke modul guru
         $('#dtKonfirmasi').on('click', function () {
-            // TODO (backend): kirim permintaan hapus ke controller
-            $('#dtModalHapus').modal('hide');
+            window.location.href = '<?= $urlDelete . $id ?>';
         });
     });
 </script>
