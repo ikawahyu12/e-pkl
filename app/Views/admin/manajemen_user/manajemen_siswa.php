@@ -1,6 +1,8 @@
 <?php
 
-$assetBaseUrl = '/epkl_website/e-pkl/public/assets';
+// Asset (tidak hardcode nama folder)
+$scriptDir    = rtrim(str_replace('\\', '/', dirname($_SERVER['SCRIPT_NAME'] ?? '/')), '/');
+$assetBaseUrl = $scriptDir . '/assets';
 
 $pageTitle = 'Manajemen Siswa';
 $pageSubtitle = 'Kelola akun pengguna siswa.';
