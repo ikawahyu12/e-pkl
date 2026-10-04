@@ -1,12 +1,5 @@
 <?php
-/**
- * Admin > Data Guru > Tambah Guru Baru (UI saja, belum menyimpan ke database)
- *
- * File ini berdiri sendiri. Satu-satunya yang dibutuhkan: app/Views/layouts/admin.php
- * Letak file: app/Views/admin/guru/create.php
- */
 
-// 1. Alamat asset (layout mencari di <folder-halaman>/assets, padahal asset ada di public/assets)
 if (!isset($assetBaseUrl)) {
     $scriptDir = str_replace('\\', '/', dirname($_SERVER['SCRIPT_NAME'] ?? '/'));
     if (preg_match('#^(.*?)/app/Views(?:/.*)?$#', $scriptDir, $m)) {
@@ -14,7 +7,6 @@ if (!isset($assetBaseUrl)) {
     }
 }
 
-// 2. Pilihan dropdown (dummy, ganti dengan data database nanti)
 $opsiMapel = [
     'Pemrograman Web & Perangkat Bergerak',
     'Basis Data / Database',
@@ -36,7 +28,6 @@ $opsiJabatan = [
 
 $e = static fn ($v): string => htmlspecialchars((string) $v, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
 
-// 3. Variabel untuk layouts/admin.php
 $pageTitle  = 'Tambah Data Guru';
 $activePage = 'guru'; // samakan dengan kunci menu "Data Guru" di sidebar.php
 

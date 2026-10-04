@@ -4,46 +4,43 @@ namespace App\Controllers;
 
 class GuruController
 {
-    protected string $base = '';
-
     public function index()
     {
-        return view('admin/guru/index', [
-            'title'      => 'Data Guru',
-            'activePage' => 'data-guru',
-            'guru'       => [],
-        ]);
+        $title = 'Data Guru';
+        $activePage = 'data-guru';
+        $guru = []; // Data dummy / dari database
+
+        require dirname(__DIR__) . '/Views/admin/guru/index.php';
     }
 
     public function create()
     {
-        return view('admin/guru/create', [
-            'title'      => 'Tambah Guru',
-            'activePage' => 'data-guru',
-        ]);
+        $title = 'Tambah Guru';
+        $activePage = 'data-guru';
+
+        require dirname(__DIR__) . '/Views/admin/guru/create.php';
     }
 
-    public function detail(int $id)
+    public function detail($id)
     {
-        return view('admin/guru/detail', [
-            'title'      => 'Detail Guru',
-            'activePage' => 'data-guru',
-            'id'         => $id,
-        ]);
+        $title = 'Detail Guru';
+        $activePage = 'data-guru';
+
+        require dirname(__DIR__) . '/Views/admin/guru/detail.php';
     }
 
-    public function edit(int $id)
+    public function edit($id)
     {
-        return view('admin/guru/edit', [
-            'title'      => 'Edit Guru',
-            'activePage' => 'data-guru',
-            'id'         => $id,
-        ]);
+        $title = 'Edit Guru';
+        $activePage = 'data-guru';
+
+        require dirname(__DIR__) . '/Views/admin/guru/edit.php';
     }
 
-    public function destroy(int $id)
+    public function destroy($id)
     {
-        header('Location: ' . $this->base . '/admin/guru');
+        // Proses hapus data
+        header('Location: ?page=data-guru');
         exit;
     }
 }

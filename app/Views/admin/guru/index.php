@@ -4,9 +4,10 @@ $activePage   = 'data-guru';   // HARUS 'data-guru'
 $pageTitle    = 'Data Guru Pembimbing';
 $pageSubtitle = 'Kelola data guru pembimbing dan alokasi kuota bimbingan PKL.';
 
+// LINK DIPERBAIKI: ?page=create-guru
 $pageHeaderActions = '
     <button type="button" class="btn btn-sm sl-btn-export mr-2"><i class="fas fa-download mr-2"></i>Export Data</button>
-    <a href="?page=create" class="btn btn-sm sl-btn-add"><i class="fas fa-plus mr-2"></i>Tambah Guru</a>';
+    <a href="?page=create-guru" class="btn btn-sm sl-btn-add"><i class="fas fa-plus mr-2"></i>Tambah Guru</a>';
 
 // Asset (tidak hardcode nama folder)
 $scriptDir    = rtrim(str_replace('\\', '/', dirname($_SERVER['SCRIPT_NAME'] ?? '/')), '/');
@@ -197,9 +198,11 @@ ob_start();
                                 <span class="sl-badge <?= $g['status'] === 'Aktif' ? 'sl-badge-aktif' : 'sl-badge-nonaktif' ?>"><?= $e($g['status']) ?></span>
                             </td>
                             <td class="sl-aksi">
-                                <a class="a-detail" href="?page=detail&id=<?= (int) $g['id'] ?>">Detail</a>
-                                <a class="a-edit" href="?page=edit&id=<?= (int) $g['id'] ?>">Edit</a>
+                                <!-- LINK DIPERBAIKI: ?page=detail-guru & ?page=edit-guru -->
+                                <a class="a-detail" href="?page=detail-guru&id=<?= (int) $g['id'] ?>">Detail</a>
+                                <a class="a-edit" href="?page=edit-guru&id=<?= (int) $g['id'] ?>">Edit</a>
                                 <button type="button" class="a-hapus sl-hapus"
+                                        data-id="<?= (int) $g['id'] ?>"
                                         data-nama="<?= $e($g['nama']) ?>"
                                         data-nip="<?= $e($g['nip']) ?>"
                                         data-jurusan="<?= $e($g['jurusan_lengkap']) ?>"
@@ -270,6 +273,7 @@ ob_start();
 <script>
     window.addEventListener('load', function () {
         var $ = window.jQuery;
+        var selectedGuruId = null;
 
         var total = <?= (int) $totalGuru ?>;
         function terapkan() {
@@ -296,6 +300,7 @@ ob_start();
         // Dialog hapus
         $(document).on('click', '.sl-hapus', function () {
             var d = $(this).data();
+            selectedGuruId = d.id;
             $('#slHNama, #slHNama2').text(d.nama);
             $('#slHNip').text(d.nip);
             $('#slHJurusan').text(d.jurusan);
@@ -303,8 +308,12 @@ ob_start();
             $('#slHTerisi').text(d.terisi + ' Siswa');
             $('#slModalHapus').modal('show');
         });
+
+        // ACTION HAPUS DIPERBAIKI: Redirect ke ?page=delete-guru&id=...
         $('#slKonfirmasiHapus').on('click', function () {
-            $('#slModalHapus').modal('hide');
+            if (selectedGuruId) {
+                window.location.href = '?page=delete-guru&id=' + selectedGuruId;
+            }
         });
 
         $('.sl-pager a').on('click', function (ev) { ev.preventDefault(); });

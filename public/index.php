@@ -26,6 +26,22 @@ switch ($page) {
         require dirname(__DIR__) . '/app/Views/admin/instansi/index.php';
         break;
 
+    case 'data-guru':
+        require dirname(__DIR__) . '/app/Views/admin/guru/index.php';
+        break;
+
+    case 'create-guru':
+        require dirname(__DIR__) . '/app/Views/admin/guru/create.php';
+        break;
+
+    case 'edit-guru':
+        require dirname(__DIR__) . '/app/Views/admin/guru/edit.php';
+        break;
+
+    case 'detail-guru':
+        require dirname(__DIR__) . '/app/Views/admin/guru/detail.php';
+        break;
+
     case 'data-siswa':
         require dirname(__DIR__) . '/app/Views/admin/siswa/index.php';
         break;
