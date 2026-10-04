@@ -6,7 +6,7 @@ $pageSubtitle = 'Kelola data siswa dan alokasi tempat PKL.';
 
 $pageHeaderActions = '
     <a href="#" class="btn btn-light btn-sm mr-2">Export Data</a>
-    <a href="?page=siswa-create" class="btn btn-primary btn-sm">Tambah Siswa</a>';
+    <a href="?page=create" class="btn btn-primary btn-sm">Tambah Siswa</a>';
 
 // Asset (tidak hardcode nama folder)
 $scriptDir    = rtrim(str_replace('\\', '/', dirname($_SERVER['SCRIPT_NAME'] ?? '/')), '/');
@@ -40,7 +40,7 @@ $pageSubtitle = 'Kelola data siswa dan alokasi tempat PKL.';
 $activePage   = 'data-siswa';
 $pageHeaderActions =
     '<button type="button" class="btn btn-sm sl-btn-export mr-2"><i class="fas fa-download mr-2"></i>Export Data</button>'
-    . '<a href="?page=siswa-create" class="btn btn-sm sl-btn-add"><i class="fas fa-plus mr-2"></i>Tambah Siswa</a>';
+    . '<a href="?page=create" class="btn btn-sm sl-btn-add"><i class="fas fa-plus mr-2"></i>Tambah Siswa</a>';
 
 // ---------------------------------------------------------------------------
 // 4. Isi halaman
