@@ -86,7 +86,7 @@ $statusBadgeClasses = [
     'Tidak Hadir' => 'badge-danger',
 ];
 
-$e = static fn ($value): string => htmlspecialchars((string) $value, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+$e = static fn($value): string => htmlspecialchars((string) $value, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
 
 ob_start();
 ?>
@@ -219,6 +219,28 @@ ob_start();
         display: none;
     }
 
+    /* Style tambahan untuk Panel Geofence Map */
+    .geofence-map-card {
+        border: 1px solid #e7ecf2;
+        border-radius: .6rem;
+    }
+
+    .geofence-map-container {
+        position: relative;
+        background: #f8fafc;
+        border: 1px dashed #cbd5e1;
+        border-radius: .5rem;
+        height: 280px;
+        overflow: hidden;
+    }
+
+    .geofence-grid-bg {
+        background-image: linear-gradient(to right, #e2e8f0 1px, transparent 1px), linear-gradient(to bottom, #e2e8f0 1px, transparent 1px);
+        background-size: 40px 40px;
+        width: 100%;
+        height: 100%;
+    }
+
     @media (max-width: 575.98px) {
         .dashboard-stat-card .card-body {
             min-height: 104px;
@@ -260,6 +282,54 @@ ob_start();
     <?php endforeach; ?>
 </section>
 
+<!-- PANEL PEMETAAN GEOFENCE -->
+<section class="card geofence-map-card shadow-sm mb-4" aria-labelledby="geofenceTitle">
+    <div class="card-header py-3 bg-white d-flex align-items-center justify-content-between flex-wrap">
+        <div>
+            <h2 class="dashboard-table-title mb-1" id="geofenceTitle">Pemetaan Geofencing & Koordinat</h2>
+            <div class="dashboard-date-label">Visualisasi radius absensi otomatis instansi mitra</div>
+        </div>
+        <div class="d-flex align-items-center mt-2 mt-md-0">
+            <span class="btn btn-sm btn-light border mr-2 font-weight-bold text-secondary">
+                <i class="fas fa-map-marker-alt text-danger mr-1"></i> PT. Informatika Solusi Nusantara (50m)
+            </span>
+            <span class="badge badge-primary p-2">Radius Aktif: 50 Meter</span>
+        </div>
+    </div>
+    <div class="card-body">
+        <div class="geofence-map-container mb-3 d-flex align-items-center justify-content-center">
+            <div class="geofence-grid-bg position-absolute"></div>
+
+            <!-- Info Card di dalam Map -->
+            <div class="position-absolute p-2 bg-white rounded shadow-sm border" style="top: 20px; left: 20px; z-index: 5;">
+                <div class="font-weight-bold text-dark" style="font-size: 0.8rem;">PT. Informatika Solusi Nusantara</div>
+                <div class="text-muted" style="font-size: 0.7rem;">Koordinat: -6.9174, 107.6191 • Radius Presensi: 50m</div>
+            </div>
+
+            <!-- Titik Pusat / Instansi -->
+            <div class="position-absolute rounded-circle bg-primary border border-white shadow" style="width: 16px; height: 16px; top: 52%; left: 52%; z-index: 4; transform: translate(-50%, -50%);"></div>
+            <!-- Lingkaran Radius Geofence -->
+            <div class="position-absolute rounded-circle border border-primary border-dashed" style="width: 140px; height: 140px; top: 52%; left: 52%; z-index: 3; transform: translate(-50%, -50%); background: rgba(40, 117, 189, 0.08);"></div>
+
+            <!-- Titik Siswa di dalam / luar radius -->
+            <div class="position-absolute rounded-circle bg-primary shadow-sm" style="width: 10px; height: 10px; top: 45%; left: 48%; z-index: 5;" title="Siswa dalam radius"></div>
+            <div class="position-absolute rounded-circle bg-primary shadow-sm" style="width: 10px; height: 10px; top: 58%; left: 46%; z-index: 5;" title="Siswa dalam radius"></div>
+            <div class="position-absolute rounded-circle bg-primary shadow-sm" style="width: 10px; height: 10px; top: 53%; left: 58%; z-index: 5;" title="Siswa dalam radius"></div>
+            <div class="position-absolute rounded-circle bg-danger shadow-sm" style="width: 10px; height: 10px; top: 43%; left: 42%; z-index: 5;" title="Siswa di luar radius"></div>
+        </div>
+
+        <div class="d-flex align-items-center justify-content-between flex-wrap text-muted" style="font-size: 0.78rem;">
+            <div>
+                <span class="badge badge-pill badge-primary mr-1">&nbsp;</span> <strong>3 Siswa</strong> di dalam zona
+                <span class="badge badge-pill badge-danger ml-3 mr-1">&nbsp;</span> <strong>1 Siswa</strong> di luar zona
+            </div>
+            <div>
+                <i class="fas fa-sync-alt fa-spin mr-1 text-info"></i> Pembaruan GPS Otomatis
+            </div>
+        </div>
+    </div>
+</section>
+
 <section class="card dashboard-table-card shadow-sm mb-4" aria-labelledby="attendanceTitle">
     <div class="card-header py-3 d-flex align-items-center justify-content-between flex-wrap">
         <div class="mb-2 mb-md-0">
@@ -278,11 +348,11 @@ ob_start();
                     </span>
                 </div>
                 <input class="form-control" id="attendanceSearch" type="search"
-                       placeholder="Cari nama, NIS, instansi..." aria-label="Cari presensi harian">
+                    placeholder="Cari nama, NIS, instansi..." aria-label="Cari presensi harian">
             </div>
 
             <select class="custom-select custom-select-sm dashboard-filter-status"
-                    id="attendanceStatusFilter" aria-label="Filter status presensi">
+                id="attendanceStatusFilter" aria-label="Filter status presensi">
                 <option value="">Semua Status</option>
                 <option value="Hadir">Hadir</option>
                 <option value="Izin">Izin</option>
