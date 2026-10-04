@@ -8,7 +8,7 @@ $defaultMenuUrls = [
     'data-siswa'      => $base . '/?page=data-siswa',
     'guru-pembimbing' => '#',
     'instansi-mitra'  => $base . '/?page=data-mitra',
-    'manajemen-user'  => '#',
+    'manajemen-user'  => $base . '/?page=manajemen-admin',
     'laporan-rekap'   => '#',
 ];
 

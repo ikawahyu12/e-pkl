@@ -2,7 +2,7 @@
 
 $assetBaseUrl = '/epkl_website/e-pkl/public/assets';
 
-$pageTitle = 'Manajemen User';
+$pageTitle = 'Manajemen Siswa';
 $pageSubtitle = 'Kelola akun pengguna siswa.';
 $pageStatusLabel = 'Manajemen Siswa';
 $activePage = 'manajemen-user';
@@ -54,6 +54,32 @@ ob_start();
         border: 1px solid #e8edf2;
         border-radius: .5rem;
         box-shadow: 0 .15rem .5rem rgba(58, 59, 69, .05);
+    }
+
+    .role-nav-btn {
+        border-radius: 8px;
+        padding: 10px 18px;
+        font-weight: 600;
+        font-size: .85rem;
+        color: #5a6573;
+        background: #f8f9fc;
+        border: 1px solid #e3e6f0;
+        transition: all 0.2s ease-in-out;
+        display: inline-flex;
+        align-items: center;
+        text-decoration: none !important;
+    }
+
+    .role-nav-btn:hover {
+        background: #eaecf4;
+        color: #176b8b;
+    }
+
+    .role-nav-btn.active {
+        background: #176b8b;
+        color: #ffffff;
+        border-color: #176b8b;
+        box-shadow: 0 4px 10px rgba(23, 107, 139, 0.25);
     }
 
     .table-user thead th {
@@ -125,6 +151,24 @@ ob_start();
         max-width: 320px;
     }
 </style>
+
+<!-- NAVIGASI PILIH ROLE USER -->
+<div class="card card-user mb-4">
+    <div class="card-body p-3">
+        <label class="small font-weight-bold text-muted d-block mb-2">Pilih Role User yang Ingin Dikelola:</label>
+        <div class="d-flex align-items-center flex-wrap">
+            <a href="?page=manajemen-admin" class="role-nav-btn mr-2 mb-2">
+                <i class="fas fa-user-shield mr-2"></i> Admin
+            </a>
+            <a href="?page=manajemen-guru" class="role-nav-btn mr-2 mb-2">
+                <i class="fas fa-chalkboard-teacher mr-2"></i> Guru
+            </a>
+            <a href="?page=manajemen-siswa" class="role-nav-btn mr-2 mb-2 active">
+                <i class="fas fa-user-graduate mr-2"></i> Siswa
+            </a>
+        </div>
+    </div>
+</div>
 
 <div class="card card-user mb-4">
     <div class="card-body">
@@ -275,10 +319,7 @@ ob_start();
 </div>
 
 
-<!-- ========================================================= -->
 <!-- MODAL TAMBAH AKUN -->
-<!-- ========================================================= -->
-
 <div class="modal fade" id="modalTambah" tabindex="-1">
     <div class="modal-dialog modal-lg">
         <div class="modal-content">
@@ -430,10 +471,7 @@ ob_start();
 </div>
 
 
-<!-- ========================================================= -->
 <!-- MODAL EDIT AKUN -->
-<!-- ========================================================= -->
-
 <div class="modal fade" id="modalEdit" tabindex="-1">
     <div class="modal-dialog modal-lg">
         <div class="modal-content">
@@ -592,10 +630,6 @@ ob_start();
 
 <script>
 
-    /* =========================================================
-       SHOW / HIDE PASSWORD
-    ========================================================= */
-
     function togglePassword(inputId, button) {
 
         const input = document.getElementById(inputId);
@@ -619,10 +653,6 @@ ob_start();
     }
 
 
-    /* =========================================================
-       EDIT USER
-    ========================================================= */
-
     function editUser(user) {
 
         document.getElementById('editId').value = user.id;
@@ -635,10 +665,6 @@ ob_start();
         $('#modalEdit').modal('show');
     }
 
-
-    /* =========================================================
-       SIMPAN TAMBAH AKUN
-    ========================================================= */
 
     document.getElementById('formTambah').addEventListener('submit', function(e) {
 
@@ -663,10 +689,6 @@ ob_start();
     });
 
 
-    /* =========================================================
-       SIMPAN EDIT AKUN
-    ========================================================= */
-
     document.getElementById('formEdit').addEventListener('submit', function(e) {
 
         e.preventDefault();
@@ -677,10 +699,6 @@ ob_start();
 
     });
 
-
-    /* =========================================================
-       DELETE USER
-    ========================================================= */
 
     function deleteUser(nama) {
 
@@ -696,10 +714,6 @@ ob_start();
 
     }
 
-
-    /* =========================================================
-       SEARCH USER
-    ========================================================= */
 
     document.getElementById('searchUser').addEventListener('keyup', function() {
 
@@ -729,10 +743,6 @@ ob_start();
 
     });
 
-
-    /* =========================================================
-       FILTER STATUS
-    ========================================================= */
 
     document.getElementById('filterStatus').addEventListener('change', function() {
 
@@ -767,5 +777,5 @@ ob_start();
 
 $content = ob_get_clean();
 
-require __DIR__ . '/../layouts/admin.php';
+require __DIR__ . '/../../layouts/admin.php';
 ?>
