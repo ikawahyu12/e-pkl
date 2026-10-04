@@ -7,7 +7,7 @@ $defaultMenuUrls = [
     'dashboard'       => $base . '/',
     'data-siswa'      => $base . '/?page=data-siswa',
     'guru-pembimbing' => '#',
-    'instansi-mitra'  => '#',
+    'instansi-mitra'  => $base . '/?page=data-mitra',
     'manajemen-user'  => '#',
     'laporan-rekap'   => '#',
 ];
@@ -32,7 +32,7 @@ $menuItems = [
 ?>
 <ul class="navbar-nav sidebar sidebar-light accordion sidebar-epkl" id="accordionSidebar">
     <a class="sidebar-brand d-flex align-items-center justify-content-center py-3"
-       href="<?= $e($dashboardUrl) ?>">
+        href="<?= $e($dashboardUrl) ?>">
         <span class="sidebar-brand-icon">
             <i class="fas fa-graduation-cap" aria-hidden="true"></i>
         </span>
@@ -49,8 +49,8 @@ $menuItems = [
         <?php $menuUrl = $adminMenuUrls[$item['key']] ?? '#'; ?>
         <li class="nav-item<?= $isActive ? ' active' : '' ?>">
             <a class="nav-link<?= $isActive ? ' active' : '' ?>"
-               href="<?= $e($menuUrl) ?>"
-               <?= $isActive ? 'aria-current="page"' : '' ?>>
+                href="<?= $e($menuUrl) ?>"
+                <?= $isActive ? 'aria-current="page"' : '' ?>>
                 <i class="<?= $e($item['icon']) ?>" aria-hidden="true"></i>
                 <span><?= $e($item['label']) ?></span>
             </a>
