@@ -1,6 +1,5 @@
 <?php
-// URL default tiap menu (ubah di sini kalau route-nya berbeda)
-// public/index.php, paling atas
+// URL default tiap menu
 $base = rtrim(str_replace('\\', '/', dirname($_SERVER['SCRIPT_NAME'])), '/');
 
 $defaultMenuUrls = [
@@ -9,10 +8,9 @@ $defaultMenuUrls = [
     'guru-pembimbing' => $base . '/?page=data-guru',
     'instansi-mitra'  => $base . '/?page=data-mitra',
     'manajemen-user'  => $base . '/?page=manajemen-admin',
-    'laporan-rekap'   => '#',
+    'laporan-rekap'   => $base . '/?page=laporan-rekap',
 ];
 
-// Kalau controller mengirim $adminMenuUrls (misalnya 'logout'), nilainya tetap dipakai
 $adminMenuUrls = isset($adminMenuUrls) && is_array($adminMenuUrls) ? $adminMenuUrls : [];
 $adminMenuUrls = array_merge($defaultMenuUrls, $adminMenuUrls);
 
@@ -45,8 +43,15 @@ $menuItems = [
     <hr class="sidebar-divider my-2">
 
     <?php foreach ($menuItems as $item): ?>
-        <?php $isActive = $activePage === $item['key']; ?>
-        <?php $menuUrl = $adminMenuUrls[$item['key']] ?? '#'; ?>
+        <?php 
+            // Cek keaktifan menu (mendukung 'guru-pembimbing', 'data-guru', dan 'guru')
+            if ($item['key'] === 'guru-pembimbing') {
+                $isActive = in_array($activePage, ['guru-pembimbing', 'data-guru', 'guru'], true);
+            } else {
+                $isActive = $activePage === $item['key'];
+            }
+            $menuUrl = $adminMenuUrls[$item['key']] ?? '#'; 
+        ?>
         <li class="nav-item<?= $isActive ? ' active' : '' ?>">
             <a class="nav-link<?= $isActive ? ' active' : '' ?>"
                 href="<?= htmlspecialchars($menuUrl) ?>"

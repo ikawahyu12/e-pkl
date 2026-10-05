@@ -78,7 +78,7 @@ foreach (array_slice(preg_split('/\s+/', trim($g['nama'])), 0, 2) as $kata) {
 
 // 4. Variabel layouts/admin.php
 $pageTitle  = 'Detail Data Guru';
-$activePage = 'data-guru'; // DIPERBAIKI: Disamakan dengan kunci menu "Data Guru"
+$activePage = 'guru-pembimbing'; // DIPERBAIKI: Disamakan dengan kunci menu "Data Guru"
 
 ob_start();
 ?>
