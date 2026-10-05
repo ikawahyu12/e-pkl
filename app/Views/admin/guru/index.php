@@ -1,35 +1,58 @@
 <?php
-// ===== 1. BLOK PHP ATAS (semua logika & variabel di sini) =====
-$activePage   = 'data-guru';   // HARUS 'data-guru'
+// ===== 1. BLOK PHP ATAS =====
+$activePage   = 'data-guru';
 $pageTitle    = 'Data Guru Pembimbing';
 $pageSubtitle = 'Kelola data guru pembimbing dan alokasi kuota bimbingan PKL.';
 
-// LINK DIPERBAIKI: ?page=create-guru
 $pageHeaderActions = '
     <button type="button" class="btn btn-sm sl-btn-export mr-2"><i class="fas fa-download mr-2"></i>Export Data</button>
     <a href="?page=create-guru" class="btn btn-sm sl-btn-add"><i class="fas fa-plus mr-2"></i>Tambah Guru</a>';
 
-// Asset (tidak hardcode nama folder)
 $scriptDir    = rtrim(str_replace('\\', '/', dirname($_SERVER['SCRIPT_NAME'] ?? '/')), '/');
 $assetBaseUrl = $scriptDir . '/assets';
 
-// Fungsi escape: wajib di sini, karena dipakai sebelum layout dimuat
 $e = static fn ($v): string => htmlspecialchars((string) $v, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
 
 // ---------------------------------------------------------------------------
-// 2. Data dummy Guru Pembimbing
+// 2. Data Master Dummy Guru Pembimbing (10 Data untuk 2 Halaman)
 // ---------------------------------------------------------------------------
-$totalGuru  = 24;
-$guruAktif  = 21;
-$totalKuota = 350;
-
-$guruList = [
+$guruDataMaster = [
+    // Halaman 1 (Data 1 - 5)
     ['id' => 1, 'nip' => '198203152008011003', 'nama' => 'Budi Santoso, S.Kom.', 'jurusan' => 'RPL', 'jurusan_lengkap' => 'Rekayasa Perangkat Lunak', 'kontak' => '0812-3456-7890', 'email' => 'budi.santoso@smk.sch.id', 'kuota' => 15, 'terisi' => 12, 'status' => 'Aktif'],
     ['id' => 2, 'nip' => '198504122010012005', 'nama' => 'Dewi Sartika, M.Sn.',  'jurusan' => 'DKV', 'jurusan_lengkap' => 'Desain Komunikasi Visual', 'kontak' => '0813-9876-5432', 'email' => 'dewi.sartika@smk.sch.id', 'kuota' => 12, 'terisi' => 10, 'status' => 'Aktif'],
     ['id' => 3, 'nip' => '197911202005011002', 'nama' => 'Eko Prasetyo, S.T.',   'jurusan' => 'TKJ', 'jurusan_lengkap' => 'Teknik Komputer & Jaringan', 'kontak' => '0811-2233-4455', 'email' => 'eko.prasetyo@smk.sch.id', 'kuota' => 15, 'terisi' => 15, 'status' => 'Aktif'],
     ['id' => 4, 'nip' => '199001082015042001', 'nama' => 'Rina Astuti, S.Pd.',    'jurusan' => 'RPL', 'jurusan_lengkap' => 'Rekayasa Perangkat Lunak', 'kontak' => '0857-1122-3344', 'email' => 'rina.astuti@smk.sch.id', 'kuota' => 10, 'terisi' => 0,  'status' => 'Non-Aktif'],
     ['id' => 5, 'nip' => '198807142012011004', 'nama' => 'Hendra Wijaya, M.T.',  'jurusan' => 'TKJ', 'jurusan_lengkap' => 'Teknik Komputer & Jaringan', 'kontak' => '0821-4455-6677', 'email' => 'hendra.w@smk.sch.id',      'kuota' => 15, 'terisi' => 8,  'status' => 'Aktif'],
+    
+    // Halaman 2 (Data 6 - 10)
+    ['id' => 6, 'nip' => '199105222018021001', 'nama' => 'Ahmad Dahlan, M.Kom.', 'jurusan' => 'RPL', 'jurusan_lengkap' => 'Rekayasa Perangkat Lunak', 'kontak' => '0812-9988-7766', 'email' => 'ahmad.d@smk.sch.id',     'kuota' => 12, 'terisi' => 5,  'status' => 'Aktif'],
+    ['id' => 7, 'nip' => '198703112011012003', 'nama' => 'Siti Nurhaliza, S.T.', 'jurusan' => 'TKJ', 'jurusan_lengkap' => 'Teknik Komputer & Jaringan', 'kontak' => '0856-4433-2211', 'email' => 'siti.n@smk.sch.id',      'kuota' => 15, 'terisi' => 14, 'status' => 'Aktif'],
+    ['id' => 8, 'nip' => '199308192019032002', 'nama' => 'Maya Indah, M.Pd.',    'jurusan' => 'DKV', 'jurusan_lengkap' => 'Desain Komunikasi Visual', 'kontak' => '0878-1122-4455', 'email' => 'maya.i@smk.sch.id',      'kuota' => 10, 'terisi' => 9,  'status' => 'Aktif'],
+    ['id' => 9, 'nip' => '198001012006041005', 'nama' => 'Bambang Pamungkas, S.Pd.', 'jurusan' => 'RPL', 'jurusan_lengkap' => 'Rekayasa Perangkat Lunak', 'kontak' => '0813-5566-7788', 'email' => 'bambang.p@smk.sch.id', 'kuota' => 15, 'terisi' => 0,  'status' => 'Non-Aktif'],
+    ['id' => 10,'nip' => '198609122014022004', 'nama' => 'Fitriani, S.Kom.',     'jurusan' => 'TKJ', 'jurusan_lengkap' => 'Teknik Komputer & Jaringan', 'kontak' => '0822-3344-5566', 'email' => 'fitriani@smk.sch.id',    'kuota' => 12, 'terisi' => 11, 'status' => 'Aktif'],
 ];
+
+// Logika Paginasi
+$totalGuru   = count($guruDataMaster);
+$guruAktif   = 21;
+$totalKuota  = 350;
+
+$perPage     = 5; // Tampilkan 5 data per halaman
+$totalPages  = 2; // Cukup 2 halaman saja
+$currentPage = (int)($_GET['p'] ?? 1);
+if ($currentPage < 1) { $currentPage = 1; }
+if ($currentPage > $totalPages) { $currentPage = $totalPages; }
+
+// Potong array master sesuai halaman aktif
+$offset   = ($currentPage - 1) * $perPage;
+$guruList = array_slice($guruDataMaster, $offset, $perPage);
+
+// Helper untuk URL pagination
+function getPageUrl(int $p): string {
+    $params = $_GET;
+    $params['p'] = $p;
+    return '?' . http_build_query($params);
+}
 
 // ---------------------------------------------------------------------------
 // 3. Isi halaman
@@ -37,7 +60,7 @@ $guruList = [
 ob_start();
 ?>
 <style>
-    /* ---- Tombol di header (kanan atas) ---- */
+    /* ---- Tombol di header ---- */
     .sl-btn-export, .sl-btn-add { border: 0; border-radius: 8px; padding: .5rem .9rem; font-size: .78rem; font-weight: 600; }
     .sl-btn-export { background: #dbe7f6; color: #1e293b; }
     .sl-btn-export:hover { background: #cddff2; color: #1e293b; }
@@ -87,10 +110,10 @@ ob_start();
     .sl-foot { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: .5rem; padding: .85rem 1rem; }
     .sl-info { font-size: .7rem; color: #6b7787; }
     .sl-pager { display: flex; align-items: center; gap: .35rem; margin: 0; padding: 0; list-style: none; }
-    .sl-pager a { display: inline-flex; align-items: center; justify-content: center; min-width: 24px; height: 24px; padding: 0 .35rem; border-radius: 5px; font-size: .7rem; color: #3b4a5e; text-decoration: none; }
-    .sl-pager a:hover { background: #eef2f8; }
-    .sl-pager .active a { background: #0b5f8a; color: #fff; }
-    .sl-pager .disabled a { color: #3b4a5e; pointer-events: none; }
+    .sl-pager a, .sl-pager span { display: inline-flex; align-items: center; justify-content: center; min-width: 28px; height: 28px; padding: 0 .4rem; border-radius: 6px; font-size: .72rem; color: #3b4a5e; text-decoration: none; font-weight: 500; }
+    .sl-pager a:hover { background: #eef2f8; color: #0b5f8a; }
+    .sl-pager .active span { background: #0b5f8a; color: #fff; font-weight: 700; }
+    .sl-pager .disabled span { color: #94a3b8; cursor: not-allowed; opacity: .6; }
 
     /* ---- Dialog hapus ---- */
     .sl-modal .modal-content { border: 0; border-radius: 16px; }
@@ -119,7 +142,7 @@ ob_start();
                 <span class="sl-stat-icon"><i class="fas fa-user-tie"></i></span>
                 <div>
                     <div class="sl-stat-label">Total Guru Pembimbing</div>
-                    <div class="sl-stat-value" style="color:#0f1d3a;"><?= $e($totalGuru) ?></div>
+                    <div class="sl-stat-value" style="color:#0f1d3a;"><?= $e($guruAktif + 3) ?></div>
                 </div>
             </div>
         </div>
@@ -183,7 +206,7 @@ ob_start();
                 <tbody>
                     <?php foreach ($guruList as $i => $g): ?>
                         <tr data-jurusan="<?= $e($g['jurusan']) ?>" data-status="<?= $e($g['status']) ?>">
-                            <td class="c-no"><?= $i + 1 ?></td>
+                            <td class="c-no"><?= $offset + $i + 1 ?></td>
                             <td class="sl-nip"><?= $e($g['nip']) ?></td>
                             <td class="sl-nama"><?= $e($g['nama']) ?></td>
                             <td><?= $e($g['jurusan']) ?></td>
@@ -198,7 +221,6 @@ ob_start();
                                 <span class="sl-badge <?= $g['status'] === 'Aktif' ? 'sl-badge-aktif' : 'sl-badge-nonaktif' ?>"><?= $e($g['status']) ?></span>
                             </td>
                             <td class="sl-aksi">
-                                <!-- LINK DIPERBAIKI: ?page=detail-guru & ?page=edit-guru -->
                                 <a class="a-detail" href="?page=detail-guru&id=<?= (int) $g['id'] ?>">Detail</a>
                                 <a class="a-edit" href="?page=edit-guru&id=<?= (int) $g['id'] ?>">Edit</a>
                                 <button type="button" class="a-hapus sl-hapus"
@@ -218,13 +240,37 @@ ob_start();
             </table>
         </div>
 
+        <!-- Footer tabel + Pagination Dinamis (Cukup 2 Halaman) -->
         <div class="sl-foot">
-            <div class="sl-info" id="slInfo">Menampilkan 1-<?= count($guruList) ?> dari <?= $e($totalGuru) ?> guru</div>
+            <?php 
+                $startItem = $offset + 1;
+                $endItem   = $offset + count($guruList);
+            ?>
+            <div class="sl-info" id="slInfo">Menampilkan <?= $startItem ?>-<?= $endItem ?> dari <?= $totalGuru ?> guru</div>
+            
             <ul class="sl-pager" aria-label="Navigasi halaman">
-                <li class="disabled"><a href="#">Sebelumnya</a></li>
-                <li class="active"><a href="#">1</a></li>
-                <li><a href="#">2</a></li>
-                <li><a href="#">Selanjutnya</a></li>
+                <!-- Tombol Sebelumnya -->
+                <?php if ($currentPage > 1): ?>
+                    <li><a href="<?= getPageUrl($currentPage - 1) ?>">Sebelumnya</a></li>
+                <?php else: ?>
+                    <li class="disabled"><span>Sebelumnya</span></li>
+                <?php endif; ?>
+
+                <!-- Angka Halaman (1 dan 2) -->
+                <?php for ($p = 1; $p <= $totalPages; $p++): ?>
+                    <?php if ($p === $currentPage): ?>
+                        <li class="active"><span><?= $p ?></span></li>
+                    <?php else: ?>
+                        <li><a href="<?= getPageUrl($p) ?>"><?= $p ?></a></li>
+                    <?php endif; ?>
+                <?php endfor; ?>
+
+                <!-- Tombol Selanjutnya -->
+                <?php if ($currentPage < $totalPages): ?>
+                    <li><a href="<?= getPageUrl($currentPage + 1) ?>">Selanjutnya</a></li>
+                <?php else: ?>
+                    <li class="disabled"><span>Selanjutnya</span></li>
+                <?php endif; ?>
             </ul>
         </div>
     </div>
@@ -275,7 +321,6 @@ ob_start();
         var $ = window.jQuery;
         var selectedGuruId = null;
 
-        var total = <?= (int) $totalGuru ?>;
         function terapkan() {
             var q = $('#slCari').val().toLowerCase().trim();
             var j = $('#slJurusan').val();
@@ -291,7 +336,7 @@ ob_start();
             });
             $('#slKosong').toggle(tampil === 0);
             $('#slInfo').text(tampil === $('#slTabel tbody tr[data-status]').length
-                ? 'Menampilkan 1-' + tampil + ' dari ' + total + ' guru'
+                ? 'Menampilkan <?= $startItem ?>-<?= $endItem ?> dari <?= $totalGuru ?> guru'
                 : 'Menampilkan ' + tampil + ' guru');
         }
         $('#slCari').on('input', terapkan);
@@ -309,17 +354,14 @@ ob_start();
             $('#slModalHapus').modal('show');
         });
 
-        // ACTION HAPUS DIPERBAIKI: Redirect ke ?page=delete-guru&id=...
+        // Redirect hapus
         $('#slKonfirmasiHapus').on('click', function () {
             if (selectedGuruId) {
                 window.location.href = '?page=delete-guru&id=' + selectedGuruId;
             }
         });
-
-        $('.sl-pager a').on('click', function (ev) { ev.preventDefault(); });
     });
 </script>
 <?php
-// Simpan hasil ke $content & panggil layout
 $content = ob_get_clean();
 require __DIR__ . '/../../layouts/admin.php';
