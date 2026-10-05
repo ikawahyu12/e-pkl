@@ -15,7 +15,6 @@ $defaultMenuUrls = [
     'manajemen-guru'  => $base . '/?page=manajemen-guru',
     
     'laporan-rekap'   => '#',
->>>>>>> Stashed changes
 ];
 
 $adminMenuUrls = isset($adminMenuUrls) && is_array($adminMenuUrls) ? $adminMenuUrls : [];
