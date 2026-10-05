@@ -36,8 +36,8 @@ $menuItems = [
             src="<?= $base ?>/assets/img/logo_e-pkl.png"
             alt="Logo E-PKL"
             style="
-                width: 180px;
-                height: 80px;
+                width: 220px;
+                height: 120px;
                 object-fit: contain;
                 display: block;
             "
