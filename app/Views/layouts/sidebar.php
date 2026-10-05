@@ -31,15 +31,19 @@ $menuItems = [
 <ul class="navbar-nav sidebar sidebar-light accordion sidebar-epkl" id="accordionSidebar">
     <a class="sidebar-brand d-flex align-items-center justify-content-center py-3"
         href="<?= htmlspecialchars($dashboardUrl) ?>">
-        <span class="sidebar-brand-icon">
-            <i class="fas fa-graduation-cap" aria-hidden="true"></i>
-        </span>
-        <span class="sidebar-brand-text mx-2 text-left">
-            <strong>EPKL</strong><br>
-            SMK Al Fattah Nglawak
-        </span>
-    </a>
 
+        <img
+            src="<?= $base ?>/assets/img/logo_e-pkl.png"
+            alt="Logo E-PKL"
+            style="
+                width: 180px;
+                height: 80px;
+                object-fit: contain;
+                display: block;
+            "
+        >
+        
+    </a>
     <hr class="sidebar-divider my-2">
 
     <?php foreach ($menuItems as $item): ?>
