@@ -41,29 +41,17 @@ ob_start();
     .status-badge { font-size: .72rem; padding: .35rem .6rem; border-radius: 20px; }
     .status-active { color: #198754; background: #e8f7ef; }
     .status-inactive { color: #dc3545; background: #fdebec; }
-
-    .action-link {
-        display: inline-block;
-        background: none;
-        border: 0;
-        padding: 0;
-        margin: 0 .75rem 0 0;
-        font-size: .82rem;
-        font-weight: 500;
-        line-height: 1;
-        cursor: pointer;
-        text-decoration: none;
-        box-shadow: none;
-    }
-    .action-link:last-child { margin-right: 0; }
-    .action-link:hover { text-decoration: underline; }
-    .action-link:focus { outline: 0; box-shadow: none; }
-    .action-link.a-detail { color: #1f2937; }
-    .action-link.a-edit { color: #2563eb; }
-    .action-link.a-hapus { color: #e0264a; }
-    .table-user td.col-aksi { white-space: nowrap; }
-
     .search-box { max-width: 320px; }
+
+    /* Style Aksi Teks / Tombol */
+    .sl-aksi { white-space: nowrap; }
+    .sl-aksi a, .sl-aksi button { font-size: .82rem; font-weight: 600; margin-right: .5rem; border: 0; background: none; text-decoration: none; cursor: pointer; padding: 0; }
+    .sl-aksi .a-detail { color: #1a2438; }
+    .sl-aksi .a-detail:hover { text-decoration: underline; }
+    .sl-aksi .a-edit { color: #2563eb; }
+    .sl-aksi .a-edit:hover { text-decoration: underline; }
+    .sl-aksi .a-hapus { color: #e0264a; }
+    .sl-aksi .a-hapus:hover { text-decoration: underline; }
 </style>
 
 <div class="card card-user mb-4">
@@ -73,7 +61,8 @@ ob_start();
                 <h5 class="font-weight-bold text-dark mb-1">Akun Admin</h5>
                 <p class="text-muted small mb-0">Kelola username, password, dan status akun administrator.</p>
             </div>
-            <a href="create.php" class="btn btn-info mt-2 mt-md-0">
+            <!-- TAMBAH AKUN: Disesuaikan menggunakan ?page=create-admin -->
+            <a href="?page=create-admin" class="btn btn-info mt-2 mt-md-0">
                 <i class="fas fa-plus mr-1"></i> Tambah Akun Admin
             </a>
         </div>
@@ -109,7 +98,7 @@ ob_start();
                         <th>Password</th>
                         <th>Status</th>
                         <th>Terakhir Login</th>
-                        <th width="160">Aksi</th>
+                        <th width="140">Aksi</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -127,10 +116,12 @@ ob_start();
                                 <?php endif; ?>
                             </td>
                             <td><span class="small text-muted"><?= htmlspecialchars($user['login']) ?></span></td>
-                            <td class="col-aksi">
-                                <a href="detail.php?id=<?= $user['id'] ?>" class="action-link a-detail">Detail</a>
-                                <a href="edit.php?id=<?= $user['id'] ?>" class="action-link a-edit">Edit</a>
-                                <button type="button" class="action-link a-hapus" onclick="deleteAdmin('<?= htmlspecialchars($user['nama'], ENT_QUOTES) ?>')">Hapus</button>
+                            
+                            <!-- AKSI: Disesuaikan dengan routing ?page=... -->
+                            <td class="sl-aksi">
+                                <a class="a-detail" href="?page=detail-admin&id=<?= $user['id'] ?>">Detail</a>
+                                <a class="a-edit" href="?page=edit-admin&id=<?= $user['id'] ?>">Edit</a>
+                                <button type="button" class="a-hapus" onclick="deleteAdmin('<?= htmlspecialchars($user['nama'], ENT_QUOTES) ?>')">Hapus</button>
                             </td>
                         </tr>
                     <?php endforeach; ?>
