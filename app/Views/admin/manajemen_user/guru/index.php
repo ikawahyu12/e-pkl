@@ -49,7 +49,28 @@ ob_start();
     .status-badge { font-size: .72rem; padding: .35rem .6rem; border-radius: 20px; }
     .status-active { color: #198754; background: #e8f7ef; }
     .status-inactive { color: #dc3545; background: #fdebec; }
-    .action-btn { width: 32px; height: 32px; display: inline-flex; align-items: center; justify-content: center; border-radius: .35rem; }
+
+    .action-link {
+        display: inline-block;
+        background: none;
+        border: 0;
+        padding: 0;
+        margin: 0 .75rem 0 0;
+        font-size: .82rem;
+        font-weight: 500;
+        line-height: 1;
+        cursor: pointer;
+        text-decoration: none;
+        box-shadow: none;
+    }
+    .action-link:last-child { margin-right: 0; }
+    .action-link:hover { text-decoration: underline; }
+    .action-link:focus { outline: 0; box-shadow: none; }
+    .action-link.a-detail { color: #1f2937; }
+    .action-link.a-edit { color: #2563eb; }
+    .action-link.a-hapus { color: #e0264a; }
+    .table-user td.col-aksi { white-space: nowrap; }
+
     .search-box { max-width: 320px; }
 </style>
 
@@ -96,7 +117,7 @@ ob_start();
                         <th>Password</th>
                         <th>Status</th>
                         <th>Terakhir Login</th>
-                        <th width="120">Aksi</th>
+                        <th width="160">Aksi</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -114,10 +135,10 @@ ob_start();
                                 <?php endif; ?>
                             </td>
                             <td><span class="small text-muted"><?= htmlspecialchars($user['login']) ?></span></td>
-                            <td>
-                                <a href="detail.php?id=<?= $user['id'] ?>" class="btn btn-sm btn-outline-primary action-btn mr-1" title="Detail"><i class="fas fa-eye"></i></a>
-                                <a href="edit.php?id=<?= $user['id'] ?>" class="btn btn-sm btn-outline-info action-btn mr-1" title="Edit"><i class="fas fa-edit"></i></a>
-                                <button type="button" class="btn btn-sm btn-outline-danger action-btn" title="Hapus" onclick="deleteGuru('<?= htmlspecialchars($user['nama'], ENT_QUOTES) ?>')"><i class="fas fa-trash"></i></button>
+                            <td class="col-aksi">
+                                <a href="detail.php?id=<?= $user['id'] ?>" class="action-link a-detail">Detail</a>
+                                <a href="edit.php?id=<?= $user['id'] ?>" class="action-link a-edit">Edit</a>
+                                <button type="button" class="action-link a-hapus" onclick="deleteGuru('<?= htmlspecialchars($user['nama'], ENT_QUOTES) ?>')">Hapus</button>
                             </td>
                         </tr>
                     <?php endforeach; ?>
