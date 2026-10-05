@@ -17,6 +17,7 @@ $e = static fn ($value): string => htmlspecialchars((string) $value, ENT_QUOTES 
     <title><?= $e($pageTitle) ?> | E-PKL</title>
     <link rel="stylesheet" href="<?= $e($assetBaseUrl) ?>/vendor/fontawesome-free/css/all.min.css">
     <link rel="stylesheet" href="<?= $e($assetBaseUrl) ?>/css/sb-admin-2.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <style>
         :root {
             color-scheme: light;
@@ -393,6 +394,22 @@ $e = static fn ($value): string => htmlspecialchars((string) $value, ENT_QUOTES 
             color: #98a2b1;
             font-size: .65rem;
             text-align: center;
+        }
+
+        * {
+            font-family: 'Montserrat', sans-serif;
+        }
+
+        html,
+        body {
+            font-family: 'Montserrat', sans-serif;
+        }
+
+        button,
+        input,
+        select,
+        textarea {
+            font-family: 'Montserrat', sans-serif;
         }
 
         @media (max-width: 767.98px) {
