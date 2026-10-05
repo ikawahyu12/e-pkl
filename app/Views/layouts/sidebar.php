@@ -6,9 +6,15 @@ $defaultMenuUrls = [
     'dashboard'       => $base . '/',
     'data-siswa'      => $base . '/?page=data-siswa',
     'guru-pembimbing' => $base . '/?page=data-guru',
-    'instansi-mitra'  => $base . '/?page=data-mitra',
-    'manajemen-user'  => $base . '/?page=manajemen-admin',
-    'laporan-rekap'   => $base . '/?page=laporan-rekap',
+
+    'manajemen-user'  => '#',
+    
+    // Sub-menu Manajemen User
+    'manajemen-admin' => $base . '/?page=manajemen-admin',
+    'manajemen-siswa' => $base . '/?page=manajemen-siswa',
+    'manajemen-guru'  => $base . '/?page=manajemen-guru',
+    
+    'laporan-rekap'   => '#',
 ];
 
 $adminMenuUrls = isset($adminMenuUrls) && is_array($adminMenuUrls) ? $adminMenuUrls : [];
