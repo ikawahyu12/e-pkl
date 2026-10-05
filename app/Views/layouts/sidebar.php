@@ -6,13 +6,7 @@ $defaultMenuUrls = [
     'dashboard'       => $base . '/',
     'data-siswa'      => $base . '/?page=data-siswa',
     'guru-pembimbing' => $base . '/?page=data-guru',
-    'instansi-mitra'  => $base . '/?page=data-mitra',
-<<<<<<< Updated upstream
-    'manajemen-user'  => $base . '/?page=manajemen-admin',
-    'laporan-rekap'   => $base . '/?page=laporan-rekap',
-=======
-    
-    // Key utama manajemen-user
+
     'manajemen-user'  => '#',
     
     // Sub-menu Manajemen User
