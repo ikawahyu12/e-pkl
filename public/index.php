@@ -6,17 +6,56 @@ switch ($page) {
     // ==========================================
     // MANAJEMEN USER (ADMIN, GURU, SISWA)
     // ==========================================
+    // --- Admin ---
     case 'manajemen-admin':
-        require dirname(__DIR__) . '/app/Views/admin/manajemen_user/manajemen_admin.php';
+        require dirname(__DIR__) . '/app/Views/admin/manajemen_user/admin/index.php';
         break;
 
+    case 'create-admin':
+        require dirname(__DIR__) . '/app/Views/admin/manajemen_user/admin/create.php';
+        break;
+
+    case 'edit-admin':
+        require dirname(__DIR__) . '/app/Views/admin/manajemen_user/admin/edit.php';
+        break;
+
+    case 'detail-admin':
+        require dirname(__DIR__) . '/app/Views/admin/manajemen_user/admin/detail.php';
+        break;
+
+    // --- Guru ---
     case 'manajemen-guru':
-        require dirname(__DIR__) . '/app/Views/admin/manajemen_user/manajemen_guru.php';
+        require dirname(__DIR__) . '/app/Views/admin/manajemen_user/guru/index.php';
         break;
 
+    case 'create-guru':
+        require dirname(__DIR__) . '/app/Views/admin/manajemen_user/guru/create.php';
+        break;
+
+    case 'edit-guru':
+        require dirname(__DIR__) . '/app/Views/admin/manajemen_user/guru/edit.php';
+        break;
+
+    case 'detail-guru':
+        require dirname(__DIR__) . '/app/Views/admin/manajemen_user/guru/detail.php';
+        break;
+
+    // --- Siswa ---
     case 'manajemen-siswa':
     case 'manajemen-user': // Alias jika dipanggil generik
-        require dirname(__DIR__) . '/app/Views/admin/manajemen_user/manajemen_siswa.php';
+        require dirname(__DIR__) . '/app/Views/admin/manajemen_user/siswa/index.php';
+        break;
+
+    case 'create-siswa':
+        require dirname(__DIR__) . '/app/Views/admin/manajemen_user/siswa/create.php';
+        break;
+
+    case 'edit-siswa':
+        require dirname(__DIR__) . '/app/Views/admin/manajemen_user/siswa/edit.php';
+        break;
+
+    case 'detail-siswa':
+        require dirname(__DIR__) . '/app/Views/admin/manajemen_user/siswa/detail.php';
         break;
 
     // ==========================================
@@ -28,18 +67,6 @@ switch ($page) {
 
     case 'data-guru':
         require dirname(__DIR__) . '/app/Views/admin/guru/index.php';
-        break;
-
-    case 'create-guru':
-        require dirname(__DIR__) . '/app/Views/admin/guru/create.php';
-        break;
-
-    case 'edit-guru':
-        require dirname(__DIR__) . '/app/Views/admin/guru/edit.php';
-        break;
-
-    case 'detail-guru':
-        require dirname(__DIR__) . '/app/Views/admin/guru/detail.php';
         break;
 
     case 'data-siswa':
