@@ -33,7 +33,7 @@ $adminUserRole = isset($adminUserRole) && is_string($adminUserRole) ? $adminUser
             </a>
             <div class="dropdown-menu dropdown-menu-right shadow" aria-labelledby="academicYearDropdown">
                 <span class="dropdown-item-text small text-muted">Tahun ajaran aktif</span>
-                <span class="dropdown-item-text font-weight-bold"><?= $e($academicYearLabel) ?></span>
+                <span class="dropdown-item-text font-weight-bold"><?= ($academicYearLabel) ?></span>
             </div>
         </li>
 
