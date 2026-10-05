@@ -6,9 +6,9 @@ $base = rtrim(str_replace('\\', '/', dirname($_SERVER['SCRIPT_NAME'])), '/');
 $defaultMenuUrls = [
     'dashboard'       => $base . '/',
     'data-siswa'      => $base . '/?page=data-siswa',
-    'guru-pembimbing' => '#',
+    'guru-pembimbing' => $base . '/?page=data-guru',
     'instansi-mitra'  => $base . '/?page=data-mitra',
-    'manajemen-user'  => '#',
+    'manajemen-user'  => $base . '/?page=manajemen-admin',
     'laporan-rekap'   => '#',
 ];
 
@@ -32,7 +32,7 @@ $menuItems = [
 ?>
 <ul class="navbar-nav sidebar sidebar-light accordion sidebar-epkl" id="accordionSidebar">
     <a class="sidebar-brand d-flex align-items-center justify-content-center py-3"
-        href="<?= $e($dashboardUrl) ?>">
+        href="<?= htmlspecialchars($dashboardUrl) ?>">
         <span class="sidebar-brand-icon">
             <i class="fas fa-graduation-cap" aria-hidden="true"></i>
         </span>
@@ -49,10 +49,10 @@ $menuItems = [
         <?php $menuUrl = $adminMenuUrls[$item['key']] ?? '#'; ?>
         <li class="nav-item<?= $isActive ? ' active' : '' ?>">
             <a class="nav-link<?= $isActive ? ' active' : '' ?>"
-                href="<?= $e($menuUrl) ?>"
+                href="<?= htmlspecialchars($menuUrl) ?>"
                 <?= $isActive ? 'aria-current="page"' : '' ?>>
-                <i class="<?= $e($item['icon']) ?>" aria-hidden="true"></i>
-                <span><?= $e($item['label']) ?></span>
+                <i class="<?= htmlspecialchars($item['icon']) ?>" aria-hidden="true"></i>
+                <span><?= htmlspecialchars($item['label']) ?></span>
             </a>
         </li>
     <?php endforeach; ?>
@@ -60,7 +60,7 @@ $menuItems = [
     <hr class="sidebar-divider d-none d-md-block">
 
     <li class="nav-item">
-        <a class="nav-link text-danger" href="<?= $e($adminMenuUrls['logout'] ?? '#') ?>">
+        <a class="nav-link text-danger" href="<?= htmlspecialchars($adminMenuUrls['logout'] ?? '#') ?>">
             <i class="fas fa-fw fa-sign-out-alt text-danger" aria-hidden="true"></i>
             <span>Logout</span>
         </a>
