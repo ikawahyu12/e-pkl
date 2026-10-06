@@ -89,4 +89,20 @@ switch ($page) {
     case 'detail':
         require dirname(__DIR__) . '/app/Views/admin/siswa/detail.php';
         break;
+
+        // ==========================================
+    // DATA INSTANSI MITRA
+    // ==========================================
+
+    case 'create-mitra':
+        require dirname(__DIR__) . '/app/Views/admin/instansi/create.php';
+        break;
+
+    case 'edit-mitra':
+        require dirname(__DIR__) . '/app/Views/admin/instansi/edit.php';
+        break;
+
+    case 'detail-mitra':
+        require dirname(__DIR__) . '/app/Views/admin/instansi/detail.php';
+        break;
 }
