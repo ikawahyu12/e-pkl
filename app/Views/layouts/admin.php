@@ -5,6 +5,8 @@ $pageStatusLabel = isset($pageStatusLabel) && is_string($pageStatusLabel) ? $pag
 $pageHeaderActions = isset($pageHeaderActions) && is_string($pageHeaderActions) ? $pageHeaderActions : '';
 $activePage = isset($activePage) && is_string($activePage) ? $activePage : '';
 $content = isset($content) && is_string($content) ? $content : '';
+$hidePageHeading = isset($hidePageHeading) && $hidePageHeading === true;   // BARU
+$extraHead = isset($extraHead) && is_string($extraHead) ? $extraHead : ''; // BARU
 
 $scriptDirectory = str_replace('\\', '/', dirname($_SERVER['SCRIPT_NAME'] ?? '/'));
 $scriptDirectory = rtrim($scriptDirectory, '/');
@@ -102,6 +104,7 @@ $e = static fn ($value): string => htmlspecialchars((string) $value, ENT_QUOTES 
             }
         }
     </style>
+    <?= $extraHead ?>
 </head>
 <body id="page-top">
     <div id="wrapper">
@@ -112,6 +115,7 @@ $e = static fn ($value): string => htmlspecialchars((string) $value, ENT_QUOTES 
                 <?php require __DIR__ . '/topbar.php'; ?>
 
                 <main class="container-fluid">
+                    <?php if (!$hidePageHeading): ?>
                     <header class="page-heading d-flex align-items-center justify-content-between mb-4">
                         <div>
                             <div class="d-flex align-items-center flex-wrap">
@@ -133,6 +137,7 @@ $e = static fn ($value): string => htmlspecialchars((string) $value, ENT_QUOTES 
                             </div>
                         <?php endif; ?>
                     </header>
+                    <?php endif; ?>
 
                     <?= $content ?>
                 </main>

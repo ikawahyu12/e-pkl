@@ -14,7 +14,7 @@ $defaultMenuUrls = [
     'manajemen-siswa' => $base . '/?page=manajemen-siswa',
     'manajemen-guru'  => $base . '/?page=manajemen-guru',
 
-    'laporan-rekap'   => '#',
+    'laporan'         => $base . '/?page=laporan',
 ];
 
 $adminMenuUrls = isset($adminMenuUrls) && is_array($adminMenuUrls) ? $adminMenuUrls : [];
@@ -24,6 +24,9 @@ $dashboardUrl = $adminMenuUrls['dashboard'];
 $dashboardUrl = is_string($dashboardUrl) && $dashboardUrl !== '' ? $dashboardUrl : '/';
 
 $activePage = $activePage ?? '';
+if ($activePage === 'laporan-rekap') { // kompatibilitas halaman lama
+    $activePage = 'laporan';
+}
 
 $menuItems = [
     ['key' => 'dashboard', 'label' => 'Dashboard', 'icon' => 'fas fa-fw fa-chart-line'],
@@ -31,7 +34,7 @@ $menuItems = [
     ['key' => 'guru-pembimbing', 'label' => 'Guru Pembimbing', 'icon' => 'fas fa-fw fa-chalkboard-teacher'],
     ['key' => 'instansi-mitra', 'label' => 'Instansi Mitra', 'icon' => 'fas fa-fw fa-building'],
     ['key' => 'manajemen-user', 'label' => 'Manajemen User', 'icon' => 'fas fa-fw fa-users-cog'],
-    ['key' => 'laporan-rekap', 'label' => 'Laporan Rekap', 'icon' => 'fas fa-fw fa-chart-bar'],
+    ['key' => 'laporan', 'label' => 'Laporan', 'icon' => 'fas fa-fw fa-chart-bar'],
 ];
 ?>
 <ul class="navbar-nav sidebar sidebar-light accordion sidebar-epkl" id="accordionSidebar">
@@ -48,8 +51,8 @@ $menuItems = [
                 display: block;
             "
         >
-        
     </a>
+    <p class="text-center text-muted small mb-2 px-3" style="font-size:.68rem;line-height:1.35;">SMK Al Fattah Ngawak Kertosono</p>
     <hr class="sidebar-divider my-2">
 
     <?php foreach ($menuItems as $item): ?>
@@ -151,14 +154,6 @@ $menuItems = [
     <?php endif; ?>
 
 <?php endforeach; ?>
-        <li class="nav-item<?= $isActive ? ' active' : '' ?>">
-            <a class="nav-link<?= $isActive ? ' active' : '' ?>"
-                href="<?= htmlspecialchars($menuUrl) ?>"
-                <?= $isActive ? 'aria-current="page"' : '' ?>>
-                <i class="<?= htmlspecialchars($item['icon']) ?>" aria-hidden="true"></i>
-                <span><?= htmlspecialchars($item['label']) ?></span>
-            </a>
-        </li>
 
     <hr class="sidebar-divider d-none d-md-block">
 
@@ -169,7 +164,11 @@ $menuItems = [
         </a>
     </li>
 
-    <li class="nav-item text-center d-none d-md-inline mt-auto mb-3">
+    <li class="nav-item mt-auto px-4 pb-2 pt-3">
+        <span class="text-muted" style="font-size:.66rem;">E-PKL SMK v2.4.0</span>
+    </li>
+
+    <li class="nav-item text-center d-none d-md-inline mb-3">
         <button class="rounded-circle border-0" id="sidebarToggle" aria-label="Ciutkan sidebar"></button>
     </li>
 </ul>

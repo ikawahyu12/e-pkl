@@ -1,7 +1,13 @@
 <?php
+if (!isset($e) || !is_callable($e)) {
+    $e = static fn ($value): string => htmlspecialchars((string) $value, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+}
 $academicYearLabel = isset($academicYearLabel) && is_string($academicYearLabel)
     ? $academicYearLabel
     : 'TA 2026/2027 Genap';
+$searchPlaceholder = isset($searchPlaceholder) && is_string($searchPlaceholder)
+    ? $searchPlaceholder
+    : 'Cari siswa, instansi, NISN...';
 $adminUserName = isset($adminUserName) && is_string($adminUserName) ? $adminUserName : 'Admin Utama';
 $adminUserRole = isset($adminUserRole) && is_string($adminUserRole) ? $adminUserRole : 'Super Admin';
 ?>
@@ -14,8 +20,8 @@ $adminUserRole = isset($adminUserRole) && is_string($adminUserRole) ? $adminUser
         <div class="input-group">
             <input class="form-control bg-light border-0 small"
                    type="search"
-                   placeholder="Cari siswa, instansi, NISN..."
-                   aria-label="Cari siswa, instansi, atau NISN">
+                   placeholder="<?= $e($searchPlaceholder) ?>"
+                   aria-label="<?= $e($searchPlaceholder) ?>">
             <div class="input-group-append">
                 <button class="btn btn-primary" type="submit" aria-label="Cari">
                     <i class="fas fa-search fa-sm" aria-hidden="true"></i>
@@ -33,7 +39,7 @@ $adminUserRole = isset($adminUserRole) && is_string($adminUserRole) ? $adminUser
             </a>
             <div class="dropdown-menu dropdown-menu-right shadow" aria-labelledby="academicYearDropdown">
                 <span class="dropdown-item-text small text-muted">Tahun ajaran aktif</span>
-                <span class="dropdown-item-text font-weight-bold"><?= ($academicYearLabel) ?></span>
+                <span class="dropdown-item-text font-weight-bold"><?= $e($academicYearLabel) ?></span>
             </div>
         </li>
 

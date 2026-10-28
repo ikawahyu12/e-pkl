@@ -73,11 +73,6 @@ switch ($page) {
         require dirname(__DIR__) . '/app/Views/admin/siswa/index.php';
         break;
 
-    case 'dashboard':
-    default:
-        require dirname(__DIR__) . '/app/Views/admin/dashboard.php';
-        break;
-
     case 'create':
         require dirname(__DIR__) . '/app/Views/admin/siswa/create.php';
         break;
@@ -90,10 +85,9 @@ switch ($page) {
         require dirname(__DIR__) . '/app/Views/admin/siswa/detail.php';
         break;
 
-        // ==========================================
+    // ==========================================
     // DATA INSTANSI MITRA
     // ==========================================
-
     case 'create-mitra':
         require dirname(__DIR__) . '/app/Views/admin/instansi/create.php';
         break;
@@ -104,5 +98,24 @@ switch ($page) {
 
     case 'detail-mitra':
         require dirname(__DIR__) . '/app/Views/admin/instansi/detail.php';
+        break;
+
+    // ==========================================
+    // LAPORAN & REKAPITULASI
+    // ==========================================
+    case 'laporan':
+        require dirname(__DIR__) . '/app/Views/admin/laporan/index.php';
+        break;
+
+    case 'laporan-export':
+        require dirname(__DIR__) . '/app/Controllers/LaporanController.php';
+        break;
+
+    // ==========================================
+    // DEFAULT (harus hanya ada SATU)
+    // ==========================================
+    case 'dashboard':
+    default:
+        require dirname(__DIR__) . '/app/Views/admin/dashboard.php';
         break;
 }
