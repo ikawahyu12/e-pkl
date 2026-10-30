@@ -1,6 +1,6 @@
 <?php
 // ===== 1. BLOK PHP ATAS =====
-require_once __DIR__ . '/../../../../config/koneksi.php';
+require_once __DIR__ . '/../../../../../config/koneksi.php';
 
 $activePage   = 'instansi-mitra';
 $pageTitle    = 'Data Instansi Mitra';

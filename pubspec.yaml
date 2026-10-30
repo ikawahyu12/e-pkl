@@ -1,0 +1,107 @@
+name: mitra_sekolah
+description: "Aplikasi Manajemen PKL & Instansi Mitra Sekolah"
+publish_to: 'none'
+
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.3.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  # ==========================================
+  # UI & ICONS
+  # ==========================================
+  cupertino_icons: ^1.0.8
+  google_fonts: ^6.2.1
+  flutter_svg: ^2.0.10+1
+  font_awesome_flutter: ^10.7.0
+
+  # ==========================================
+  # STATE MANAGEMENT
+  # ==========================================
+  provider: ^6.1.2
+  # Atau pakai salah satu:
+  # riverpod: ^2.5.1
+  # bloc: ^8.1.4
+  # get: ^4.6.6
+
+  # ==========================================
+  # HTTP & API
+  # ==========================================
+  http: ^1.2.2
+  dio: ^5.7.0
+
+  # ==========================================
+  # STORAGE LOKAL
+  # ==========================================
+  shared_preferences: ^2.3.2
+  flutter_secure_storage: ^9.2.2
+
+  # ==========================================
+  # FORM & VALIDATION
+  # ==========================================
+  flutter_form_builder: ^9.4.1
+  form_builder_validators: ^11.0.0
+
+  # ==========================================
+  # UTILITIES
+  # ==========================================
+  intl: ^0.19.0                    # format tanggal & angka
+  url_launcher: ^6.3.1             # buka link/telepon
+  image_picker: ^1.1.2             # pilih gambar
+  cached_network_image: ^3.4.1     # cache gambar dari internet
+  connectivity_plus: ^6.0.5        # cek koneksi
+
+  # ==========================================
+  # LAINNYA (opsional)
+  # ==========================================
+  # fl_chart: ^0.69.0              # grafik/chart
+  # pdf: ^3.11.1                   # export PDF
+  # printing: ^5.13.3              # print PDF
+  # excel: ^4.0.6                  # export Excel
+  # qr_flutter: ^4.1.0             # generate QR
+  # mobile_scanner: ^5.2.3         # scan QR
+  # geolocator: ^13.0.1            # lokasi GPS
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+
+  flutter_lints: ^4.0.0
+  # build_runner: ^2.4.12
+  # json_serializable: ^6.8.0
+  # mockito: ^5.4.4
+
+flutter:
+  uses-material-design: true
+
+  # ==========================================
+  # ASSETS
+  # ==========================================
+  assets:
+    - assets/images/
+    - assets/icons/
+    - assets/fonts/
+    # - assets/json/
+    # - assets/lottie/
+
+  # ==========================================
+  # FONTS (opsional — kalau tidak pakai google_fonts)
+  # ==========================================
+  # fonts:
+  #   - family: Poppins
+  #     fonts:
+  #       - asset: assets/fonts/Poppins-Regular.ttf
+  #       - asset: assets/fonts/Poppins-Bold.ttf
+  #         weight: 700
+  #       - asset: assets/fonts/Poppins-SemiBold.ttf
+  #         weight: 600
+  #
+  #   - family: Inter
+  #     fonts:
+  #       - asset: assets/fonts/Inter-Regular.ttf
+  #       - asset: assets/fonts/Inter-Bold.ttf
+  #         weight: 700
