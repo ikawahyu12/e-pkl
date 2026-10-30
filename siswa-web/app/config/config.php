@@ -6,13 +6,16 @@ define('APP_PATH', dirname(__DIR__));
 // Ubah ke false saat fitur login dari anggota lain sudah terhubung.
 define('DEV_MODE', true);
 
+
 // Deteksi base URL otomatis (XAMPP/Laragon di subfolder maupun php -S)
 $scheme    = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
 $scriptDir = rtrim(str_replace('\\', '/', dirname($_SERVER['SCRIPT_NAME'])), '/');
-$basePath  = preg_replace('#/public$#', '', $scriptDir);
+
+// Base path menyertakan folder public agar router dapat membaca URL dengan benar.
+$basePath = $scriptDir;
 
 define('BASE_PATH', $basePath);
-define('BASE_URL',  $scheme . '://' . $_SERVER['HTTP_HOST'] . $basePath);
+define('BASE_URL', $scheme . '://' . $_SERVER['HTTP_HOST'] . $basePath);
 define('ASSET_URL', $scheme . '://' . $_SERVER['HTTP_HOST'] . $scriptDir . '/assets');
 
 // Konfigurasi database (diisi anggota yang mengerjakan model)
