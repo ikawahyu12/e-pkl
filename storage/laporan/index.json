@@ -1,0 +1,50 @@
+[
+    {
+        "id": "a8b70d7c2137",
+        "name": "Rekap_Presensi_SemuaJurusan_Ganjil_2024-2025.xls",
+        "stored": "a8b70d7c2137_Rekap_Presensi_SemuaJurusan_Ganjil_2024-2025.xls",
+        "type": "presensi",
+        "format": "xls",
+        "periode": "ganjil-2024-2025",
+        "jurusan": "all",
+        "meta": "Presensi Siswa • Semua Jurusan",
+        "ts": 1793364565,
+        "size": 6244
+    },
+    {
+        "id": "3149d44e9b12",
+        "name": "Rekap_Presensi_SemuaJurusan_Ganjil_2024-2025.xls",
+        "stored": "3149d44e9b12_Rekap_Presensi_SemuaJurusan_Ganjil_2024-2025.xls",
+        "type": "presensi",
+        "format": "xls",
+        "periode": "ganjil-2024-2025",
+        "jurusan": "all",
+        "meta": "Presensi Siswa • Semua Jurusan",
+        "ts": 1793335911,
+        "size": 6244
+    },
+    {
+        "id": "45ee1fb06118",
+        "name": "Rekap_Presensi_SemuaJurusan_Ganjil_2024-2025.xls",
+        "stored": "45ee1fb06118_Rekap_Presensi_SemuaJurusan_Ganjil_2024-2025.xls",
+        "type": "presensi",
+        "format": "xls",
+        "periode": "ganjil-2024-2025",
+        "jurusan": "all",
+        "meta": "Presensi Siswa • Semua Jurusan",
+        "ts": 1793335908,
+        "size": 6244
+    },
+    {
+        "id": "90d2a27ba31a",
+        "name": "Rekap_Presensi_SemuaJurusan_Ganjil_2024-2025.pdf",
+        "stored": "90d2a27ba31a_Rekap_Presensi_SemuaJurusan_Ganjil_2024-2025.html",
+        "type": "presensi",
+        "format": "pdf",
+        "periode": "ganjil-2024-2025",
+        "jurusan": "all",
+        "meta": "Presensi Siswa • Semua Jurusan",
+        "ts": 1793364577,
+        "size": 6748
+    }
+]

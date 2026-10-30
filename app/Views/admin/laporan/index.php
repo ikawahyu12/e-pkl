@@ -1,22 +1,44 @@
 <?php
 // ==========================================================================
 // Halaman: Laporan & Rekapitulasi  (route: ?page=laporan)
-// Desain mengacu pada Figma "Laporan".
+// TAHAP FRONTEND: data sementara dari app/Models/LaporanData.php
+// Gaya  : public/assets/css/laporan.css
+// Skrip : public/assets/js/laporan.js
 // ==========================================================================
+require_once dirname(__DIR__, 3) . '/Models/LaporanData.php';
+
 $activePage        = 'laporan';
 $pageTitle         = 'Laporan & Rekapitulasi';
-$hidePageHeading   = true;   // header halaman digambar sendiri (sesuai Figma)
+$hidePageHeading   = true;
 $searchPlaceholder = 'Cari siswa, guru, institusi mitra, atau dokumen...';
 
 $e = static fn ($v): string => htmlspecialchars((string) $v, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
 
-// Font Figma (Plus Jakarta Sans), hanya dimuat di halaman ini.
+// ---------------------------------------------------------------------------
+// URL aset (sama dengan perhitungan di layouts/admin.php) + cache-busting
+// ---------------------------------------------------------------------------
+$scriptDir = rtrim(str_replace('\\', '/', dirname($_SERVER['SCRIPT_NAME'] ?? '/')), '/');
+$scriptDir = $scriptDir === '.' ? '' : $scriptDir;
+$assetUrl  = $scriptDir . '/assets';
+$assetDir  = dirname(__DIR__, 4) . '/public/assets';
+$cssVer    = (int) @filemtime($assetDir . '/css/laporan.css');
+$jsVer     = (int) @filemtime($assetDir . '/js/laporan.js');
+
 $extraHead = '<link rel="preconnect" href="https://fonts.googleapis.com">'
     . '<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>'
-    . '<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">';
+    . '<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">'
+    . '<link rel="stylesheet" href="' . $e($assetUrl) . '/css/laporan.css?v=' . $cssVer . '">';
 
 // ---------------------------------------------------------------------------
-// Data dummy (ganti dengan data dari database nanti)
+// Filter terpilih
+// ---------------------------------------------------------------------------
+$periodeOptions = LaporanData::periodeOptions();
+$jurusanOptions = LaporanData::jurusanOptions();
+$selPeriode     = LaporanData::normalizePeriode($_GET['periode'] ?? '');
+$selJurusan     = LaporanData::normalizeJurusan($_GET['jurusan'] ?? '');
+
+// ---------------------------------------------------------------------------
+// Kartu laporan. 'num' = angka yang dihitung naik oleh JS.
 // ---------------------------------------------------------------------------
 $reportCards = [
     [
@@ -26,9 +48,9 @@ $reportCards = [
         'title' => 'Rekap Presensi Siswa',
         'desc'  => 'Data rekapitulasi kehadiran harian siswa PKL, persentase kehadiran per jurusan dan instansi, serta rekapan izin atau sakit lengkap dengan time-stamp presensi geolokasi.',
         'chips' => [
-            ['icon' => 'fas fa-user-friends',   'text' => 'Total 348 Siswa',  'variant' => ''],
-            ['icon' => 'fas fa-chart-line',     'text' => '96.4% Kehadiran',  'variant' => 'lp-chip--accent'],
-            ['icon' => 'far fa-calendar-check', 'text' => 'Update 10m lalu',  'variant' => 'lp-chip--soft'],
+            ['icon' => 'fas fa-user-friends',   'pre' => 'Total ', 'num' => 348,  'dec' => 0, 'sep' => false, 'post' => ' Siswa',         'variant' => ''],
+            ['icon' => 'fas fa-chart-line',     'pre' => '',       'num' => 96.4, 'dec' => 1, 'sep' => false, 'post' => '% Kehadiran',    'variant' => 'lp-chip--accent'],
+            ['icon' => 'far fa-calendar-check', 'text' => 'Update 10m lalu',                                                               'variant' => 'lp-chip--soft'],
         ],
     ],
     [
@@ -38,235 +60,54 @@ $reportCards = [
         'title' => 'Rekap Jurnal Kegiatan',
         'desc'  => 'Kumpulan logbook kegiatan dan pekerjaan harian siswa di industri, status verifikasi pembimbing lapangan, catatan evaluasi, serta dokumentasi visual pekerjaan praktik.',
         'chips' => [
-            ['icon' => 'fas fa-clipboard-list', 'text' => '1,420 Jurnal Masuk', 'variant' => ''],
-            ['icon' => 'far fa-check-circle',   'text' => '98% Terverifikasi',  'variant' => 'lp-chip--accent'],
-            ['icon' => 'far fa-calendar-alt',   'text' => '28 Perlu Review',    'variant' => 'lp-chip--soft'],
+            ['icon' => 'fas fa-clipboard-list', 'pre' => '', 'num' => 1420, 'dec' => 0, 'sep' => true,  'post' => ' Jurnal Masuk',    'variant' => ''],
+            ['icon' => 'far fa-check-circle',   'pre' => '', 'num' => 98,   'dec' => 0, 'sep' => false, 'post' => '% Terverifikasi', 'variant' => 'lp-chip--accent'],
+            ['icon' => 'far fa-calendar-alt',   'pre' => '', 'num' => 28,   'dec' => 0, 'sep' => false, 'post' => ' Perlu Review',   'variant' => 'lp-chip--soft'],
         ],
     ],
 ];
 
-$periodeOptions = [
-    'ganjil-2024-2025' => 'Semester Ganjil 2024/2025',
-    'genap-2024-2025'  => 'Semester Genap 2024/2025',
-    'ganjil-2025-2026' => 'Semester Ganjil 2025/2026',
-    'genap-2025-2026'  => 'Semester Genap 2025/2026',
-];
-$jurusanOptions = [
-    ''    => 'Semua Jurusan',
-    'rpl' => 'RPL',
-    'tkj' => 'TKJ',
-    'dkv' => 'DKV',
-];
+// ---------------------------------------------------------------------------
+// Riwayat = arsip nyata (hasil klik Unduh) + data contoh tiap periode & jurusan
+// ---------------------------------------------------------------------------
+$maxRows = 12; // harus sama dengan MAX_ROWS di laporan.js
+$riwayat = [];
 
-// format: xls | pdf   |   jurusan: rpl|tkj|dkv|all (all = muncul di semua filter jurusan)
-$riwayat = [
-    ['file' => 'Rekap_Presensi_RPL_Ganjil_2425.xlsx',   'meta' => 'Presensi Siswa • Kelas XII RPL 1 & 2', 'tanggal' => '18 Okt 2026, 09:12', 'format' => 'xls', 'ukuran' => '1.4 MB', 'jurusan' => 'rpl', 'periode' => 'ganjil-2024-2025'],
-    ['file' => 'Rekap_Jurnal_SemuaJurusan_Oktober.pdf', 'meta' => 'Logbook Harian • Validasi Pembimbing',   'tanggal' => '17 Okt 2026, 15:40', 'format' => 'pdf', 'ukuran' => '3.8 MB', 'jurusan' => 'all', 'periode' => 'ganjil-2024-2025'],
-    ['file' => 'Nilai_Akhir_Sertifikasi_DUDI_TKJ.xlsx', 'meta' => 'Nilai Industri & Sekolah • XII TKJ',    'tanggal' => '16 Okt 2026, 11:25', 'format' => 'xls', 'ukuran' => '890 KB', 'jurusan' => 'tkj', 'periode' => 'ganjil-2024-2025'],
-    ['file' => 'Laporan_Kunjungan_Guru_DKV_Bulan9.pdf', 'meta' => 'Catatan Monitoring • Studio & Agensi',  'tanggal' => '15 Okt 2026, 14:02', 'format' => 'pdf', 'ukuran' => '2.1 MB', 'jurusan' => 'dkv', 'periode' => 'ganjil-2024-2025'],
-    ['file' => 'Rekap_Presensi_TKJ_Sep2024.xlsx',       'meta' => 'Presensi Siswa • PT Telkom & Mitra',   'tanggal' => '14 Okt 2026, 08:30', 'format' => 'xls', 'ukuran' => '1.1 MB', 'jurusan' => 'tkj', 'periode' => 'ganjil-2024-2025'],
-];
+foreach (LaporanData::archiveList() as $a) {
+    $riwayat[] = [
+        'id'      => $a['id'],
+        'file'    => $a['name'],
+        'meta'    => $a['meta'],
+        'ts'      => (int) $a['ts'],
+        'format'  => $a['format'],
+        'size'    => (int) $a['size'],
+        'jurusan' => $a['jurusan'],
+        'periode' => $a['periode'],
+        'type'    => $a['type'] ?? 'presensi',
+    ];
+}
+foreach (LaporanData::sampleArchive() as $s) {
+    $riwayat[] = $s;
+}
+
+// Tentukan baris yang tampil untuk filter awal (JS menghitung ulang saat filter diganti)
+$shown = 0;
+foreach ($riwayat as $i => $r) {
+    $okPeriode = $r['periode'] === $selPeriode;
+    $okJurusan = $selJurusan === '' || $r['jurusan'] === 'all' || $r['jurusan'] === $selJurusan;
+    $visible   = $okPeriode && $okJurusan && $shown < $maxRows;
+    $riwayat[$i]['visible'] = $visible;
+    if ($visible) {
+        $shown++;
+    }
+}
 
 ob_start();
 ?>
-<style>
-    /* ------------------------------------------------------------------
-       Token desain (diambil dari Figma)
-       ------------------------------------------------------------------ */
-    .lp-page {
-        --lp-primary: #006194;
-        --lp-primary-soft: #dce9ff;
-        --lp-surface: #eff4ff;
-        --lp-bg: #f8f9ff;
-        --lp-ink: #0b1c30;
-        --lp-ink-2: #3f4850;
-        --lp-muted: #5f6b7a;
-        --lp-danger: #ba1a1a;
-        --lp-danger-soft: #ffdad6;
-        font-family: 'Plus Jakarta Sans', 'Nunito', sans-serif;
-        color: var(--lp-ink);
-        padding-bottom: 2rem;
-    }
-    .lp-page *, .lp-page button, .lp-page select, .lp-page input {
-        font-family: 'Plus Jakarta Sans', 'Nunito', sans-serif;
-    }
-    /* Samakan font & latar shell dengan Figma khusus halaman ini */
-    body, #content-wrapper { background-color: #f8f9ff !important; }
-    .sidebar-epkl, .sidebar-epkl *, .topbar, .topbar * { font-family: 'Plus Jakarta Sans', 'Nunito', sans-serif; }
-
-    /* ----------------------------- Header ----------------------------- */
-    .lp-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 1.5rem; margin-bottom: 1.75rem; }
-    .lp-eyebrow {
-        display: inline-flex; align-items: center; gap: .4rem;
-        background: var(--lp-primary-soft); color: var(--lp-primary);
-        font-size: .66rem; font-weight: 700; letter-spacing: .02em; text-transform: uppercase;
-        padding: .28rem .7rem; border-radius: 999px; margin-bottom: 1rem;
-    }
-    .lp-title { font-size: 1.9rem; font-weight: 700; letter-spacing: -.02em; color: var(--lp-ink); margin: 0 0 .5rem; line-height: 1.2; }
-    .lp-lead  { font-size: .9rem; line-height: 1.6; color: var(--lp-ink-2); max-width: 36rem; margin: 0; }
-
-    .lp-verified {
-        display: flex; align-items: center; gap: .75rem; flex-shrink: 0;
-        background: #fff; border-radius: 14px; padding: .7rem 1.1rem .7rem .8rem;
-        box-shadow: 0 6px 24px rgba(11, 28, 48, .06);
-    }
-    .lp-verified__icon {
-        width: 36px; height: 36px; border-radius: 50%;
-        background: var(--lp-primary-soft); color: var(--lp-primary);
-        display: inline-flex; align-items: center; justify-content: center; font-size: .85rem;
-    }
-    .lp-verified strong { display: block; font-size: .82rem; font-weight: 700; color: var(--lp-ink); line-height: 1.25; }
-    .lp-verified span   { display: block; font-size: .66rem; color: var(--lp-muted); }
-
-    /* --------------------------- Kartu laporan ------------------------- */
-    .lp-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1.5rem; margin-bottom: 1.75rem; }
-    .lp-card {
-        position: relative; overflow: hidden; background: #fff; border-radius: 18px;
-        padding: 1.9rem 2rem 2rem; box-shadow: 0 6px 28px rgba(11, 28, 48, .05);
-    }
-    .lp-card::after { /* gelembung dekoratif kanan atas */
-        content: ''; position: absolute; top: -70px; right: -70px; width: 230px; height: 230px; border-radius: 50%;
-        background: radial-gradient(circle at center, #e3ecfb 0%, rgba(227, 236, 251, 0) 68%);
-        pointer-events: none;
-    }
-    .lp-card > * { position: relative; z-index: 1; }
-    .lp-card__top { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 1.6rem; }
-    .lp-card__icon {
-        width: 58px; height: 58px; border-radius: 16px; background: var(--lp-primary-soft); color: var(--lp-primary);
-        display: inline-flex; align-items: center; justify-content: center; font-size: 1.15rem;
-    }
-    .lp-tag {
-        display: inline-flex; align-items: center; gap: .4rem; background: var(--lp-surface);
-        color: var(--lp-ink-2); font-size: .66rem; font-weight: 500; padding: .28rem .7rem; border-radius: 999px;
-    }
-    .lp-tag::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: var(--lp-primary); }
-
-    .lp-card__title { font-size: 1.15rem; font-weight: 700; color: var(--lp-ink); margin: 0 0 .65rem; letter-spacing: -.01em; }
-    .lp-card__desc  { font-size: .78rem; line-height: 1.75; color: var(--lp-ink-2); max-width: 25rem; margin: 0 0 1.2rem; }
-
-    .lp-chips { display: flex; flex-wrap: wrap; gap: .5rem; max-width: 21rem; }
-    .lp-chip {
-        display: inline-flex; align-items: center; gap: .45rem; background: var(--lp-surface);
-        color: var(--lp-ink); font-size: .7rem; font-weight: 600; padding: .4rem .75rem; border-radius: 8px; white-space: nowrap;
-    }
-    .lp-chip i { color: var(--lp-primary); font-size: .72rem; }
-    .lp-chip--accent { background: var(--lp-primary-soft); color: var(--lp-primary); }
-    .lp-chip--soft   { background: #f1f5fd; color: var(--lp-muted); font-weight: 500; }
-    .lp-chip--soft i { color: var(--lp-muted); }
-
-    .lp-actions { display: flex; gap: .75rem; margin-top: 2.4rem; }
-    .lp-btn {
-        display: inline-flex; align-items: center; justify-content: center; gap: .55rem;
-        min-width: 10.4rem; height: 2.75rem; padding: 0 1.25rem; border-radius: 10px; border: 0;
-        font-size: .82rem; font-weight: 600; text-decoration: none !important; cursor: pointer;
-        transition: background-color .15s ease, box-shadow .15s ease;
-    }
-    .lp-btn--light { background: var(--lp-surface); color: var(--lp-ink); }
-    .lp-btn--light i { color: var(--lp-primary); }
-    .lp-btn--light:hover { background: var(--lp-primary-soft); color: var(--lp-ink); }
-    .lp-btn--dark  { background: var(--lp-primary); color: #fff; }
-    .lp-btn--dark:hover { background: #004f78; color: #fff; box-shadow: 0 6px 16px rgba(0, 97, 148, .25); }
-
-    /* --------------------------- Riwayat unduhan ----------------------- */
-    .lp-history { background: #fff; border-radius: 18px; overflow: hidden; box-shadow: 0 6px 28px rgba(11, 28, 48, .05); }
-    .lp-history__head {
-        display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 1rem;
-        padding: 1.75rem 2rem 1.5rem;
-    }
-    .lp-history__titlewrap { display: flex; align-items: flex-start; gap: .75rem; }
-    .lp-history__icon {
-        width: 2.1rem; height: 2.1rem; border-radius: 10px; background: var(--lp-primary-soft); color: var(--lp-primary);
-        display: inline-flex; align-items: center; justify-content: center; font-size: .85rem; flex-shrink: 0;
-    }
-    .lp-history__title { font-size: 1.05rem; font-weight: 700; margin: 0; line-height: 1.3; color: var(--lp-ink); }
-    .lp-history__sub   { font-size: .72rem; color: var(--lp-muted); margin: .25rem 0 0; }
-
-    .lp-filters { display: flex; align-items: center; gap: .75rem; }
-    .lp-pill {
-        position: relative; display: inline-flex; align-items: center; gap: .6rem; background: var(--lp-surface);
-        border-radius: 10px; height: 2.4rem; padding: 0 2rem 0 .9rem;
-    }
-    .lp-pill label { margin: 0; font-size: .64rem; color: var(--lp-muted); font-weight: 500; }
-    .lp-pill select {
-        appearance: none; -webkit-appearance: none; background: transparent; border: 0; outline: 0; cursor: pointer;
-        font-size: .82rem; font-weight: 600; color: var(--lp-ink); padding: 0; min-width: 8rem;
-    }
-    .lp-pill--periode select { min-width: 12.5rem; }
-    .lp-pill::after {
-        content: '\f078'; font-family: 'Font Awesome 5 Free'; font-weight: 900; font-size: .55rem;
-        color: var(--lp-muted); position: absolute; right: .85rem; pointer-events: none;
-    }
-    .lp-pill:focus-within { box-shadow: 0 0 0 2px rgba(0, 97, 148, .25); }
-    .lp-refresh {
-        width: 2.4rem; height: 2.4rem; border: 0; border-radius: 10px; background: var(--lp-surface); color: var(--lp-ink-2);
-        display: inline-flex; align-items: center; justify-content: center; cursor: pointer; transition: background-color .15s;
-    }
-    .lp-refresh:hover { background: var(--lp-primary-soft); color: var(--lp-primary); }
-    .lp-refresh.is-spinning i { animation: lp-spin .6s linear; }
-    @keyframes lp-spin { to { transform: rotate(360deg); } }
-
-    .lp-tablewrap { overflow-x: auto; }
-    .lp-table { width: 100%; min-width: 760px; border-collapse: collapse; margin: 0; }
-    .lp-table thead th {
-        background: var(--lp-surface); color: var(--lp-ink-2); font-size: .66rem; font-weight: 500; letter-spacing: .05em;
-        text-transform: uppercase; padding: .95rem 1rem; border: 0; white-space: nowrap;
-    }
-    .lp-table thead th:first-child { padding-left: 2rem; }
-    .lp-table tbody td { padding: .95rem 1rem; vertical-align: middle; border: 0; font-size: .75rem; color: var(--lp-ink-2); }
-    .lp-table tbody td:first-child { padding-left: 2rem; }
-    .lp-table tbody tr { transition: background-color .12s ease; }
-    .lp-table tbody tr:hover { background: var(--lp-bg); }
-    .lp-table tbody tr[hidden] { display: none; }
-    .lp-c { text-align: center; }
-
-    .lp-file { display: flex; align-items: center; gap: .85rem; }
-    .lp-file__icon {
-        width: 2.4rem; height: 2.4rem; border-radius: 10px; flex-shrink: 0;
-        display: inline-flex; align-items: center; justify-content: center; font-size: .9rem;
-        background: var(--lp-primary-soft); color: var(--lp-primary);
-    }
-    .lp-file__icon--pdf { background: var(--lp-danger-soft); color: #c33232; }
-    .lp-file__name { display: block; font-size: .82rem; font-weight: 600; color: var(--lp-ink); line-height: 1.3; word-break: break-all; }
-    .lp-file__meta { display: block; font-size: .65rem; color: var(--lp-muted); margin-top: .1rem; }
-
-    .lp-badge { display: inline-block; font-size: .62rem; font-weight: 700; padding: .22rem .7rem; border-radius: 999px; letter-spacing: .02em; }
-    .lp-badge--xls { background: var(--lp-primary-soft); color: var(--lp-primary); }
-    .lp-badge--pdf { background: var(--lp-danger-soft); color: var(--lp-danger); }
-    .lp-size { font-weight: 500; color: var(--lp-ink); white-space: nowrap; }
-
-    .lp-dl { display: inline-flex; align-items: center; gap: .45rem; font-size: .82rem; font-weight: 600; color: var(--lp-primary); text-decoration: none !important; white-space: nowrap; }
-    .lp-dl:hover { color: #004f78; }
-    .lp-dl:hover i { transform: translateY(1px); }
-    .lp-dl i { font-size: .72rem; transition: transform .15s ease; }
-
-    .lp-empty td { text-align: center; padding: 2.5rem 1rem !important; color: var(--lp-muted); }
-    .lp-empty i { display: block; font-size: 1.4rem; margin-bottom: .5rem; color: #b4c3d6; }
-    .lp-empty { display: none; }
-
-    .lp-history__foot {
-        display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: .5rem;
-        background: #f9fbff; padding: .9rem 2rem; font-size: .66rem; color: var(--lp-muted);
-    }
-    .lp-history__foot i { margin-right: .4rem; }
-
-    /* ------------------------------ Responsif -------------------------- */
-    @media (max-width: 1199.98px) { .lp-grid { grid-template-columns: 1fr; } }
-    @media (max-width: 767.98px) {
-        .lp-head { flex-direction: column; }
-        .lp-title { font-size: 1.5rem; }
-        .lp-card { padding: 1.4rem; }
-        .lp-actions { flex-wrap: wrap; }
-        .lp-btn { flex: 1 1 8rem; }
-        .lp-history__head { padding: 1.4rem; }
-        .lp-filters { flex-wrap: wrap; }
-        .lp-history__foot { padding: .9rem 1.4rem; }
-    }
-</style>
-
 <div class="lp-page">
 
     <!-- ============================ HEADER ============================ -->
-    <header class="lp-head">
+    <header class="lp-head lp-rise">
         <div>
             <span class="lp-eyebrow"><i class="far fa-folder-open" aria-hidden="true"></i> Dokumentasi Administrasi</span>
             <h1 class="lp-title">Laporan &amp; Rekapitulasi</h1>
@@ -283,8 +124,9 @@ ob_start();
 
     <!-- ========================= KARTU LAPORAN ======================== -->
     <section class="lp-grid" aria-label="Jenis laporan">
-        <?php foreach ($reportCards as $card): ?>
-            <article class="lp-card">
+        <?php foreach ($reportCards as $idx => $card): ?>
+            <?php $exportBase = '?page=laporan-export&amp;type=' . $e($card['type']) . '&amp;periode=' . rawurlencode($selPeriode) . '&amp;jurusan=' . rawurlencode($selJurusan); ?>
+            <article class="lp-card lp-rise" style="--d: <?= 0.1 + $idx * 0.12 ?>s">
                 <div class="lp-card__top">
                     <span class="lp-card__icon"><i class="<?= $e($card['icon']) ?>" aria-hidden="true"></i></span>
                     <span class="lp-tag"><?= $e($card['tag']) ?></span>
@@ -296,27 +138,40 @@ ob_start();
                 <div class="lp-chips">
                     <?php foreach ($card['chips'] as $chip): ?>
                         <span class="lp-chip <?= $e($chip['variant']) ?>">
-                            <i class="<?= $e($chip['icon']) ?>" aria-hidden="true"></i><?= $e($chip['text']) ?>
+                            <i class="<?= $e($chip['icon']) ?>" aria-hidden="true"></i>
+                            <?php if (isset($chip['num'])): ?>
+                                <?= $e($chip['pre']) ?><span class="js-count" data-count="<?= $e($chip['num']) ?>" data-dec="<?= (int) $chip['dec'] ?>" data-sep="<?= $chip['sep'] ? 1 : 0 ?>"><?= $e(number_format($chip['num'], (int) $chip['dec'], '.', $chip['sep'] ? ',' : '')) ?></span><?= $e($chip['post']) ?>
+                            <?php else: ?>
+                                <?= $e($chip['text']) ?>
+                            <?php endif; ?>
                         </span>
                     <?php endforeach; ?>
                 </div>
 
                 <div class="lp-actions">
-                    <a class="lp-btn lp-btn--light"
-                       href="?page=laporan-export&amp;type=<?= $e($card['type']) ?>&amp;format=excel">
-                        <i class="fas fa-table" aria-hidden="true"></i> Unduh Excel
+                    <a class="lp-btn lp-btn--light js-export" data-type="<?= $e($card['type']) ?>" data-format="excel"
+                       data-title="<?= $e($card['title']) ?> (Excel)"
+                       href="<?= $exportBase ?>&amp;format=excel">
+                        <i class="fas fa-table" aria-hidden="true"></i> <span class="lp-btn__label">Unduh Excel</span>
                     </a>
-                    <a class="lp-btn lp-btn--dark" target="_blank" rel="noopener"
-                       href="?page=laporan-export&amp;type=<?= $e($card['type']) ?>&amp;format=pdf">
-                        <i class="fas fa-print" aria-hidden="true"></i> Cetak PDF
+                    <a class="lp-btn lp-btn--dark js-export" data-type="<?= $e($card['type']) ?>" data-format="pdf"
+                       data-title="<?= $e($card['title']) ?> (PDF)"
+                       target="_blank" rel="noopener"
+                       href="<?= $exportBase ?>&amp;format=pdf">
+                        <i class="fas fa-print" aria-hidden="true"></i> <span class="lp-btn__label">Cetak PDF</span>
                     </a>
                 </div>
+
+                <p class="lp-scope">
+                    Laporan untuk: <strong class="js-scope-periode"><?= $e($periodeOptions[$selPeriode]) ?></strong>
+                    &bull; <strong class="js-scope-jurusan"><?= $e($jurusanOptions[$selJurusan]) ?></strong>
+                </p>
             </article>
         <?php endforeach; ?>
     </section>
 
     <!-- ======================= RIWAYAT UNDUHAN ======================== -->
-    <section class="lp-history" aria-labelledby="lpHistoryTitle">
+    <section class="lp-history lp-lazy" id="lpHistory" aria-labelledby="lpHistoryTitle">
         <div class="lp-history__head">
             <div class="lp-history__titlewrap">
                 <span class="lp-history__icon"><i class="fas fa-history" aria-hidden="true"></i></span>
@@ -331,7 +186,7 @@ ob_start();
                     <label for="lpPeriode">Periode:</label>
                     <select id="lpPeriode">
                         <?php foreach ($periodeOptions as $val => $label): ?>
-                            <option value="<?= $e($val) ?>"><?= $e($label) ?></option>
+                            <option value="<?= $e($val) ?>" <?= $val === $selPeriode ? 'selected' : '' ?>><?= $e($label) ?></option>
                         <?php endforeach; ?>
                     </select>
                 </div>
@@ -344,7 +199,7 @@ ob_start();
                     <label for="lpJurusan">Jurusan:</label>
                     <select id="lpJurusan">
                         <?php foreach ($jurusanOptions as $val => $label): ?>
-                            <option value="<?= $e($val) ?>"><?= $e($label) ?></option>
+                            <option value="<?= $e($val) ?>" <?= $val === $selJurusan ? 'selected' : '' ?>><?= $e($label) ?></option>
                         <?php endforeach; ?>
                     </select>
                 </div>
@@ -356,6 +211,8 @@ ob_start();
                 <thead>
                     <tr>
                         <th>Nama Laporan</th>
+                        <th>Periode</th>
+                        <th>Jurusan</th>
                         <th>Tanggal Generate</th>
                         <th class="lp-c">Format</th>
                         <th class="lp-c">Ukuran</th>
@@ -363,8 +220,30 @@ ob_start();
                     </tr>
                 </thead>
                 <tbody id="lpRows">
-                    <?php foreach ($riwayat as $row): $isPdf = $row['format'] === 'pdf'; ?>
-                        <tr data-jurusan="<?= $e($row['jurusan']) ?>" data-periode="<?= $e($row['periode']) ?>">
+                    <?php foreach ($riwayat as $row): ?>
+                        <?php
+                        $isPdf  = $row['format'] === 'pdf';
+                        $jKey   = $row['jurusan'] === 'all' ? '' : $row['jurusan'];
+                        $pFull  = $periodeOptions[$row['periode']] ?? $row['periode'];
+                        $pShort = trim(str_replace('Semester', '', $pFull));
+                        $jLabel = $jKey === '' ? 'Semua Jurusan' : strtoupper($jKey);
+
+                        $hrefP = '?page=laporan&periode=' . rawurlencode($row['periode']) . '&jurusan=' . rawurlencode($selJurusan) . '#lpHistory';
+                        $hrefJ = '?page=laporan&periode=' . rawurlencode($selPeriode) . '&jurusan=' . rawurlencode($jKey) . '#lpHistory';
+
+                        if ($row['id']) {
+                            // Arsip nyata: unduh berkas yang tersimpan
+                            $href = '?page=laporan-export&id=' . rawurlencode((string) $row['id']);
+                        } else {
+                            // Baris contoh: buat laporan sesuai periode & jurusan baris ini, tanpa menambah arsip
+                            $href = '?page=laporan-export&type=' . rawurlencode($row['type'])
+                                . '&format=' . ($isPdf ? 'pdf' : 'excel')
+                                . '&periode=' . rawurlencode($row['periode'])
+                                . '&jurusan=' . rawurlencode($jKey)
+                                . '&nosave=1';
+                        }
+                        ?>
+                        <tr data-jurusan="<?= $e($row['jurusan']) ?>" data-periode="<?= $e($row['periode']) ?>" <?= $row['visible'] ? '' : 'hidden' ?>>
                             <td>
                                 <div class="lp-file">
                                     <span class="lp-file__icon <?= $isPdf ? 'lp-file__icon--pdf' : '' ?>">
@@ -376,22 +255,37 @@ ob_start();
                                     </div>
                                 </div>
                             </td>
-                            <td><?= $e($row['tanggal']) ?></td>
+                            <td>
+                                <a class="lp-chiplink lp-chiplink--periode js-filter-chip <?= $row['periode'] === $selPeriode ? 'is-active' : '' ?>"
+                                   href="<?= $e($hrefP) ?>" data-filter="periode" data-value="<?= $e($row['periode']) ?>"
+                                   title="Tampilkan riwayat <?= $e($pFull) ?>">
+                                    <i class="far fa-calendar-alt" aria-hidden="true"></i><?= $e($pShort) ?>
+                                </a>
+                            </td>
+                            <td>
+                                <a class="lp-chiplink lp-chiplink--<?= $jKey === '' ? 'all' : $e($jKey) ?> js-filter-chip <?= $jKey === $selJurusan ? 'is-active' : '' ?>"
+                                   href="<?= $e($hrefJ) ?>" data-filter="jurusan" data-value="<?= $e($jKey) ?>"
+                                   title="Tampilkan riwayat <?= $e($jLabel) ?>">
+                                    <i class="fas <?= $jKey === '' ? 'fa-th-large' : 'fa-graduation-cap' ?>" aria-hidden="true"></i><?= $e($jLabel) ?>
+                                </a>
+                            </td>
+                            <td><?= $e(LaporanData::formatTanggal((int) $row['ts'])) ?></td>
                             <td class="lp-c">
                                 <span class="lp-badge <?= $isPdf ? 'lp-badge--pdf' : 'lp-badge--xls' ?>"><?= $isPdf ? 'PDF' : 'XLS' ?></span>
                             </td>
-                            <td class="lp-c lp-size"><?= $e($row['ukuran']) ?></td>
+                            <td class="lp-c lp-size"><?= $e(LaporanData::formatUkuran((int) $row['size'])) ?></td>
                             <td class="lp-c">
-                                <a class="lp-dl" href="?page=laporan-export&amp;file=<?= rawurlencode($row['file']) ?>">
+                                <a class="lp-dl" href="<?= $e($href) ?>" <?= $isPdf ? 'target="_blank" rel="noopener"' : '' ?>>
                                     <i class="fas fa-download" aria-hidden="true"></i> Unduh Berkas
                                 </a>
                             </td>
                         </tr>
                     <?php endforeach; ?>
-                    <tr class="lp-empty" id="lpEmpty">
-                        <td colspan="5">
+                    <tr class="lp-empty <?= $shown === 0 ? 'is-visible' : '' ?>" id="lpEmpty">
+                        <td colspan="7">
                             <i class="far fa-folder-open" aria-hidden="true"></i>
-                            Belum ada berkas untuk filter yang dipilih.
+                            Belum ada arsip untuk periode &amp; jurusan ini.<br>
+                            Klik <strong>Unduh Excel</strong> atau <strong>Cetak PDF</strong> di atas untuk membuat laporan.
                         </td>
                     </tr>
                 </tbody>
@@ -399,47 +293,15 @@ ob_start();
         </div>
 
         <div class="lp-history__foot">
-            <span><i class="far fa-info-circle" aria-hidden="true"></i><span id="lpCount">Menampilkan <?= count($riwayat) ?> berkas terbaru</span></span>
+            <span><i class="fas fa-info-circle" aria-hidden="true"></i><span id="lpCount"><?= $shown === 0 ? 'Tidak ada berkas' : 'Menampilkan ' . $shown . ' berkas terbaru' ?></span></span>
             <span><i class="fas fa-archive" aria-hidden="true"></i>Otomatis diarsipkan setiap akhir semester</span>
         </div>
     </section>
+
+    <div class="lp-toasts" id="lpToasts" aria-live="polite"></div>
 </div>
 
-<script>
-    (function () {
-        var periode = document.getElementById('lpPeriode');
-        var jurusan = document.getElementById('lpJurusan');
-        var refresh = document.getElementById('lpRefresh');
-        var rows    = Array.prototype.slice.call(document.querySelectorAll('#lpRows tr[data-jurusan]'));
-        var empty   = document.getElementById('lpEmpty');
-        var count   = document.getElementById('lpCount');
-        var defaultPeriode = periode.value;
-
-        function apply() {
-            var visible = 0;
-            rows.forEach(function (row) {
-                var okPeriode = row.dataset.periode === periode.value;
-                var okJurusan = jurusan.value === '' || row.dataset.jurusan === 'all' || row.dataset.jurusan === jurusan.value;
-                var show = okPeriode && okJurusan;
-                row.hidden = !show;
-                if (show) { visible++; }
-            });
-            empty.style.display = visible === 0 ? 'table-row' : 'none';
-            count.textContent = visible === 0 ? 'Tidak ada berkas' : 'Menampilkan ' + visible + ' berkas terbaru';
-        }
-
-        periode.addEventListener('change', apply);
-        jurusan.addEventListener('change', apply);
-
-        refresh.addEventListener('click', function () {
-            periode.value = defaultPeriode;
-            jurusan.value = '';
-            refresh.classList.remove('is-spinning');
-            void refresh.offsetWidth;              // restart animasi
-            refresh.classList.add('is-spinning');
-            apply();
-        });
-    </script>
+<script src="<?= $e($assetUrl) ?>/js/laporan.js?v=<?= $jsVer ?>" defer></script>
 <?php
 $content = ob_get_clean();
 require dirname(__DIR__, 2) . '/layouts/admin.php';

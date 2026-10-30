@@ -1,0 +1,356 @@
+/* ==========================================================================
+   laporan.css  --  Halaman Laporan & Rekapitulasi (E-PKL)
+   Dimuat hanya oleh app/Views/admin/laporan/index.php
+   ========================================================================== */
+
+/* --------------------------------------------------------------------------
+   0. IKON: paksa font Font Awesome supaya tidak pernah tertimpa font teks.
+      (Kotak kosong pada ikon = font ikon tertimpa font teks.)
+   -------------------------------------------------------------------------- */
+.fa, .fas, .far { font-family: 'Font Awesome 5 Free' !important; font-style: normal; }
+.fab { font-family: 'Font Awesome 5 Brands' !important; font-style: normal; }
+.fa, .fas { font-weight: 900 !important; }
+.far { font-weight: 400 !important; }
+
+/* --------------------------------------------------------------------------
+   1. Token desain (dari Figma)
+   -------------------------------------------------------------------------- */
+.lp-page {
+    --lp-primary: #006194;
+    --lp-primary-soft: #dce9ff;
+    --lp-surface: #eff4ff;
+    --lp-bg: #f8f9ff;
+    --lp-ink: #0b1c30;
+    --lp-ink-2: #3f4850;
+    --lp-muted: #5f6b7a;
+    --lp-danger: #ba1a1a;
+    --lp-danger-soft: #ffdad6;
+    --lp-ok: #1f8f5f;
+    --lp-ease: cubic-bezier(.2, .7, .2, 1);
+    font-family: 'Plus Jakarta Sans', 'Nunito', sans-serif;
+    color: var(--lp-ink);
+    padding-bottom: 2rem;
+}
+.lp-page button, .lp-page select, .lp-page input { font-family: inherit; }
+body, #content-wrapper { background-color: #f8f9ff !important; }
+.sidebar-epkl, .topbar { font-family: 'Plus Jakarta Sans', 'Nunito', sans-serif; }
+
+/* --------------------------------------------------------------------------
+   2. Topbar disamakan dengan Figma (khusus halaman ini)
+   -------------------------------------------------------------------------- */
+.topbar { background: #eaf3ff !important; box-shadow: none !important; }
+.topbar form.form-inline { width: 36rem; max-width: 46vw; }
+.topbar form.form-inline .input-group { width: 100%; }
+.topbar form.form-inline .form-control {
+    height: 2.6rem; border-radius: 12px !important; padding-left: 2.6rem; font-size: .85rem;
+    box-shadow: 0 2px 10px rgba(11, 28, 48, .05);
+    background: #fff url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%235f6b7a' stroke-width='2.2' stroke-linecap='round'><circle cx='11' cy='11' r='7'/><path d='m20 20-3.5-3.5'/></svg>") no-repeat .95rem center / 1rem !important;
+}
+.topbar .input-group-append { display: none; }
+.topbar #academicYearDropdown {
+    height: 2.2rem; padding: 0 .95rem; border-radius: 999px; background: rgba(255, 255, 255, .75);
+}
+.topbar #academicYearDropdown i { color: #006194 !important; }
+.topbar #academicYearDropdown span { color: #0b1c30; font-weight: 500; }
+
+/* --------------------------------------------------------------------------
+   3. Header
+   -------------------------------------------------------------------------- */
+.lp-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 1.5rem; margin-bottom: 1.75rem; }
+.lp-eyebrow {
+    display: inline-flex; align-items: center; gap: .4rem;
+    background: var(--lp-primary-soft); color: var(--lp-primary);
+    font-size: .66rem; font-weight: 700; letter-spacing: .02em; text-transform: uppercase;
+    padding: .28rem .7rem; border-radius: 999px; margin-bottom: 1rem;
+}
+.lp-title { font-size: 1.9rem; font-weight: 700; letter-spacing: -.02em; color: var(--lp-ink); margin: 0 0 .5rem; line-height: 1.2; }
+.lp-lead  { font-size: .9rem; line-height: 1.6; color: var(--lp-ink-2); max-width: 36rem; margin: 0; }
+
+.lp-verified {
+    display: flex; align-items: center; gap: .75rem; flex-shrink: 0;
+    background: #fff; border-radius: 14px; padding: .7rem 1.1rem .7rem .8rem;
+    box-shadow: 0 6px 24px rgba(11, 28, 48, .06);
+    transition: transform .25s var(--lp-ease), box-shadow .25s ease;
+}
+.lp-verified:hover { transform: translateY(-2px); box-shadow: 0 10px 28px rgba(11, 28, 48, .09); }
+.lp-verified__icon {
+    position: relative; width: 36px; height: 36px; border-radius: 50%;
+    background: var(--lp-primary-soft); color: var(--lp-primary);
+    display: inline-flex; align-items: center; justify-content: center; font-size: .85rem;
+}
+.lp-verified__icon::after { /* titik "live" berdenyut */
+    content: ''; position: absolute; right: -1px; top: -1px; width: 9px; height: 9px; border-radius: 50%;
+    background: var(--lp-ok); border: 2px solid #fff; animation: lp-ping 2s ease-out infinite;
+}
+.lp-verified strong { display: block; font-size: .82rem; font-weight: 700; color: var(--lp-ink); line-height: 1.25; }
+.lp-verified span   { display: block; font-size: .66rem; color: var(--lp-muted); }
+
+/* --------------------------------------------------------------------------
+   4. Kartu laporan
+   -------------------------------------------------------------------------- */
+.lp-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1.5rem; margin-bottom: 1.75rem; }
+.lp-card {
+    position: relative; overflow: hidden; background: #fff; border-radius: 18px;
+    padding: 1.9rem 2rem 2rem; box-shadow: 0 6px 28px rgba(11, 28, 48, .05);
+    transition: transform .3s var(--lp-ease), box-shadow .3s ease;
+}
+.lp-card:hover { transform: translateY(-4px); box-shadow: 0 16px 40px rgba(11, 28, 48, .09); }
+.lp-card::before { /* sorot mengikuti kursor */
+    content: ''; position: absolute; inset: 0; pointer-events: none; opacity: 0; transition: opacity .3s ease;
+    background: radial-gradient(380px circle at var(--mx, 50%) var(--my, 50%), rgba(0, 97, 148, .07), transparent 62%);
+}
+.lp-card:hover::before { opacity: 1; }
+.lp-card::after { /* gelembung dekoratif, bergerak pelan */
+    content: ''; position: absolute; top: -70px; right: -70px; width: 230px; height: 230px; border-radius: 50%;
+    background: radial-gradient(circle at center, #e3ecfb 0%, rgba(227, 236, 251, 0) 68%);
+    pointer-events: none; animation: lp-float 9s ease-in-out infinite alternate;
+}
+.lp-card > * { position: relative; z-index: 1; }
+.lp-card__top { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 1.6rem; }
+.lp-card__icon {
+    width: 58px; height: 58px; border-radius: 16px; background: var(--lp-primary-soft); color: var(--lp-primary);
+    display: inline-flex; align-items: center; justify-content: center; font-size: 1.15rem;
+    transition: transform .35s var(--lp-ease), background-color .25s ease, color .25s ease;
+}
+.lp-card:hover .lp-card__icon { transform: rotate(-6deg) scale(1.08); background: var(--lp-primary); color: #fff; }
+.lp-tag { display: inline-flex; align-items: center; gap: .4rem; background: var(--lp-surface); color: var(--lp-ink-2); font-size: .66rem; font-weight: 500; padding: .28rem .7rem; border-radius: 999px; }
+.lp-tag::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: var(--lp-primary); animation: lp-pulse 2.2s ease-in-out infinite; }
+
+.lp-card__title { font-size: 1.15rem; font-weight: 700; color: var(--lp-ink); margin: 0 0 .65rem; letter-spacing: -.01em; }
+.lp-card__desc  { font-size: .78rem; line-height: 1.75; color: var(--lp-ink-2); max-width: 25rem; margin: 0 0 1.2rem; }
+
+.lp-chips { display: flex; flex-wrap: wrap; gap: .5rem; max-width: 21rem; }
+.lp-chip {
+    display: inline-flex; align-items: center; gap: .45rem; background: var(--lp-surface);
+    color: var(--lp-ink); font-size: .7rem; font-weight: 600; padding: .4rem .75rem; border-radius: 8px; white-space: nowrap;
+    transition: transform .2s ease, box-shadow .2s ease;
+}
+.lp-chip:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0, 97, 148, .12); }
+.lp-chip i { color: var(--lp-primary); font-size: .72rem; }
+.lp-chip--accent { background: var(--lp-primary-soft); color: var(--lp-primary); }
+.lp-chip--soft   { background: #f1f5fd; color: var(--lp-muted); font-weight: 500; }
+.lp-chip--soft i { color: var(--lp-muted); }
+
+.lp-actions { display: flex; gap: .75rem; margin-top: 2.4rem; }
+.lp-btn {
+    position: relative; overflow: hidden;
+    display: inline-flex; align-items: center; justify-content: center; gap: .55rem;
+    min-width: 10.4rem; height: 2.75rem; padding: 0 1.25rem; border-radius: 10px; border: 0;
+    font-size: .82rem; font-weight: 600; text-decoration: none !important; cursor: pointer;
+    transition: background-color .2s ease, box-shadow .2s ease, transform .15s ease, color .2s ease;
+}
+.lp-btn:active { transform: scale(.97); }
+.lp-btn--light { background: var(--lp-surface); color: var(--lp-ink); }
+.lp-btn--light i { color: var(--lp-primary); }
+.lp-btn--light:hover { background: var(--lp-primary-soft); color: var(--lp-ink); }
+.lp-btn--dark  { background: var(--lp-primary); color: #fff; }
+.lp-btn--dark:hover { background: #004f78; color: #fff; box-shadow: 0 8px 20px rgba(0, 97, 148, .28); }
+.lp-btn--dark::before { /* kilau saat hover */
+    content: ''; position: absolute; top: 0; bottom: 0; left: -60%; width: 40%;
+    background: linear-gradient(100deg, transparent, rgba(255, 255, 255, .28), transparent);
+    transform: skewX(-20deg); transition: left .7s ease;
+}
+.lp-btn--dark:hover::before { left: 130%; }
+.lp-btn.is-busy { pointer-events: none; opacity: .88; }
+.lp-btn.is-done { pointer-events: none; background: var(--lp-ok); color: #fff; }
+.lp-btn.is-done i { color: #fff; }
+.lp-ripple {
+    position: absolute; border-radius: 50%; background: rgba(255, 255, 255, .45); pointer-events: none;
+    transform: scale(0); animation: lp-ripple .65s ease-out forwards;
+}
+.lp-btn--light .lp-ripple { background: rgba(0, 97, 148, .18); }
+
+.lp-scope { margin: .9rem 0 0; font-size: .68rem; color: var(--lp-muted); }
+.lp-scope strong { color: var(--lp-ink-2); font-weight: 600; border-radius: 4px; }
+.lp-flash { animation: lp-flash 1s ease; }
+
+/* --------------------------------------------------------------------------
+   5. Riwayat unduhan
+   -------------------------------------------------------------------------- */
+.lp-history { background: #fff; border-radius: 18px; overflow: hidden; box-shadow: 0 6px 28px rgba(11, 28, 48, .05); }
+.lp-history__head { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 1rem; padding: 1.75rem 2rem 1.5rem; }
+.lp-history__titlewrap { display: flex; align-items: flex-start; gap: .75rem; }
+.lp-history__icon { width: 2.1rem; height: 2.1rem; border-radius: 10px; background: var(--lp-primary-soft); color: var(--lp-primary); display: inline-flex; align-items: center; justify-content: center; font-size: .85rem; flex-shrink: 0; }
+.lp-history__title { font-size: 1.05rem; font-weight: 700; margin: 0; line-height: 1.3; color: var(--lp-ink); }
+.lp-history__sub   { font-size: .72rem; color: var(--lp-muted); margin: .25rem 0 0; }
+
+.lp-filters { display: flex; align-items: center; gap: .75rem; flex-wrap: wrap; }
+.lp-pill { position: relative; display: inline-flex; align-items: center; gap: .6rem; background: var(--lp-surface); border-radius: 10px; height: 2.4rem; padding: 0 2rem 0 .9rem; transition: background-color .2s ease, box-shadow .2s ease; }
+.lp-pill:hover { background: var(--lp-primary-soft); }
+.lp-pill label { margin: 0; font-size: .64rem; color: var(--lp-muted); font-weight: 500; }
+.lp-pill select { appearance: none; -webkit-appearance: none; background: transparent; border: 0; outline: 0; cursor: pointer; font-size: .82rem; font-weight: 600; color: var(--lp-ink); padding: 0; min-width: 8rem; }
+.lp-pill--periode select { min-width: 12.5rem; }
+.lp-pill::after { content: '\f078'; font-family: 'Font Awesome 5 Free'; font-weight: 900; font-size: .55rem; color: var(--lp-muted); position: absolute; right: .85rem; pointer-events: none; }
+.lp-pill:focus-within { box-shadow: 0 0 0 2px rgba(0, 97, 148, .25); }
+.lp-refresh { width: 2.4rem; height: 2.4rem; border: 0; border-radius: 10px; background: var(--lp-surface); color: var(--lp-ink-2); display: inline-flex; align-items: center; justify-content: center; cursor: pointer; transition: background-color .2s, color .2s; }
+.lp-refresh:hover { background: var(--lp-primary-soft); color: var(--lp-primary); }
+.lp-refresh.is-spinning i { animation: lp-spin .7s linear; }
+
+.lp-tablewrap { overflow-x: auto; }
+.lp-table { width: 100%; min-width: 760px; border-collapse: collapse; margin: 0; }
+.lp-table thead th { background: var(--lp-surface); color: var(--lp-ink-2); font-size: .66rem; font-weight: 500; letter-spacing: .05em; text-transform: uppercase; padding: .95rem 1rem; border: 0; white-space: nowrap; }
+.lp-table thead th:first-child { padding-left: 2rem; }
+.lp-table tbody td { padding: .95rem 1rem; vertical-align: middle; border: 0; font-size: .75rem; color: var(--lp-ink-2); }
+.lp-table tbody td:first-child { padding-left: 2rem; }
+.lp-table tbody tr { transition: background-color .15s ease; }
+.lp-table tbody tr:hover { background: var(--lp-bg); }
+.lp-table tbody tr[hidden] { display: none; }
+.lp-c { text-align: center; }
+.lp-row-in { animation: lp-rowin .45s var(--lp-ease) backwards; animation-delay: calc(var(--i, 0) * 55ms); }
+.lp-table tbody tr.is-new { animation: lp-new 2.6s ease; }
+
+.lp-file { display: flex; align-items: center; gap: .85rem; }
+.lp-file__icon { width: 2.4rem; height: 2.4rem; border-radius: 10px; flex-shrink: 0; display: inline-flex; align-items: center; justify-content: center; font-size: .9rem; background: var(--lp-primary-soft); color: var(--lp-primary); transition: transform .25s var(--lp-ease); }
+.lp-file__icon--pdf { background: var(--lp-danger-soft); color: #c33232; }
+.lp-table tbody tr:hover .lp-file__icon { transform: scale(1.1) rotate(-4deg); }
+.lp-file__name { display: block; font-size: .82rem; font-weight: 600; color: var(--lp-ink); line-height: 1.3; word-break: break-all; }
+.lp-file__meta { display: block; font-size: .65rem; color: var(--lp-muted); margin-top: .1rem; }
+
+.lp-badge { display: inline-block; font-size: .62rem; font-weight: 700; padding: .22rem .7rem; border-radius: 999px; letter-spacing: .02em; }
+.lp-badge--xls { background: var(--lp-primary-soft); color: var(--lp-primary); }
+.lp-badge--pdf { background: var(--lp-danger-soft); color: var(--lp-danger); }
+.lp-size { font-weight: 500; color: var(--lp-ink); white-space: nowrap; }
+
+.lp-dl { display: inline-flex; align-items: center; gap: .45rem; font-size: .82rem; font-weight: 600; color: var(--lp-primary); text-decoration: none !important; white-space: nowrap; }
+.lp-dl:hover { color: #004f78; }
+.lp-dl i { font-size: .72rem; }
+.lp-dl:hover i { animation: lp-bounce .6s ease infinite; }
+
+.lp-empty { display: none; }
+.lp-empty td { text-align: center; padding: 2.5rem 1rem !important; color: var(--lp-muted); }
+.lp-empty i { display: block; font-size: 1.4rem; margin-bottom: .5rem; color: #b4c3d6; }
+
+.lp-history__foot { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: .5rem; background: #f9fbff; padding: .9rem 2rem; font-size: .66rem; color: var(--lp-muted); }
+.lp-history__foot i { margin-right: .4rem; }
+
+/* --------------------------------------------------------------------------
+   6. Toast
+   -------------------------------------------------------------------------- */
+.lp-toasts { position: fixed; left: 50%; bottom: 1.5rem; transform: translateX(-50%); z-index: 2000; display: flex; flex-direction: column; align-items: center; gap: .5rem; pointer-events: none; width: max-content; max-width: 92vw; }
+.lp-toast {
+    display: inline-flex; align-items: center; gap: .6rem; background: var(--lp-ink); color: #fff;
+    font-size: .8rem; font-weight: 500; padding: .7rem 1.1rem; border-radius: 12px;
+    box-shadow: 0 12px 32px rgba(11, 28, 48, .28); opacity: 0; transform: translateY(12px) scale(.96);
+    transition: opacity .3s ease, transform .3s var(--lp-ease);
+}
+.lp-toast.is-in { opacity: 1; transform: none; }
+.lp-toast--success i { color: #5fd9a0; }
+.lp-toast--error i { color: #ff8a80; }
+.lp-toast--info i { color: #8fd0ff; }
+
+/* --------------------------------------------------------------------------
+   7. Muncul bertahap. Memakai animasi CSS murni, jadi konten TIDAK pernah
+      tersembunyi bila JavaScript gagal dimuat.
+   -------------------------------------------------------------------------- */
+.lp-rise { animation: lp-rise .7s var(--lp-ease) var(--d, 0s) backwards; }
+.lp-lazy { transition: opacity .7s var(--lp-ease), transform .7s var(--lp-ease); }
+.lp-lazy.lp-pending { opacity: 0; transform: translateY(18px); }
+
+/* --------------------------------------------------------------------------
+   8. Animasi
+   -------------------------------------------------------------------------- */
+@keyframes lp-rise   { from { opacity: 0; transform: translateY(18px); } to { opacity: 1; transform: none; } }
+@keyframes lp-float  { from { transform: translate(0, 0) scale(1); } to { transform: translate(-16px, 12px) scale(1.1); } }
+@keyframes lp-pulse  { 0%, 100% { transform: scale(1); opacity: 1; } 50% { transform: scale(1.5); opacity: .55; } }
+@keyframes lp-ping   { 0% { box-shadow: 0 0 0 0 rgba(31, 143, 95, .55); } 80%, 100% { box-shadow: 0 0 0 8px rgba(31, 143, 95, 0); } }
+@keyframes lp-spin   { to { transform: rotate(360deg); } }
+@keyframes lp-ripple { to { transform: scale(1); opacity: 0; } }
+@keyframes lp-rowin  { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+@keyframes lp-new    { 0%, 55% { background: #dff3ea; } 100% { background: transparent; } }
+@keyframes lp-flash  { 0% { background: #cfe5f7; } 100% { background: transparent; } }
+@keyframes lp-bounce { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(3px); } }
+
+@media (prefers-reduced-motion: reduce) {
+    .lp-page *, .lp-page *::before, .lp-page *::after { animation: none !important; transition: none !important; }
+    .lp-lazy.lp-pending { opacity: 1; transform: none; }
+}
+
+/* --------------------------------------------------------------------------
+   9. RESPONSIF
+   -------------------------------------------------------------------------- */
+
+/* Laptop kecil / tablet landscape: kartu menumpuk */
+@media (max-width: 1199.98px) {
+    .lp-grid { grid-template-columns: 1fr; }
+    .lp-card__desc { max-width: 38rem; }
+    .lp-chips { max-width: 100%; }
+}
+
+/* Tablet: header menumpuk, filter turun di bawah judul riwayat */
+@media (max-width: 991.98px) {
+    .topbar form.form-inline { max-width: 38vw; }
+    .lp-head { flex-direction: column; gap: 1.1rem; }
+    .lp-verified { align-self: flex-start; }
+    .lp-history__head { flex-direction: column; align-items: flex-start; }
+}
+
+/* HP: tabel berubah menjadi daftar kartu, tombol selebar layar */
+@media (max-width: 767.98px) {
+    .lp-title { font-size: 1.5rem; }
+    .lp-lead { font-size: .85rem; }
+    .lp-card { padding: 1.4rem; border-radius: 16px; }
+    .lp-card__top { margin-bottom: 1.2rem; }
+    .lp-actions { flex-direction: column; margin-top: 1.6rem; }
+    .lp-btn { width: 100%; min-width: 0; }
+
+    .lp-history { border-radius: 16px; }
+    .lp-history__head { padding: 1.25rem; }
+    .lp-filters { width: 100%; }
+    .lp-pill { flex: 1 1 100%; }
+    .lp-pill select, .lp-pill--periode select { min-width: 0; width: 100%; }
+    .lp-refresh { order: 3; }
+
+    .lp-tablewrap { overflow-x: visible; }
+    .lp-table { min-width: 0; display: block; }
+    .lp-table thead { display: none; }
+    .lp-table tbody { display: block; }
+    .lp-table tbody tr {
+        display: flex; flex-wrap: wrap; align-items: center; gap: .55rem .9rem;
+        padding: 1rem 1.25rem; border-top: 1px solid #eef2fa;
+    }
+    .lp-table tbody td, .lp-table tbody td:first-child { display: block; padding: 0 !important; }
+    .lp-table tbody td:first-child { flex: 1 1 100%; }
+    .lp-table tbody td.lp-c { text-align: left; }
+    .lp-table tbody td:last-child { margin-left: auto; }
+    .lp-table tbody tr.lp-empty { display: none; }
+    .lp-table tbody tr.lp-empty td { flex: 1 1 100%; text-align: center; }
+
+    .lp-history__foot { padding: .9rem 1.25rem; flex-direction: column; align-items: flex-start; }
+}
+
+/* HP kecil */
+@media (max-width: 479.98px) {
+    .lp-verified { width: 100%; }
+    .lp-chip { white-space: normal; }
+}
+
+/* ==========================================================================
+   Tambahan: kolom Periode & Jurusan (chip yang bisa diklik) + tabel 7 kolom
+   ========================================================================== */
+.lp-tablewrap { -webkit-overflow-scrolling: touch; }
+.lp-table { min-width: 1020px; }
+.lp-empty.is-visible { display: table-row; }
+
+.lp-chiplink {
+    display: inline-flex; align-items: center; gap: .4rem; padding: .3rem .75rem; border-radius: 999px;
+    font-size: .68rem; font-weight: 600; line-height: 1.2; white-space: nowrap;
+    text-decoration: none !important; border: 1px solid transparent;
+    background: var(--lp-surface); color: var(--lp-ink-2);
+    transition: filter .2s ease, transform .15s ease, box-shadow .2s ease, border-color .2s ease;
+}
+.lp-chiplink i { font-size: .62rem; opacity: .85; }
+.lp-chiplink:hover { filter: brightness(.95); transform: translateY(-1px); box-shadow: 0 4px 12px rgba(11, 28, 48, .12); }
+.lp-chiplink:active { transform: scale(.97); }
+.lp-chiplink.is-active { border-color: currentColor; box-shadow: 0 0 0 3px rgba(0, 97, 148, .10); }
+
+.lp-chiplink--periode { background: #fff4d9; color: #8a5a00; }
+.lp-chiplink--rpl     { background: #dce9ff; color: #006194; }
+.lp-chiplink--tkj     { background: #d9f4ea; color: #1b7a55; }
+.lp-chiplink--dkv     { background: #f1e4ff; color: #7b3fb0; }
+.lp-chiplink--all     { background: #eceff5; color: #4b5563; }
+
+/* HP: tabel menjadi daftar kartu (aturan ini harus setelah min-width di atas) */
+@media (max-width: 767.98px) {
+    .lp-table { min-width: 0; }
+    .lp-table tbody tr.lp-empty.is-visible { display: flex; }
+}
