@@ -1,4 +1,4 @@
-<?php
+http://localhost/e-pkl/admin-web/public/<?php
 $page = $_GET['page'] ?? 'dashboard';
 
 switch ($page) {
