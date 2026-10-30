@@ -36,6 +36,21 @@ $e = static fn ($value): string => htmlspecialchars((string) $value, ENT_QUOTES 
             min-height: 100%;
         }
 
+        .login-title {
+            margin: 0 0 8px;
+            color: #223247;
+            font-size: 1.65rem;
+            font-weight: 800;
+            text-align: center;
+        }
+
+        .login-subtitle {
+            margin: 0 0 28px;
+            color: #778394;
+            font-size: .75rem;
+            text-align: center;
+        }
+
         body.login-page {
             min-height: 100vh;
             margin: 0;
@@ -43,6 +58,12 @@ $e = static fn ($value): string => htmlspecialchars((string) $value, ENT_QUOTES 
             background:
                 radial-gradient(ellipse at 15% 82%, rgba(180, 205, 255, .4), transparent 30%),
                 linear-gradient(125deg, #eaf4ff 0%, #f3f5f8 54%, #dceaff 100%);
+        }
+
+        .app-logo {
+            width: 210px;
+            height: auto;
+            object-fit: contain;
         }
 
         .login-stage {
@@ -65,9 +86,9 @@ $e = static fn ($value): string => htmlspecialchars((string) $value, ENT_QUOTES 
 
         .login-brand-panel {
             display: flex;
-            flex-direction: column;
-            justify-content: space-between;
-            padding: 34px 32px 30px;
+            align-items: center;
+            justify-content: center;
+            padding: 40px;
             background:
                 radial-gradient(ellipse at 100% 0%, rgba(172, 207, 255, .38), transparent 34%),
                 linear-gradient(155deg, #f0f7ff 0%, #edf2ff 100%);
@@ -102,107 +123,18 @@ $e = static fn ($value): string => htmlspecialchars((string) $value, ENT_QUOTES 
             line-height: 1.48;
         }
 
-        .integration-card {
-            padding: 19px 18px 15px;
-            background: rgba(255, 255, 255, .95);
-            border: 1px solid rgba(224, 234, 248, .85);
-            border-radius: 11px;
-            box-shadow: 0 8px 20px rgba(41, 69, 106, .06);
-        }
-
-        .integration-main {
-            display: flex;
-            align-items: center;
-            gap: 13px;
-        }
-
-        .integration-icon {
-            display: inline-flex;
-            flex: 0 0 36px;
-            width: 36px;
-            height: 36px;
-            align-items: center;
-            justify-content: center;
-            color: #1488df;
-            background: #e5f1ff;
-            border-radius: 8px;
-        }
-
-        .integration-title {
-            margin: 0 0 3px;
-            color: #334257;
-            font-size: .86rem;
-            font-weight: 800;
-        }
-
-        .integration-copy {
-            margin: 0;
-            color: var(--login-muted);
-            font-size: .72rem;
-        }
-
-        .integration-footer {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            gap: 12px;
-            margin-top: 17px;
-            color: #657386;
-            font-size: .65rem;
-        }
-
-        .integration-status {
-            display: inline-flex;
-            align-items: center;
-            gap: 6px;
-        }
-
-        .integration-status i,
-        .integration-version {
-            color: #1679bd;
-        }
-
         .login-form-panel {
             display: flex;
-            align-items: flex-start;
+            align-items: center;
             justify-content: center;
-            padding: 42px 40px;
+            padding: 50px 60px;
         }
 
         .login-form-content {
             width: 100%;
-            max-width: 506px;
+            max-width: 500px;
         }
 
-        .login-brand {
-            display: flex;
-            align-items: center;
-            gap: 15px;
-            margin: 0 0 13px 16px;
-        }
-
-        .brand-wordmark {
-            color: #087fe4;
-            background: linear-gradient(115deg, #087ce0 12%, #18b8ec 52%, #0879df 85%);
-            background-clip: text;
-            font-size: 2.1rem;
-            font-style: italic;
-            font-weight: 900;
-            letter-spacing: -.105em;
-            line-height: 1;
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-        }
-
-        .admin-badge {
-            padding: 4px 10px;
-            color: #176db7;
-            background: #e2f0ff;
-            border-radius: 4px;
-            font-size: .65rem;
-            font-weight: 800;
-            letter-spacing: .035em;
-        }
 
         .login-notice {
             display: flex;
@@ -474,97 +406,118 @@ $e = static fn ($value): string => htmlspecialchars((string) $value, ENT_QUOTES 
     </style>
 </head>
 <body class="login-page">
-    <main class="login-stage">
-        <section class="login-card" aria-label="Login Admin E-PKL">
-            <aside class="login-brand-panel">
-                <div>
-                    <span class="portal-label">
-                        <i class="fas fa-circle" aria-hidden="true"></i>
-                        Portal Resmi E-PKL
-                    </span>
-                    <h1 class="brand-heading">Sistem Pengelolaan Praktik Kerja Lapangan (E-PKL)</h1>
-                </div>
 
-                <section class="integration-card" aria-label="Informasi integrasi">
-                    <div class="integration-main">
-                        <span class="integration-icon">
-                            <i class="fas fa-shield-alt" aria-hidden="true"></i>
-                        </span>
-                        <div>
-                            <h2 class="integration-title">Sinkronisasi Dapodik</h2>
-                            <p class="integration-copy">Integrasi data guru &amp; siswa berkala</p>
-                        </div>
-                    </div>
-                    <div class="integration-footer">
-                        <span class="integration-status">
-                            <i class="far fa-check-circle" aria-hidden="true"></i>
-                            Status Server: Aktif
-                        </span>
-                        <span class="integration-version">v3.4.2</span>
-                    </div>
-                </section>
+    <main class="login-stage">
+
+        <section class="login-card" aria-label="Login Admin E-PKL">
+
+            <!-- PANEL KIRI -->
+            <aside class="login-brand-panel">
+
+                <img
+                    src="<?= $e($assetBaseUrl) ?>/img/logo_e-pkl.png"
+                    alt="Logo E-PKL"
+                    class="app-logo"
+                >
+
             </aside>
 
-            <section class="login-form-panel">
-                <div class="login-form-content">
-                    <div class="login-brand" aria-label="EPKL Admin">
-                        <span class="brand-wordmark" aria-hidden="true">EPKL</span>
-                        <span class="admin-badge">ADMIN</span>
-                    </div>
 
-                    <div class="login-notice" role="note">
-                        <i class="fas fa-info-circle" aria-hidden="true"></i>
-                        <span>Gunakan akun Administrator yang telah terdaftar di sistem Sekolah.</span>
-                    </div>
+            <!-- PANEL KANAN -->
+            <section class="login-form-panel">
+
+                <div class="login-form-content">
+
+                    <h1 class="login-title">
+                        Login Admin
+                    </h1>
+
+                    <p class="login-subtitle">
+                        Masuk untuk mengakses dashboard E-PKL
+                    </p>
+
 
                     <form id="adminLoginForm" autocomplete="on">
+
+                        <!-- USERNAME -->
                         <div class="login-field">
-                            <label for="adminUsername">Username</label>
+
+                            <label for="adminUsername">
+                                Username
+                            </label>
+
                             <div class="login-input-group">
-                                <i class="far fa-envelope" aria-hidden="true"></i>
-                                <input id="adminUsername" name="username" type="text"
-                                       placeholder="Masukan Username." autocomplete="username">
+
+                                <i class="far fa-user" aria-hidden="true"></i>
+
+                                <input
+                                    id="adminUsername"
+                                    name="username"
+                                    type="text"
+                                    placeholder="Masukan Username"
+                                    autocomplete="username"
+                                >
+
                             </div>
+
                         </div>
 
+
+                        <!-- PASSWORD -->
                         <div class="login-field">
-                            <label for="adminPassword">Password</label>
+
+                            <label for="adminPassword">
+                                Password
+                            </label>
+
                             <div class="login-input-group">
+
                                 <i class="fas fa-lock" aria-hidden="true"></i>
-                                <input id="adminPassword" name="password" type="password"
-                                       placeholder="Masukan Password." autocomplete="current-password">
-                                <button class="login-password-toggle" type="button"
-                                        aria-label="Tampilkan password" aria-pressed="false">
+
+                                <input
+                                    id="adminPassword"
+                                    name="password"
+                                    type="password"
+                                    placeholder="Masukan Password"
+                                    autocomplete="current-password"
+                                >
+
+                                <button
+                                    class="login-password-toggle"
+                                    type="button"
+                                    aria-label="Tampilkan password"
+                                    aria-pressed="false"
+                                >
                                     <i class="far fa-eye" aria-hidden="true"></i>
                                 </button>
+
                             </div>
+
                         </div>
 
-                        <div class="login-options">
-                            <label class="remember-option" for="rememberAdmin">
-                                <input id="rememberAdmin" name="remember" type="checkbox">
-                                <span>Ingat Saya</span>
-                            </label>
-                            <a class="forgot-link" href="#" aria-label="Lupa password">Lupa Password?</a>
-                        </div>
 
-                        <button class="login-button" type="button">
+                        <!-- BUTTON LOGIN -->
+                        <button
+                            class="login-button"
+                            type="submit"
+                        >
                             Masuk ke Dashboard
-                            <i class="fas fa-arrow-right" aria-hidden="true"></i>
+
+                            <i
+                                class="fas fa-arrow-right"
+                                aria-hidden="true"
+                            ></i>
+
                         </button>
 
-                        <div class="login-divider">ATAU MASUK VIA SSO</div>
-
-                        <button class="google-button" type="button">
-                            <i class="fab fa-google google-mark" aria-hidden="true"></i>
-                            Masuk dengan Akun Google
-                        </button>
                     </form>
 
-                    <p class="ui-only-note">Tampilan login administrator</p>
                 </div>
+
             </section>
+
         </section>
+
     </main>
 
     <script>
