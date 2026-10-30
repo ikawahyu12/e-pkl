@@ -1,5 +1,3 @@
-Get-ChildItem ".\siswa-web\app\views\layouts" -File
-Get-ChildItem ".\siswa-web\app\views\components" -File.DS_Store
 Thumbs.db
 .vscode/
 .idea/
