@@ -1,0 +1,6 @@
+Thumbs.db
+.vscode/
+.idea/
+app/config/database.local.php
+uploads/*
+!uploads/.gitkeep

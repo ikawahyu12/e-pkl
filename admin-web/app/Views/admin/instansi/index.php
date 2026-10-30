@@ -1,5 +1,7 @@
 <?php
 // ===== 1. BLOK PHP ATAS =====
+require_once __DIR__ . '/../../../../../config/koneksi.php';
+
 $activePage   = 'instansi-mitra';
 $pageTitle    = 'Data Instansi Mitra';
 $pageSubtitle = 'Kelola data instansi/perusahaan mitra dan kuota penempatan PKL.';
@@ -12,63 +14,69 @@ $scriptDir    = rtrim(str_replace('\\', '/', dirname($_SERVER['SCRIPT_NAME'] ?? 
 $assetBaseUrl = $scriptDir . '/assets';
 $e            = static fn($v): string => htmlspecialchars((string) $v, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
 
-// Data dummy
-$totalMitra   = 42;
-$totalKuota   = 185;
-$terisi       = 148;
+// ==========================================
+// QUERY DATA DARI DATABASE
+// ==========================================
 
-$mitraList = [
-    [
-        'id'                  => 1,
-        'nama_instansi'       => 'PT Telkom Indonesia (Persero) Tbk',
-        'alamat'              => 'Jl. Pahlawan No. 12, Surabaya',
-        'pembimbing_lapangan' => 'Budi Santoso, S.Kom.',
-        'telepon'             => '081234567890',
-        'kuota'               => 10,
-        'terisi'              => 8,
-        'sektor'              => 'Teknologi Informasi'
-    ],
-    [
-        'id'                  => 2,
-        'nama_instansi'       => 'Studio Animasi Semesta',
-        'alamat'              => 'Jl. Pemuda No. 45, Malang',
-        'pembimbing_lapangan' => 'Dewi Sartika, M.Sn.',
-        'telepon'             => '082198765432',
-        'kuota'               => 5,
-        'terisi'              => 5,
-        'sektor'              => 'Industri Kreatif'
-    ],
-    [
-        'id'                  => 3,
-        'nama_instansi'       => 'Lintasarta Datacenter',
-        'alamat'              => 'Jl. Jend. Sudirman No. 88, Jakarta',
-        'pembimbing_lapangan' => 'Eko Prasetyo, S.T.',
-        'telepon'             => '085678901234',
-        'kuota'               => 8,
-        'terisi'              => 6,
-        'sektor'              => 'Jaringan & Telekomunikasi'
-    ],
-    [
-        'id'                  => 4,
-        'nama_instansi'       => 'CV Digital Optima',
-        'alamat'              => 'Jl. Anggrek No. 15, Kediri',
-        'pembimbing_lapangan' => 'Rina Wijaya, S.T.',
-        'telepon'             => '087812345678',
-        'kuota'               => 4,
-        'terisi'              => 2,
-        'sektor'              => 'Teknologi Informasi'
-    ],
-    [
-        'id'                  => 5,
-        'nama_instansi'       => 'Biznet Networks',
-        'alamat'              => 'Jl. Veteran No. 20, Kediri',
-        'pembimbing_lapangan' => 'Ahmad Fauzi, S.Kom.',
-        'telepon'             => '081901234567',
-        'kuota'               => 6,
-        'terisi'              => 6,
-        'sektor'              => 'Jaringan & Telekomunikasi'
-    ]
-];
+// 1. Ambil semua instansi + hitung jumlah siswa terisi via JOIN penempatan
+$sql = "SELECT 
+            i.id_instansi,
+            i.nama_instansi,
+            i.alamat,
+            i.no_telepon,
+            i.nama_kontak,
+            i.email,
+            i.jenis_instansi,
+            i.status,
+            i.kuota,
+            i.sektor,
+            COUNT(p.id_penempatan) AS terisi
+        FROM instansi i
+        LEFT JOIN penempatan_pkl p 
+            ON p.id_instansi = i.id_instansi 
+            AND p.status = 'aktif'
+        GROUP BY i.id_instansi
+        ORDER BY i.nama_instansi ASC";
+
+$result = mysqli_query($koneksi, $sql);
+if (!$result) {
+    die("Query error: " . mysqli_error($koneksi));
+}
+
+$mitraList = [];
+while ($row = mysqli_fetch_assoc($result)) {
+    $mitraList[] = $row;
+}
+
+// 2. Statistik ringkas
+$stat = mysqli_fetch_assoc(mysqli_query($koneksi, "
+    SELECT 
+        COUNT(*) AS total_mitra,
+        COALESCE(SUM(kuota), 0) AS total_kuota
+    FROM instansi
+    WHERE status = 'aktif'
+"));
+
+$totalMitra = (int) $stat['total_mitra'];
+$totalKuota = (int) $stat['total_kuota'];
+
+$terisi = (int) mysqli_fetch_assoc(mysqli_query($koneksi, "
+    SELECT COUNT(*) AS jml 
+    FROM penempatan_pkl 
+    WHERE status = 'aktif'
+"))['jml'];
+
+// 3. Ambil daftar sektor unik untuk dropdown filter
+$sektorList = [];
+$sektorQuery = mysqli_query($koneksi, "
+    SELECT DISTINCT sektor 
+    FROM instansi 
+    WHERE sektor IS NOT NULL AND sektor <> '' 
+    ORDER BY sektor ASC
+");
+while ($s = mysqli_fetch_assoc($sektorQuery)) {
+    $sektorList[] = $s['sektor'];
+}
 
 ob_start();
 ?>
@@ -94,7 +102,7 @@ ob_start();
     .sl-search .sl-field { width: 100%; padding: 0 .75rem 0 34px; }
     .sl-filters { display: flex; gap: .4rem; }
     .sl-filters select.sl-field { appearance: none; -webkit-appearance: none; padding: 0 .9rem; cursor: pointer; }
-    .sl-filters .sl-sektor { width: 185px; }
+    .sl-filters .sl-sektor { width: 200px; }
 
     /* ---- Tabel ---- */
     .sl-card { background: #fff; border-radius: 12px; box-shadow: 0 1px 3px rgba(16,24,40,.07); overflow: hidden; }
@@ -103,10 +111,13 @@ ob_start();
     .sl-table td { padding: .85rem .6rem; font-size: .72rem; color: #4b586b; vertical-align: middle; border: 0; border-bottom: 1px solid #f0f3f8; }
     .sl-table .c-no { text-align: center; }
     .sl-nama { font-weight: 700; color: #0f1d3a; font-size: .82rem; }
+    .sl-nama small { display: block; font-weight: 400; color: #94a3b8; font-size: .65rem; margin-top: 2px; }
 
     .sl-badge { display: inline-block; padding: .12rem .6rem; border-radius: 999px; font-size: .62rem; font-weight: 500; }
     .sl-badge-tersedia { background: #dbe8fb; color: #2a5aa0; }
     .sl-badge-penuh { background: #fee2e2; color: #dc2626; }
+    .sl-badge-internal { background: #fef3c7; color: #b45309; }
+    .sl-badge-eksternal { background: #e0f2fe; color: #0369a1; }
 
     .sl-aksi { white-space: nowrap; }
     .sl-aksi a, .sl-aksi button { font-size: .66rem; margin-right: .45rem; padding: 0; border: 0; background: none; text-decoration: none; cursor: pointer; }
@@ -139,7 +150,7 @@ ob_start();
             <div class="sl-stat">
                 <span class="sl-stat-icon"><i class="fas fa-building"></i></span>
                 <div>
-                    <div class="sl-stat-label">Total Instansi Mitra</div>
+                    <div class="sl-stat-label">Total Instansi Mitra Aktif</div>
                     <div class="sl-stat-value" style="color:#0f1d3a;"><?= $e($totalMitra) ?></div>
                 </div>
             </div>
@@ -173,10 +184,9 @@ ob_start();
         <div class="sl-filters">
             <select id="slSektor" class="sl-field sl-sektor">
                 <option value="">Semua Sektor / Bidang</option>
-                <option value="Teknologi Informasi">Teknologi Informasi</option>
-                <option value="Industri Kreatif">Industri Kreatif</option>
-                <option value="Jaringan & Telekomunikasi">Jaringan & Telekomunikasi</option>
-                <option value="Pemerintahan">Pemerintahan</option>
+                <?php foreach ($sektorList as $sk): ?>
+                    <option value="<?= $e($sk) ?>"><?= $e($sk) ?></option>
+                <?php endforeach; ?>
             </select>
         </div>
     </div>
@@ -188,42 +198,58 @@ ob_start();
                 <thead>
                     <tr>
                         <th class="c-no" style="width:5%;">No</th>
-                        <th style="width:20%;">Nama Instansi</th>
+                        <th style="width:22%;">Nama Instansi</th>
                         <th style="width:22%;">Alamat Lengkap</th>
-                        <th style="width:16%;">Penanggung Jawab</th>
+                        <th style="width:14%;">Penanggung Jawab</th>
                         <th style="width:12%;">No. Telepon</th>
-                        <th style="width:11%;">Kuota PKL</th>
-                        <th style="width:14%;">Aksi</th>
+                        <th style="width:12%;">Kuota PKL</th>
+                        <th style="width:13%;">Aksi</th>
                     </tr>
                 </thead>
                 <tbody>
-                    <?php foreach ($mitraList as $i => $m): 
-                        $isPenuh = $m['terisi'] >= $m['kuota'];
-                    ?>
-                        <tr data-sektor="<?= $e($m['sektor']) ?>">
-                            <td class="c-no"><?= $i + 1 ?></td>
-                            <td class="sl-nama"><?= $e($m['nama_instansi']) ?></td>
-                            <td><?= $e($m['alamat']) ?></td>
-                            <td><?= $e($m['pembimbing_lapangan']) ?></td>
-                            <td><?= $e($m['telepon']) ?></td>
-                            <td>
-                                <span class="sl-badge <?= $isPenuh ? 'sl-badge-penuh' : 'sl-badge-tersedia' ?>">
-                                    <?= $e($m['terisi']) ?> / <?= $e($m['kuota']) ?> Siswa
-                                </span>
-                            </td>
-                            <td class="sl-aksi">
-                                <a class="a-detail" href="?page=detail-mitra&id=<?= (int)$m['id'] ?>">Detail</a>
-                                <a class="a-edit" href="?page=edit-mitra&id=<?= (int)$m['id'] ?>">Edit</a>
-                                <button type="button" class="a-hapus sl-hapus"
-                                        data-id="<?= (int)$m['id'] ?>"
-                                        data-nama="<?= $e($m['nama_instansi']) ?>"
-                                        data-pembimbing="<?= $e($m['pembimbing_lapangan']) ?>"
-                                        data-telepon="<?= $e($m['telepon']) ?>"
-                                        data-kuota="<?= $e($m['kuota']) ?>"
-                                        data-terisi="<?= $e($m['terisi']) ?>">Hapus</button>
-                            </td>
+                    <?php if (empty($mitraList)): ?>
+                        <tr>
+                            <td colspan="7" class="text-center py-4 text-muted">Belum ada data instansi mitra.</td>
                         </tr>
-                    <?php endforeach; ?>
+                    <?php else: ?>
+                        <?php foreach ($mitraList as $i => $m):
+                            $isPenuh = $m['kuota'] > 0 && $m['terisi'] >= $m['kuota'];
+                        ?>
+                            <tr data-sektor="<?= $e($m['sektor'] ?? '') ?>">
+                                <td class="c-no"><?= $i + 1 ?></td>
+                                <td class="sl-nama">
+                                    <?= $e($m['nama_instansi']) ?>
+                                    <small>
+                                        <span class="sl-badge sl-badge-<?= $e($m['jenis_instansi']) ?>">
+                                            <?= ucfirst($e($m['jenis_instansi'])) ?>
+                                        </span>
+                                        <?php if ($m['status'] === 'nonaktif'): ?>
+                                            <span class="sl-badge sl-badge-penuh">Nonaktif</span>
+                                        <?php endif; ?>
+                                    </small>
+                                </td>
+                                <td><?= $e($m['alamat']) ?></td>
+                                <td><?= $e($m['nama_kontak'] ?: '-') ?></td>
+                                <td><?= $e($m['no_telepon'] ?: '-') ?></td>
+                                <td>
+                                    <span class="sl-badge <?= $isPenuh ? 'sl-badge-penuh' : 'sl-badge-tersedia' ?>">
+                                        <?= $e($m['terisi']) ?> / <?= $e($m['kuota']) ?> Siswa
+                                    </span>
+                                </td>
+                                <td class="sl-aksi">
+                                    <a class="a-detail" href="?page=detail-mitra&id=<?= (int)$m['id_instansi'] ?>">Detail</a>
+                                    <a class="a-edit" href="?page=edit-mitra&id=<?= (int)$m['id_instansi'] ?>">Edit</a>
+                                    <button type="button" class="a-hapus sl-hapus"
+                                            data-id="<?= (int)$m['id_instansi'] ?>"
+                                            data-nama="<?= $e($m['nama_instansi']) ?>"
+                                            data-pembimbing="<?= $e($m['nama_kontak'] ?: '-') ?>"
+                                            data-telepon="<?= $e($m['no_telepon'] ?: '-') ?>"
+                                            data-kuota="<?= (int)$m['kuota'] ?>"
+                                            data-terisi="<?= (int)$m['terisi'] ?>">Hapus</button>
+                                </td>
+                            </tr>
+                        <?php endforeach; ?>
+                    <?php endif; ?>
                     <tr id="slKosong" style="display:none;">
                         <td colspan="7" class="text-center py-4 text-muted">Tidak ada data instansi mitra yang sesuai.</td>
                     </tr>
@@ -232,12 +258,12 @@ ob_start();
         </div>
 
         <div class="sl-foot">
-            <div class="sl-info" id="slInfo">Menampilkan 1-<?= count($mitraList) ?> dari <?= $e($totalMitra) ?> instansi</div>
+            <div class="sl-info" id="slInfo">
+                Menampilkan 1-<?= count($mitraList) ?> dari <?= $e(count($mitraList)) ?> instansi
+            </div>
             <ul class="sl-pager">
                 <li class="disabled"><a href="#">Sebelumnya</a></li>
                 <li class="active"><a href="#">1</a></li>
-                <li><a href="#">2</a></li>
-                <li><a href="#">3</a></li>
                 <li><a href="#">Selanjutnya</a></li>
             </ul>
         </div>
@@ -248,10 +274,10 @@ ob_start();
 <div class="modal fade sl-modal" id="slModalHapus" tabindex="-1" role="dialog" aria-labelledby="slModalHapusJudul" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered" role="document">
         <div class="modal-content p-2">
-            <form method="POST" action="">
+            <form method="POST" action="?page=hapus-mitra">
                 <div class="modal-body">
                     <input type="hidden" name="delete_id" id="slHId">
-                    
+
                     <!-- Header Modal -->
                     <div class="d-flex mb-3" style="gap:1rem;">
                         <div class="sl-trash"><i class="fas fa-trash-alt"></i></div>
@@ -295,9 +321,8 @@ ob_start();
 <script>
     window.addEventListener('load', function () {
         var $ = window.jQuery;
+        var total = <?= (int) count($mitraList) ?>;
 
-        // Filter & Pencarian
-        var total = <?= (int) $totalMitra ?>;
         function terapkan() {
             var q = $('#slCari').val().toLowerCase().trim();
             var s = $('#slSektor').val();
@@ -310,14 +335,12 @@ ob_start();
                 if (cocok) { tampil++; }
             });
             $('#slKosong').toggle(tampil === 0);
-            $('#slInfo').text(tampil === $('#slTabel tbody tr[data-sektor]').length
-                ? 'Menampilkan 1-' + tampil + ' dari ' + total + ' instansi'
-                : 'Menampilkan ' + tampil + ' instansi');
+            $('#slInfo').text('Menampilkan ' + tampil + ' dari ' + total + ' instansi');
         }
         $('#slCari').on('input', terapkan);
         $('#slSektor').on('change', terapkan);
 
-        // JavaScript Passing Data ke Modal Hapus
+        // Modal Hapus
         $(document).on('click', '.sl-hapus', function () {
             var d = $(this).data();
             $('#slHId').val(d.id);
