@@ -1,7 +1,10 @@
-http://localhost/e-pkl/admin-web/public/<?php
+<?php
 $page = $_GET['page'] ?? 'dashboard';
 
 switch ($page) {
+    case 'login':
+        require dirname(__DIR__) . '/app/Views/auth/login.php';
+        break;
 
     // ==========================================
     // MANAJEMEN USER (ADMIN, GURU, SISWA)
@@ -112,10 +115,14 @@ switch ($page) {
         break;
 
     // ==========================================
-    // DEFAULT (harus hanya ada SATU)
+    // DEFAULT
     // ==========================================
     case 'dashboard':
-    default:
         require dirname(__DIR__) . '/app/Views/admin/dashboard.php';
+        break;
+
+    default:
+        http_response_code(404);
+        echo '404 - Halaman tidak ditemukan.';
         break;
 }

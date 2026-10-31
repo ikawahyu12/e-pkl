@@ -24,9 +24,14 @@ $dashboardUrl = $adminMenuUrls['dashboard'];
 $dashboardUrl = is_string($dashboardUrl) && $dashboardUrl !== '' ? $dashboardUrl : '/';
 
 $activePage = $activePage ?? '';
-if ($activePage === 'laporan-rekap') { // kompatibilitas halaman lama
-    $activePage = 'laporan';
-}
+$activePageAliases = [
+    'siswa'         => 'data-siswa',
+    'user-admin'    => 'manajemen-admin',
+    'user-siswa'    => 'manajemen-siswa',
+    'user-guru'     => 'manajemen-guru',
+    'laporan-rekap' => 'laporan',
+];
+$activePage = $activePageAliases[$activePage] ?? $activePage;
 
 $menuItems = [
     ['key' => 'dashboard', 'label' => 'Dashboard', 'icon' => 'fas fa-fw fa-chart-line'],
@@ -158,10 +163,11 @@ $menuItems = [
     <hr class="sidebar-divider d-none d-md-block">
 
     <li class="nav-item">
-        <a class="nav-link text-danger" href="<?= htmlspecialchars($adminMenuUrls['logout'] ?? '#') ?>">
-            <i class="fas fa-fw fa-sign-out-alt text-danger" aria-hidden="true"></i>
-            <span>Logout</span>
-        </a>
+        <span class="nav-link text-muted" aria-disabled="true"
+              title="Logout tersedia setelah autentikasi diimplementasikan">
+            <i class="fas fa-fw fa-sign-out-alt" aria-hidden="true"></i>
+            <span>Logout <small class="d-block">Belum tersedia</small></span>
+        </span>
     </li>
 
     <li class="nav-item mt-auto px-4 pb-2 pt-3">
@@ -169,6 +175,7 @@ $menuItems = [
     </li>
 
     <li class="nav-item text-center d-none d-md-inline mb-3">
-        <button class="rounded-circle border-0" id="sidebarToggle" aria-label="Ciutkan sidebar"></button>
+        <button class="rounded-circle border-0" id="sidebarToggle" aria-label="Buka atau ciutkan sidebar"
+                aria-controls="accordionSidebar"></button>
     </li>
 </ul>

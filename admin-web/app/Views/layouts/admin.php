@@ -34,6 +34,11 @@ $e = static fn ($value): string => htmlspecialchars((string) $value, ENT_QUOTES 
 
         #content-wrapper {
             background-color: #f7f9fc;
+            min-width: 0;
+        }
+
+        #content {
+            min-width: 0;
         }
 
         .sidebar-epkl {
@@ -101,6 +106,16 @@ $e = static fn ($value): string => htmlspecialchars((string) $value, ENT_QUOTES 
             .page-heading-actions {
                 margin-top: .75rem;
                 width: 100%;
+            }
+        }
+
+        @media (max-width: 767.98px) {
+            .topbar {
+                min-width: 0;
+            }
+
+            .topbar .navbar-nav {
+                flex-shrink: 0;
             }
         }
     </style>
