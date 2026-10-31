@@ -8,15 +8,18 @@ define('DEV_MODE', true);
 
 
 // Deteksi base URL otomatis (XAMPP/Laragon di subfolder maupun php -S)
-$scheme    = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
-$scriptDir = rtrim(str_replace('\\', '/', dirname($_SERVER['SCRIPT_NAME'])), '/');
+$scheme = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off')
+    ? 'https'
+    : 'http';
 
-// Base path menyertakan folder public agar router dapat membaca URL dengan benar.
-$basePath = $scriptDir;
+$scriptDir = rtrim(
+    str_replace('\\', '/', dirname($_SERVER['SCRIPT_NAME'])),
+    '/'
+);
 
-define('BASE_PATH', $basePath);
-define('BASE_URL', $scheme . '://' . $_SERVER['HTTP_HOST'] . $basePath);
-define('ASSET_URL', $scheme . '://' . $_SERVER['HTTP_HOST'] . $scriptDir . '/assets');
+define('BASE_PATH', $scriptDir);
+define('BASE_URL', $scheme . '://' . $_SERVER['HTTP_HOST'] . $scriptDir);
+define('ASSET_URL', BASE_URL . '/assets');
 
 // Konfigurasi database (diisi anggota yang mengerjakan model)
 define('DB_HOST', 'localhost');
