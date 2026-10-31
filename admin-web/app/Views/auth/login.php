@@ -257,8 +257,7 @@ $e = static fn ($value): string => htmlspecialchars((string) $value, ENT_QUOTES 
             text-decoration: underline;
         }
 
-        .login-button,
-        .google-button {
+        .login-button {
             display: flex;
             width: 100%;
             min-height: 43px;
@@ -283,42 +282,6 @@ $e = static fn ($value): string => htmlspecialchars((string) $value, ENT_QUOTES 
         .login-button:focus {
             background: #087bd0;
             border-color: #087bd0;
-        }
-
-        .login-divider {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            margin: 18px 0;
-            color: #8a95a4;
-            font-size: .63rem;
-            font-weight: 700;
-            white-space: nowrap;
-        }
-
-        .login-divider::before,
-        .login-divider::after {
-            height: 1px;
-            flex: 1;
-            background: #e7edf4;
-            content: "";
-        }
-
-        .google-button {
-            color: #455468;
-            background: #eef3ff;
-            border: 1px solid #eef3ff;
-        }
-
-        .google-button:hover,
-        .google-button:focus {
-            background: #e4edff;
-            border-color: #d9e5fb;
-        }
-
-        .google-mark {
-            color: #4285f4;
-            font-size: .95rem;
         }
 
         .ui-only-note {
@@ -443,7 +406,7 @@ $e = static fn ($value): string => htmlspecialchars((string) $value, ENT_QUOTES 
                         <div class="login-field">
 
                             <label for="adminUsername">
-                                Username
+                                Username atau Email
                             </label>
 
                             <div class="login-input-group">
@@ -454,8 +417,9 @@ $e = static fn ($value): string => htmlspecialchars((string) $value, ENT_QUOTES 
                                     id="adminUsername"
                                     name="username"
                                     type="text"
-                                    placeholder="Masukan Username"
+                                    placeholder="Masukkan username atau email"
                                     autocomplete="username"
+                                    required
                                 >
 
                             </div>
@@ -478,8 +442,9 @@ $e = static fn ($value): string => htmlspecialchars((string) $value, ENT_QUOTES 
                                     id="adminPassword"
                                     name="password"
                                     type="password"
-                                    placeholder="Masukan Password"
+                                    placeholder="Masukkan password"
                                     autocomplete="current-password"
+                                    required
                                 >
 
                                 <button
@@ -501,7 +466,7 @@ $e = static fn ($value): string => htmlspecialchars((string) $value, ENT_QUOTES 
                             class="login-button"
                             type="submit"
                         >
-                            Masuk ke Dashboard
+                            Masuk
 
                             <i
                                 class="fas fa-arrow-right"
@@ -510,6 +475,7 @@ $e = static fn ($value): string => htmlspecialchars((string) $value, ENT_QUOTES 
 
                         </button>
 
+                        <p id="loginStatus" class="ui-only-note" role="status" aria-live="polite"></p>
                     </form>
 
                 </div>
@@ -532,8 +498,17 @@ $e = static fn ($value): string => htmlspecialchars((string) $value, ENT_QUOTES 
             passwordToggle.innerHTML = `<i class="far ${showPassword ? 'fa-eye-slash' : 'fa-eye'}" aria-hidden="true"></i>`;
         });
 
-        document.getElementById('adminLoginForm').addEventListener('submit', (event) => {
+        const loginForm = document.getElementById('adminLoginForm');
+        const loginStatus = document.getElementById('loginStatus');
+
+        loginForm.addEventListener('submit', (event) => {
             event.preventDefault();
+
+            if (!loginForm.reportValidity()) {
+                return;
+            }
+
+            loginStatus.textContent = 'Autentikasi Admin belum tersedia. Tidak ada sesi yang dibuat.';
         });
     </script>
 </body>

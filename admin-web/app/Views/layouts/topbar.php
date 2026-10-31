@@ -1,12 +1,13 @@
 <?php
 $academicYearLabel = isset($academicYearLabel) && is_string($academicYearLabel)
     ? $academicYearLabel
-    : 'TA 2026/2027 Genap';
-$adminUserName = isset($adminUserName) && is_string($adminUserName) ? $adminUserName : 'Admin Utama';
-$adminUserRole = isset($adminUserRole) && is_string($adminUserRole) ? $adminUserRole : 'Super Admin';
+    : 'Tahun ajaran belum tersedia';
+$adminUserName = isset($adminUserName) && is_string($adminUserName) ? $adminUserName : 'Akun admin belum tersedia';
+$adminUserRole = isset($adminUserRole) && is_string($adminUserRole) ? $adminUserRole : 'Autentikasi belum tersedia';
 ?>
 <nav class="navbar navbar-expand navbar-light bg-white topbar mb-4 static-top shadow-sm">
-    <button id="sidebarToggleTop" class="btn btn-link d-md-none rounded-circle mr-3" aria-label="Buka atau ciutkan sidebar">
+    <button id="sidebarToggleTop" class="btn btn-link d-md-none rounded-circle mr-3"
+            aria-label="Buka atau ciutkan sidebar" aria-controls="accordionSidebar">
         <i class="fa fa-bars" aria-hidden="true"></i>
     </button>
 
@@ -14,10 +15,11 @@ $adminUserRole = isset($adminUserRole) && is_string($adminUserRole) ? $adminUser
         <div class="input-group">
             <input class="form-control bg-light border-0 small"
                    type="search"
-                   placeholder="Cari siswa, instansi, NISN..."
+                   placeholder="Pencarian belum tersedia"
+                   disabled
                    aria-label="Cari siswa, instansi, atau NISN">
             <div class="input-group-append">
-                <button class="btn btn-primary" type="submit" aria-label="Cari">
+                <button class="btn btn-primary" type="submit" aria-label="Cari" disabled>
                     <i class="fas fa-search fa-sm" aria-hidden="true"></i>
                 </button>
             </div>
@@ -33,7 +35,7 @@ $adminUserRole = isset($adminUserRole) && is_string($adminUserRole) ? $adminUser
             </a>
             <div class="dropdown-menu dropdown-menu-right shadow" aria-labelledby="academicYearDropdown">
                 <span class="dropdown-item-text small text-muted">Tahun ajaran aktif</span>
-                <span class="dropdown-item-text font-weight-bold"><?= ($academicYearLabel) ?></span>
+                <span class="dropdown-item-text font-weight-bold"><?= $e($academicYearLabel) ?></span>
             </div>
         </li>
 
@@ -41,11 +43,10 @@ $adminUserRole = isset($adminUserRole) && is_string($adminUserRole) ? $adminUser
             <a class="nav-link dropdown-toggle" href="#" id="alertsDropdown" role="button"
                data-toggle="dropdown" aria-haspopup="true" aria-expanded="false" aria-label="Notifikasi">
                 <i class="fas fa-bell fa-fw" aria-hidden="true"></i>
-                <span class="badge badge-danger badge-counter" aria-hidden="true">&nbsp;</span>
             </a>
             <div class="dropdown-menu dropdown-menu-right shadow" aria-labelledby="alertsDropdown">
                 <span class="dropdown-item-text small text-muted">Notifikasi</span>
-                <span class="dropdown-item-text small">Daftar notifikasi akan ditampilkan di sini.</span>
+                <span class="dropdown-item-text small">Notifikasi belum tersedia.</span>
             </div>
         </li>
 
@@ -65,10 +66,11 @@ $adminUserRole = isset($adminUserRole) && is_string($adminUserRole) ? $adminUser
                 <span class="dropdown-item-text small font-weight-bold"><?= $e($adminUserName) ?></span>
                 <span class="dropdown-item-text small text-muted"><?= $e($adminUserRole) ?></span>
                 <div class="dropdown-divider"></div>
-                <a class="dropdown-item" href="<?= $e($adminMenuUrls['logout'] ?? '#') ?>">
+                <span class="dropdown-item-text text-muted" aria-disabled="true"
+                      title="Logout tersedia setelah autentikasi diimplementasikan">
                     <i class="fas fa-sign-out-alt fa-sm fa-fw mr-2 text-gray-400" aria-hidden="true"></i>
-                    Logout
-                </a>
+                    Logout belum tersedia
+                </span>
             </div>
         </li>
     </ul>

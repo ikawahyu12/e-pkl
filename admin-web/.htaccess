@@ -1,0 +1,2 @@
+RewriteEngine On
+RewriteRule ^login/?$ public/index.php?page=login [QSA,L]
