@@ -9,7 +9,7 @@ class JurnalController extends Controller
 
     public function index()
     {
-        $this->render('siswa/jurnal/index', [
+        $this->render('siswa/jurnal/jurnal', [
             'title'    => 'Jurnal',
             'showBack' => true,
         ]);

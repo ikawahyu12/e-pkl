@@ -9,7 +9,7 @@ class RiwayatController extends Controller
 
     public function index()
     {
-        $this->render('siswa/riwayat/index', [
+        $this->render('siswa/riwayat/riwayat', [
             'title'    => 'Riwayat',
             'showBack' => true,
         ]);

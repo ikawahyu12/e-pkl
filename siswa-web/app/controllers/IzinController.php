@@ -9,7 +9,7 @@ class IzinController extends Controller
 
     public function index()
     {
-        $this->render('siswa/izin/index', [
+        $this->render('siswa/izin/izin', [
             'title'    => 'Izin',
             'showBack' => true,
         ]);
