@@ -12,6 +12,7 @@ class JurnalController extends Controller
         $this->render('siswa/jurnal/jurnal', [
             'title'    => 'Jurnal',
             'showBack' => true,
+            'wide'     => true,
         ]);
     }
 }

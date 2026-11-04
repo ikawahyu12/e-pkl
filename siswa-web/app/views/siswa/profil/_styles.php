@@ -81,4 +81,50 @@ if (!function_exists('pf_icon')) {
     .pf-alert { padding: 12px 16px; border-radius: 12px; font-size: 13px; font-weight: 600; }
     .pf-alert-success { background: #dcfce7; color: #16a34a; }
     .pf-alert-error { background: #ffe4e6; color: #e11d48; }
+
+    @media (min-width: 900px) {
+        .pf-overview {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            align-items: start;
+        }
+
+        .pf-overview > .pf-hero,
+        .pf-overview > .pf-menu {
+            grid-column: 1 / -1;
+        }
+
+        .pf-actions {
+            flex-direction: row-reverse;
+        }
+
+        .pf-actions > * {
+            width: auto;
+            min-width: 180px;
+        }
+    }
+
+    @media (max-width: 560px) {
+        .pf-card {
+            padding: 17px;
+            border-radius: 16px;
+        }
+
+        .pf-row {
+            gap: 10px;
+        }
+
+        .pf-row strong {
+            overflow-wrap: anywhere;
+        }
+
+        .pf-card-head {
+            align-items: flex-start;
+            gap: 10px;
+        }
+
+        .pf-badge {
+            white-space: nowrap;
+        }
+    }
 </style>

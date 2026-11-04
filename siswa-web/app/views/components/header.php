@@ -3,8 +3,7 @@ $u = current_user(); ?>
 <header class="topbar">
     <div class="container topbar-in">
         <a class="brand" href="<?= url('beranda') ?>" aria-label="Ke Beranda">
-            <span class="brand-mark">E</span>
-            <span class="brand-text">Pantau PKL</span>
+            <img class="brand-logo" src="<?= e(asset('img/logo_e-pkl.png')) ?>" alt="Logo E-PKL">
         </a>
         <a class="user-chip" href="<?= url('profil') ?>" title="Profil saya">
             <span class="avatar"><?= e($u['inisial']) ?></span>

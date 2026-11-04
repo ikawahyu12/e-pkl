@@ -12,6 +12,7 @@ class IzinController extends Controller
         $this->render('siswa/izin/izin', [
             'title'    => 'Izin',
             'showBack' => true,
+            'wide'     => true,
         ]);
     }
 }

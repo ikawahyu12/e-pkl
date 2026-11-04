@@ -14,6 +14,7 @@ class PresensiController extends Controller
         $this->render('siswa/presensi/index', [
             'title'    => 'Presensi Harian',
             'showBack' => true,
+            'wide'     => true,
             // TODO: Ambil data status presensi hari ini dari database jika diperlukan
         ]);
     }

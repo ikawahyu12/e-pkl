@@ -6,7 +6,7 @@
     <title><?= e($title) ?> - <?= APP_NAME ?></title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="<?= asset('css/app.css') ?>">
+    <link rel="stylesheet" href="<?= asset('css/app.css') ?>?v=<?= filemtime(dirname(APP_PATH) . '/public/assets/css/app.css') ?>">
 </head>
 <body>
 <div class="bg-deco" aria-hidden="true"></div>
@@ -27,6 +27,6 @@
 
     <footer class="footer">Direktorat Pembinaan SMK &copy; <?= date('Y') ?></footer>
 </div>
-<script src="<?= asset('js/app.js') ?>"></script>
+<script src="<?= asset('js/app.js') ?>?v=<?= filemtime(dirname(APP_PATH) . '/public/assets/js/app.js') ?>"></script>
 </body>
 </html>

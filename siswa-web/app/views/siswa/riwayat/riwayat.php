@@ -1,88 +1,89 @@
-<?php
-// ============================================================
-// DATA PALSU (sementara). Nanti ganti dengan data dari controller:
-// $riwayat = $data['riwayat'];
-// 'tipe' harus 'presensi' atau 'jurnal'
-// ============================================================
-$riwayat = [
-    ['tipe' => 'presensi', 'tanggal' => 'Kamis, 12 Mar 2026', 'judul' => 'Presensi Masuk',        'nilai' => '07:42 WIB', 'status' => 'Tepat Waktu',  'warna' => 'hijau'],
-    ['tipe' => 'jurnal',   'tanggal' => 'Rabu, 11 Mar 2026',  'judul' => 'Laporan Jurnal Harian', 'nilai' => '1 Laporan', 'status' => 'Terverifikasi', 'warna' => 'hijau'],
-    ['tipe' => 'presensi', 'tanggal' => 'Rabu, 11 Mar 2026',  'judul' => 'Presensi Pulang',       'nilai' => '17:02 WIB', 'status' => 'Hadir',        'warna' => 'hijau'],
-    ['tipe' => 'presensi', 'tanggal' => 'Senin, 09 Mar 2026', 'judul' => 'Presensi Masuk',        'nilai' => '08:12 WIB', 'status' => 'Terlambat',    'warna' => 'oranye'],
-    ['tipe' => 'jurnal',   'tanggal' => 'Selasa, 10 Mar 2026','judul' => 'Laporan Jurnal Harian', 'nilai' => '1 Laporan', 'status' => 'Menunggu',     'warna' => 'oranye'],
-];
-?>
 
-<style>
-    .tab-riwayat { display: flex; background: #fff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 4px; }
-    .tab-riwayat button {
-        flex: 1; border: 0; background: transparent; padding: 8px 0;
-        font-size: 13px; color: #475569; border-radius: 8px; cursor: pointer;
-    }
-    .tab-riwayat button.aktif { background: #dbeafe; color: #1e40af; font-weight: 600; }
+<section class="activity-card history-page" data-pkl-start-date="<?= e($tanggalMulaiPkl ?? '') ?>">
+    <div class="activity-heading">
+        <h2>Riwayat PKL Siswa</h2>
+        <p>Rekap aktivitas dan status kehadiran Anda.</p>
+    </div>
 
-    .kartu-riwayat { background: #fff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 14px 16px; margin-top: 12px; }
-    .kartu-riwayat .baris { display: flex; justify-content: space-between; align-items: center; }
-    .kartu-riwayat .tanggal { font-weight: 600; font-size: 14px; color: #0f172a; }
-    .kartu-riwayat .judul { font-size: 13px; color: #64748b; margin-top: 6px; }
-    .kartu-riwayat .nilai { font-size: 13px; font-weight: 600; color: #0f172a; margin-top: 6px; }
-
-    .badge { font-size: 11px; padding: 3px 10px; border-radius: 999px; font-weight: 600; }
-    .badge.hijau  { background: #d1fae5; color: #047857; }
-    .badge.oranye { background: #ffedd5; color: #c2410c; }
-
-    #kosong-riwayat { display: none; text-align: center; color: #94a3b8; font-size: 13px; padding: 32px 0; }
-</style>
-
-<!-- TAB FILTER -->
-<div class="tab-riwayat" id="tab-riwayat">
-    <button type="button" class="aktif" data-filter="semua">Semua</button>
-    <button type="button" data-filter="presensi">Presensi</button>
-    <button type="button" data-filter="jurnal">Jurnal</button>
-</div>
-
-<!-- LIST RIWAYAT -->
-<div id="list-riwayat">
-    <?php foreach ($riwayat as $item): ?>
-        <div class="kartu-riwayat" data-tipe="<?= htmlspecialchars($item['tipe']) ?>">
-            <div class="baris">
-                <span class="tanggal"><?= htmlspecialchars($item['tanggal']) ?></span>
-                <span class="badge <?= htmlspecialchars($item['warna']) ?>"><?= htmlspecialchars($item['status']) ?></span>
-            </div>
-            <div class="baris">
-                <span class="judul"><?= htmlspecialchars($item['judul']) ?></span>
-                <span class="nilai"><?= htmlspecialchars($item['nilai']) ?></span>
-            </div>
+    <div class="history-toolbar">
+        <div class="history-tabs" role="group" aria-label="Filter jenis riwayat">
+            <button type="button" class="is-active" data-history-type="all" aria-pressed="true">Semua</button>
+            <button type="button" data-history-type="attendance" aria-pressed="false">Presensi</button>
+            <button type="button" data-history-type="journal" aria-pressed="false">Jurnal</button>
         </div>
-    <?php endforeach; ?>
-</div>
 
-<div id="kosong-riwayat">Belum ada data.</div>
+        <div class="history-filters">
+            <label class="sr-only" for="history-week">Minggu</label>
+            <select id="history-week">
+                <option value="all">Semua Minggu</option>
+            </select>
 
-<script>
-    (function () {
-        const tombol = document.querySelectorAll('#tab-riwayat button');
-        const kartu  = document.querySelectorAll('#list-riwayat .kartu-riwayat');
-        const kosong = document.getElementById('kosong-riwayat');
+            <label class="sr-only" for="history-month">Bulan</label>
+            <select id="history-month">
+                <option value="all">Semua Bulan</option>
+                <option value="1">Januari</option>
+                <option value="2">Februari</option>
+                <option value="3">Maret</option>
+                <option value="4">April</option>
+                <option value="5">Mei</option>
+                <option value="6">Juni</option>
+                <option value="7">Juli</option>
+                <option value="8">Agustus</option>
+                <option value="9">September</option>
+                <option value="10">Oktober</option>
+                <option value="11">November</option>
+                <option value="12">Desember</option>
+            </select>
+        </div>
+    </div>
 
-        tombol.forEach(function (btn) {
-            btn.addEventListener('click', function () {
-                const filter = btn.dataset.filter;
+    <div class="history-list" id="history-list">
+        <article class="history-item" data-history-item data-type="attendance" data-date="2026-03-12">
+            <div>
+                <strong>Kamis, 12 Mar 2026</strong>
+                <p>Presensi: Masuk</p>
+            </div>
+            <div class="history-meta">
+                <span class="pill pill-ok">Masuk</span>
+                <small>07:42 WIB</small>
+            </div>
+        </article>
 
-                // ganti tab aktif
-                tombol.forEach(function (b) { b.classList.remove('aktif'); });
-                btn.classList.add('aktif');
+        <article class="history-item" data-history-item data-type="journal" data-date="2026-03-11">
+            <div>
+                <strong>Rabu, 11 Mar 2026</strong>
+                <p>Laporan Jurnal Harian</p>
+            </div>
+            <div class="history-meta">
+                <span class="pill pill-info">Terverifikasi</span>
+                <small>11:21 WIB</small>
+            </div>
+        </article>
 
-                // tampilkan / sembunyikan kartu
-                let jumlah = 0;
-                kartu.forEach(function (k) {
-                    const cocok = filter === 'semua' || k.dataset.tipe === filter;
-                    k.style.display = cocok ? '' : 'none';
-                    if (cocok) jumlah++;
-                });
+        <article class="history-item" data-history-item data-type="attendance" data-date="2026-03-11">
+            <div>
+                <strong>Rabu, 11 Mar 2026</strong>
+                <p>Presensi: Pulang</p>
+            </div>
+            <div class="history-meta">
+                <span class="pill pill-ok">Pulang</span>
+                <small>17:02 WIB</small>
+            </div>
+        </article>
 
-                kosong.style.display = jumlah === 0 ? 'block' : 'none';
-            });
-        });
-    })();
-</script>
+        <article class="history-item" data-history-item data-type="attendance" data-date="2026-03-09">
+            <div>
+                <strong>Senin, 09 Mar 2026</strong>
+                <p>Presensi: Masuk</p>
+            </div>
+            <div class="history-meta">
+                <span class="pill pill-ok">Masuk</span>
+                <small>08:12 WIB</small>
+            </div>
+        </article>
+    </div>
+
+    <p class="history-empty" id="history-empty" role="status" hidden>
+        Tidak ada riwayat untuk filter yang dipilih.
+    </p>
+</section>
