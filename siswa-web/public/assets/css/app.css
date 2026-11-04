@@ -180,3 +180,43 @@ main.container{flex:1;display:flex;flex-direction:column;gap:18px;padding-top:24
 .modal-warning{background:linear-gradient(135deg,#f59e0b,#fcd34d)}
 .modal-danger{background:linear-gradient(135deg,#e11d48,#fb7185)}
 .modal-actions{display:flex;gap:10px}
+
+.topbar-actions {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.logout-button {
+    min-height: 38px;
+    padding: 8px 16px;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    background: #fff;
+    color: var(--text);
+    font: inherit;
+    font-size: 13px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: .2s;
+}
+
+.logout-button:hover {
+    border-color: var(--danger);
+    color: var(--danger);
+}
+
+@media (max-width: 480px) {
+    .topbar-actions {
+        gap: 6px;
+    }
+
+    .logout-button {
+        padding: 7px 10px;
+        font-size: 12px;
+    }
+
+    .user-name {
+        display: none;
+    }
+}

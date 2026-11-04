@@ -1,0 +1,16 @@
+﻿# Laravel API environment
+/api/.env
+/api/.env.*
+!/api/.env.example
+
+# Laravel API dependencies
+/api/vendor/
+/api/node_modules/
+
+# Laravel generated assets
+/api/public/build/
+/api/public/hot
+
+# Local database
+/api/database/*.sqlite
+/api/database/*.sqlite-*
