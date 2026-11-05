@@ -88,7 +88,7 @@ $guru =
     <a class="pf-menu" href="<?= url('profil/password') ?>">
         <span class="l"><?= pf_icon('lock', 20) ?> Ubah Kata Sandi</span><?= pf_icon('chevron', 18) ?>
     </a>
-    <a class="pf-menu pf-danger" href="<?= url('logout') ?>" onclick="return confirm('Yakin ingin keluar?')">
+     onclick="return confirm('Yakin ingin keluar?')">
         <span class="l"><?= pf_icon('logout', 20) ?> Keluar (Logout)</span>
     </a>
 </div>
