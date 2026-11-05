@@ -1,4 +1,6 @@
 <?php
+require_once dirname(__DIR__, 3) . '/Support/Csrf.php';
+$csrfToken = AdminCsrf::token();
 // ===== 1. BLOK PHP ATAS =====
 require_once __DIR__ . '/../../../../../config/koneksi.php';
 
@@ -31,36 +33,50 @@ if ($id <= 0) {
 $pesanSukses = '';
 $pesanError  = '';
 
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && !AdminCsrf::verify($_POST['csrf_token'] ?? null)) {
+    http_response_code(419);
+    $pesanError = 'Sesi formulir tidak valid. Muat ulang halaman lalu coba kembali.';
+} elseif ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $namaInstansi   = trim($_POST['nama_instansi'] ?? '');
     $namaKontak     = trim($_POST['nama_kontak'] ?? '');
     $noTelepon      = trim($_POST['no_telepon'] ?? '');
     $email          = trim($_POST['email'] ?? '');
-    $kuota          = (int) ($_POST['kuota'] ?? 0);
+    $kuota          = filter_var($_POST['kuota'] ?? null, FILTER_VALIDATE_INT);
     $alamat         = trim($_POST['alamat'] ?? '');
     $jenisInstansi  = $_POST['jenis_instansi'] ?? 'eksternal';
     $status         = $_POST['status'] ?? 'aktif';
 
     // Validasi
     if (empty($namaInstansi) || empty($namaKontak) 
-        || empty($noTelepon) || empty($alamat) || $kuota <= 0) {
+        || empty($noTelepon) || empty($alamat) || $kuota === false || $kuota <= 0) {
         $pesanError = 'Harap isi seluruh kolom formulir dengan benar.';
     } elseif (!in_array($jenisInstansi, ['eksternal', 'internal'], true)) {
         $pesanError = 'Jenis instansi tidak valid.';
     } elseif (!in_array($status, ['aktif', 'nonaktif'], true)) {
         $pesanError = 'Status instansi tidak valid.';
+    } elseif (
+        mb_strlen($namaInstansi, 'UTF-8') > 160
+        || mb_strlen($namaKontak, 'UTF-8') > 120
+        || mb_strlen($noTelepon, 'UTF-8') > 25
+        || mb_strlen($email, 'UTF-8') > 150
+        || mb_strlen($jenisInstansi, 'UTF-8') > 80
+        || $kuota > 4294967295
+    ) {
+        $pesanError = 'Panjang salah satu isian melebihi batas kolom database.';
+    } elseif ($email !== '' && !filter_var($email, FILTER_VALIDATE_EMAIL)) {
+        $pesanError = 'Alamat email tidak valid.';
     } else {
         // Update ke database (prepared statement) — tanpa kolom sektor
         $sql = "UPDATE instansi SET
-                    nama_instansi  = ?,
-                    nama_kontak    = ?,
-                    no_telepon     = ?,
-                    email          = ?,
-                    kuota          = ?,
-                    alamat         = ?,
-                    jenis_instansi = ?,
-                    status         = ?
-                WHERE id_instansi = ?";
+            nama = ?,
+            nama_penanggung_jawab = ?,
+            telepon = ?,
+            email = ?,
+            kuota_siswa = ?,
+            alamat = ?,
+            jenis = ?,
+            status = ?
+        WHERE id = ?";
 
         $stmt = mysqli_prepare($koneksi, $sql);
 
@@ -85,11 +101,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if (mysqli_stmt_execute($stmt)) {
                 $pesanSukses = 'Perubahan data instansi <strong>' . $e($namaInstansi) . '</strong> berhasil diperbarui!';
             } else {
-                $pesanError = 'Gagal menyimpan: ' . mysqli_error($koneksi);
+                error_log('Gagal menyimpan perubahan instansi: ' . mysqli_stmt_error($stmt));
+                $pesanError = 'Data instansi belum dapat disimpan. Silakan coba kembali.';
             }
             mysqli_stmt_close($stmt);
         } else {
-            $pesanError = 'Gagal menyiapkan query: ' . mysqli_error($koneksi);
+            error_log('Gagal menyiapkan perubahan instansi: ' . mysqli_error($koneksi));
+            $pesanError = 'Data instansi belum dapat disimpan. Silakan coba kembali.';
         }
     }
 }
@@ -98,10 +116,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 // 3. AMBIL DATA INSTANSI DARI DATABASE (tanpa sektor)
 // ==========================================
 $stmtGet = mysqli_prepare($koneksi, "
-    SELECT id_instansi, nama_instansi, nama_kontak, no_telepon, email,
-           kuota, alamat, jenis_instansi, status
+    SELECT
+        id AS id_instansi,
+        nama AS nama_instansi,
+        nama_penanggung_jawab AS nama_kontak,
+        telepon AS no_telepon,
+        email,
+        kuota_siswa AS kuota,
+        alamat,
+        jenis AS jenis_instansi,
+        status
     FROM instansi
-    WHERE id_instansi = ?
+    WHERE id = ?
 ");
 mysqli_stmt_bind_param($stmtGet, "i", $id);
 mysqli_stmt_execute($stmtGet);
@@ -151,24 +177,25 @@ ob_start();
 
         <?php if ($pesanError): ?>
             <div class="alert alert-danger border-0 rounded-lg p-3 mb-4 small">
-                <i class="fas fa-exclamation-circle mr-2"></i><?= $pesanError ?>
+                <i class="fas fa-exclamation-circle mr-2"></i><?= htmlspecialchars($pesanError, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') ?>
             </div>
         <?php endif; ?>
 
         <?php if ($pesanSukses): ?>
             <div class="alert alert-success border-0 rounded-lg p-3 mb-4 small">
-                <i class="fas fa-check-circle mr-2"></i><?= $pesanSukses ?>
+                <i class="fas fa-check-circle mr-2"></i><?= htmlspecialchars(strip_tags($pesanSukses), ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') ?>
             </div>
         <?php endif; ?>
 
         <form method="POST" action="">
+            <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrfToken, ENT_QUOTES, 'UTF-8') ?>">
             <!-- Nama Instansi -->
             <div class="row">
                 <div class="col-md-12 mb-3">
                     <label class="sl-form-label">Nama Lengkap Instansi / Perusahaan <span class="text-danger">*</span></label>
                     <div class="sl-input-group">
                         <i class="fas fa-building"></i>
-                        <input type="text" name="nama_instansi" class="sl-form-control"
+                        <input type="text" name="nama_instansi" class="sl-form-control" maxlength="160"
                                value="<?= $e($mitra['nama_instansi']) ?>" required>
                     </div>
                 </div>
@@ -180,7 +207,7 @@ ob_start();
                     <label class="sl-form-label">Penanggung Jawab / Pembimbing <span class="text-danger">*</span></label>
                     <div class="sl-input-group">
                         <i class="fas fa-user-tie"></i>
-                        <input type="text" name="nama_kontak" class="sl-form-control"
+                        <input type="text" name="nama_kontak" class="sl-form-control" maxlength="120"
                                value="<?= $e($mitra['nama_kontak'] ?? '') ?>" required>
                     </div>
                 </div>
@@ -189,7 +216,7 @@ ob_start();
                     <label class="sl-form-label">No. Kontak / WhatsApp Instansi <span class="text-danger">*</span></label>
                     <div class="sl-input-group">
                         <i class="fas fa-phone-alt"></i>
-                        <input type="text" name="no_telepon" class="sl-form-control"
+                        <input type="text" name="no_telepon" class="sl-form-control" maxlength="25"
                                value="<?= $e($mitra['no_telepon'] ?? '') ?>" required>
                     </div>
                 </div>
@@ -201,7 +228,7 @@ ob_start();
                     <label class="sl-form-label">Email Instansi (Opsional)</label>
                     <div class="sl-input-group">
                         <i class="fas fa-envelope"></i>
-                        <input type="email" name="email" class="sl-form-control"
+                        <input type="email" name="email" class="sl-form-control" maxlength="150"
                                value="<?= $e($mitra['email'] ?? '') ?>">
                     </div>
                 </div>

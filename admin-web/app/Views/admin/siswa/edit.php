@@ -6,9 +6,11 @@
 
 // 1. Panggil koneksi
 require_once __DIR__ . '/../../../../../config/koneksi.php';
+require_once dirname(__DIR__, 3) . '/Support/Csrf.php';
 
 $urlDaftar = '?page=data-siswa';
 $id = (int) ($_GET['id'] ?? 0);
+$csrfToken = AdminCsrf::token();
 if ($id <= 0) {
     echo "<script>alert('ID Siswa tidak valid!'); window.location='$urlDaftar';</script>";
     exit;
@@ -17,22 +19,33 @@ if ($id <= 0) {
 // ==========================================
 // 1. AMBIL DATA SISWA DARI DATABASE
 // ==========================================
-$sql = "SELECT 
-            s.*, 
-            i.nama_instansi,
-            k.nama_kelas AS kelas
+$sql = "SELECT
+            s.*,
+            s.nama_lengkap AS nama_siswa,
+            s.status_siswa AS status,
+            k.nama AS kelas,
+            (
+                SELECT i.nama
+                FROM penempatan_pkl p
+                INNER JOIN instansi i ON i.id = p.instansi_id
+                WHERE p.siswa_id = s.id
+                ORDER BY p.tanggal_mulai DESC
+                LIMIT 1
+            ) AS nama_instansi
         FROM siswa s
-        LEFT JOIN instansi i ON s.id_instansi = i.id_instansi
-        LEFT JOIN kelas k ON s.id_kelas = k.id_kelas
-        WHERE s.id_siswa = $id
+        LEFT JOIN kelas k ON k.id = s.kelas_id
+        WHERE s.id = ?
         LIMIT 1";
-
-$result = mysqli_query($koneksi, $sql);
+$loadStatement = mysqli_prepare($koneksi, $sql);
+mysqli_stmt_bind_param($loadStatement, 'i', $id);
+mysqli_stmt_execute($loadStatement);
+$result = mysqli_stmt_get_result($loadStatement);
 if (!$result || mysqli_num_rows($result) === 0) {
     echo "<script>alert('Data siswa tidak ditemukan!'); window.location='$urlDaftar';</script>";
     exit;
 }
 $s = mysqli_fetch_assoc($result);
+mysqli_stmt_close($loadStatement);
 
 // ==========================================
 // 2. PROSES SIMPAN PERUBAHAN (UPDATE)
@@ -41,33 +54,89 @@ $pesanSukses = '';
 $pesanError  = '';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $nis            = mysqli_real_escape_string($koneksi, $_POST['nis'] ?? '');
-    $nama_siswa     = mysqli_real_escape_string($koneksi, $_POST['nama'] ?? '');
-    $id_kelas       = (int) ($_POST['kelas'] ?? 0);
-    $jenis_kelamin  = mysqli_real_escape_string($koneksi, $_POST['jk'] ?? '');
-    $no_hp          = mysqli_real_escape_string($koneksi, $_POST['wa'] ?? '');
-    $alamat         = mysqli_real_escape_string($koneksi, $_POST['alamat'] ?? '');
-    $id_instansi    = (int) ($_POST['instansi'] ?? 0);
-    $status         = mysqli_real_escape_string($koneksi, $_POST['status'] ?? 'Aktif');
-
-    if (empty($nis) || empty($nama_siswa) || empty($id_kelas) || empty($jenis_kelamin)) {
-        $pesanError = 'Harap isi kolom NIS, Nama, Kelas, dan Jenis Kelamin.';
+    if (!AdminCsrf::verify($_POST['csrf_token'] ?? null)) {
+        $pesanError = 'Formulir kedaluwarsa atau tidak valid. Muat ulang halaman dan coba lagi.';
     } else {
-        $queryUpdate = "UPDATE siswa SET 
-                            nis = '$nis',
-                            nama_siswa = '$nama_siswa',
-                            id_kelas = $id_kelas,
-                            no_hp = '$no_hp',
-                            alamat = '$alamat',
-                            id_instansi = " . ($id_instansi > 0 ? $id_instansi : "NULL") . ",
-                            status = '$status'
-                        WHERE id_siswa = $id";
+        $nis = trim((string) ($_POST['nis'] ?? ''));
+        $namaSiswa = trim((string) ($_POST['nama'] ?? ''));
+        $kelasId = filter_var($_POST['kelas'] ?? null, FILTER_VALIDATE_INT);
+        $jenisKelamin = (string) ($_POST['jk'] ?? '');
+        $noHp = trim((string) ($_POST['wa'] ?? ''));
+        $alamat = trim((string) ($_POST['alamat'] ?? ''));
+        $statusSiswa = (string) ($_POST['status'] ?? '');
 
-        if (mysqli_query($koneksi, $queryUpdate)) {
-            echo "<script>alert('Data siswa berhasil diperbarui!'); window.location='$urlDaftar';</script>";
-            exit;
+        if (
+            $namaSiswa === ''
+            || $kelasId === false
+            || $kelasId < 1
+            || !in_array($jenisKelamin, ['L', 'P'], true)
+            || !in_array($statusSiswa, ['aktif', 'lulus', 'keluar'], true)
+        ) {
+            $pesanError = 'Lengkapi nama, kelas, jenis kelamin, dan status dengan nilai yang valid.';
+        } elseif (
+            mb_strlen($nis, 'UTF-8') > 30
+            || mb_strlen($namaSiswa, 'UTF-8') > 120
+            || mb_strlen($noHp, 'UTF-8') > 25
+        ) {
+            $pesanError = 'Panjang salah satu isian melebihi batas kolom database.';
         } else {
-            $pesanError = 'Gagal memperbarui: ' . mysqli_error($koneksi);
+            $transactionStarted = false;
+
+            try {
+                mysqli_begin_transaction($koneksi);
+                $transactionStarted = true;
+
+                $nisValue = $nis === '' ? null : $nis;
+                $updateStatement = mysqli_prepare(
+                    $koneksi,
+                    'UPDATE siswa
+                     SET nis = ?, nama_lengkap = ?, kelas_id = ?, jenis_kelamin = ?, no_hp = ?,
+                         alamat = ?, status_siswa = ?
+                     WHERE id = ?'
+                );
+                mysqli_stmt_bind_param(
+                    $updateStatement,
+                    'ssissssi',
+                    $nisValue,
+                    $namaSiswa,
+                    $kelasId,
+                    $jenisKelamin,
+                    $noHp,
+                    $alamat,
+                    $statusSiswa,
+                    $id
+                );
+                mysqli_stmt_execute($updateStatement);
+                mysqli_stmt_close($updateStatement);
+
+                if ($statusSiswa === 'keluar') {
+                    $userStatus = 'nonaktif';
+                    $userStatement = mysqli_prepare(
+                        $koneksi,
+                        'UPDATE users
+                         INNER JOIN siswa ON siswa.user_id = users.id
+                         SET users.status = ?
+                         WHERE siswa.id = ?'
+                    );
+                    mysqli_stmt_bind_param($userStatement, 'si', $userStatus, $id);
+                    mysqli_stmt_execute($userStatement);
+                    mysqli_stmt_close($userStatement);
+                }
+
+                mysqli_commit($koneksi);
+                $transactionStarted = false;
+                header('Location: ' . $urlDaftar);
+                exit;
+            } catch (mysqli_sql_exception $exception) {
+                if ($transactionStarted) {
+                    mysqli_rollback($koneksi);
+                }
+
+                error_log('Admin Siswa edit failed: ' . $exception->getMessage());
+                $pesanError = $exception->getCode() === 1062
+                    ? 'NIS sudah digunakan oleh Siswa lain.'
+                    : 'Data Siswa gagal diperbarui. Periksa kembali isian dan konfigurasi database.';
+            }
         }
     }
 }
@@ -76,18 +145,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 // 3. AMBIL DATA UNTUK DROPDOWN
 // ==========================================
 $opsiKelas = [];
-$qKelas = mysqli_query($koneksi, "SELECT id_kelas, nama_kelas FROM kelas ORDER BY nama_kelas ASC");
+$qKelas = mysqli_query($koneksi, "SELECT id AS id_kelas, nama AS nama_kelas FROM kelas ORDER BY nama ASC");
 if ($qKelas) {
     while ($k = mysqli_fetch_assoc($qKelas)) {
         $opsiKelas[] = $k;
-    }
-}
-
-$opsiInstansi = [];
-$qInst = mysqli_query($koneksi, "SELECT id_instansi, nama_instansi FROM instansi WHERE status = 'aktif' ORDER BY nama_instansi ASC");
-if ($qInst) {
-    while ($i = mysqli_fetch_assoc($qInst)) {
-        $opsiInstansi[] = $i;
     }
 }
 
@@ -139,7 +200,7 @@ ob_start();
                 <a href="<?= $e($urlDaftar) ?>">Data Siswa</a><span class="sep">/</span>Edit<span class="sep">/</span><span class="now"><?= $e($s['nama_siswa']) ?></span>
             </div>
             <h1 class="ed-title">Edit Data Siswa</h1>
-            <p class="ed-sub">Perbarui data biodata siswa, penempatan PKL, dan status bimbingan magang</p>
+            <p class="ed-sub">Perbarui data akademik, biodata, dan status siswa.</p>
         </div>
         <a href="<?= $e($urlDaftar) ?>" class="ed-back"><i class="fas fa-arrow-left mr-2"></i>Kembali</a>
     </div>
@@ -150,28 +211,29 @@ ob_start();
 
     <?php if ($pesanError): ?>
         <div class="alert alert-danger border-0 rounded-lg p-3 mb-3 small">
-            <i class="fas fa-exclamation-circle mr-2"></i><?= $pesanError ?>
+            <i class="fas fa-exclamation-circle mr-2"></i><?= $e($pesanError) ?>
         </div>
     <?php endif; ?>
 
     <form action="" method="POST" novalidate>
+        <input type="hidden" name="csrf_token" value="<?= $e($csrfToken) ?>">
         <div class="ed-card">
             <div class="ed-sec">1. Informasi Pribadi &amp; Akademik Siswa</div>
             <div class="row">
                 <div class="col-12 form-group">
-                    <label class="ed-label" for="nis">NIS <span class="req">*</span></label>
-                    <input class="ed-input" type="text" id="nis" name="nis" value="<?= $e($s['nis'] ?? '') ?>" required>
+                    <label class="ed-label" for="nis">NIS</label>
+                    <input class="ed-input" type="text" id="nis" name="nis" maxlength="30" value="<?= $e($s['nis'] ?? '') ?>">
                 </div>
                 <div class="col-12 form-group">
                     <label class="ed-label" for="nama">Nama Lengkap Siswa <span class="req">*</span></label>
-                    <input class="ed-input" type="text" id="nama" name="nama" value="<?= $e($s['nama_siswa']) ?>" required>
+                    <input class="ed-input" type="text" id="nama" name="nama" maxlength="120" value="<?= $e($s['nama_siswa']) ?>" required>
                 </div>
                 <div class="col-md-6 form-group">
                     <label class="ed-label" for="kelas">Kelas &amp; Konsentrasi Keahlian <span class="req">*</span></label>
                     <select class="ed-input" id="kelas" name="kelas" required>
                         <option value="">-- Pilih Kelas --</option>
                         <?php foreach ($opsiKelas as $k): ?>
-                            <option value="<?= $k['id_kelas'] ?>" <?= $pil($k['id_kelas'], $s['id_kelas']) ?>>
+                            <option value="<?= $k['id_kelas'] ?>" <?= $pil($k['id_kelas'], $s['kelas_id']) ?>>
                                 <?= $e($k['nama_kelas']) ?>
                             </option>
                         <?php endforeach; ?>
@@ -180,13 +242,13 @@ ob_start();
                 <div class="col-md-6 form-group">
                     <label class="ed-label" for="jk">Jenis Kelamin <span class="req">*</span></label>
                     <select class="ed-input" id="jk" name="jk" required>
-                        <option value="Laki-laki" <?= $pil('Laki-laki', $s['jenis_kelamin'] ?? '') ?>>Laki-laki</option>
-                        <option value="Perempuan" <?= $pil('Perempuan', $s['jenis_kelamin'] ?? '') ?>>Perempuan</option>
+                        <option value="L" <?= $pil('L', $s['jenis_kelamin'] ?? '') ?>>Laki-laki</option>
+                        <option value="P" <?= $pil('P', $s['jenis_kelamin'] ?? '') ?>>Perempuan</option>
                     </select>
                 </div>
                 <div class="col-md-6 form-group">
                     <label class="ed-label" for="wa">Nomor WhatsApp Siswa</label>
-                    <input class="ed-input" type="tel" id="wa" name="wa" value="<?= $e($s['no_hp'] ?? '') ?>">
+                    <input class="ed-input" type="tel" id="wa" name="wa" maxlength="25" value="<?= $e($s['no_hp'] ?? '') ?>">
                 </div>
                 <div class="col-md-6 form-group">
                     <label class="ed-label" for="alamat">Alamat Lengkap</label>
@@ -196,25 +258,14 @@ ob_start();
 
             <hr class="ed-divider">
 
-            <div class="ed-sec">2. Penempatan Instansi &amp; Status</div>
+            <div class="ed-sec">2. Status Siswa</div>
             <div class="row">
                 <div class="col-md-6 form-group">
-                    <label class="ed-label" for="instansi">Instansi Mitra DU-DI</label>
-                    <select class="ed-input" id="instansi" name="instansi">
-                        <option value="">-- Pilih Instansi --</option>
-                        <?php foreach ($opsiInstansi as $inst): ?>
-                            <option value="<?= $inst['id_instansi'] ?>" <?= $pil($inst['id_instansi'], $s['id_instansi']) ?>>
-                                <?= $e($inst['nama_instansi']) ?>
-                            </option>
-                        <?php endforeach; ?>
-                    </select>
-                </div>
-                <div class="col-md-6 form-group">
-                    <label class="ed-label" for="status">Status Bimbingan PKL <span class="req">*</span></label>
+                    <label class="ed-label" for="status">Status Siswa <span class="req">*</span></label>
                     <select class="ed-input" id="status" name="status" required>
-                        <option value="Aktif" <?= $pil('Aktif', $s['status'] ?? '') ?>>Aktif</option>
-                        <option value="Selesai" <?= $pil('Selesai', $s['status'] ?? '') ?>>Selesai</option>
-                        <option value="Pending" <?= $pil('Pending', $s['status'] ?? '') ?>>Pending</option>
+                        <option value="aktif" <?= $pil('aktif', $s['status'] ?? '') ?>>Aktif</option>
+                        <option value="lulus" <?= $pil('lulus', $s['status'] ?? '') ?>>Lulus</option>
+                        <option value="keluar" <?= $pil('keluar', $s['status'] ?? '') ?>>Keluar</option>
                     </select>
                 </div>
             </div>

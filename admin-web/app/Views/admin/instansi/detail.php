@@ -18,39 +18,84 @@ if ($id_instansi <= 0) {
 // ==========================================
 // 2. AMBIL DATA INSTANSI
 // ==========================================
-$queryInstansi = mysqli_query($koneksi, "SELECT * FROM instansi WHERE id_instansi = $id_instansi LIMIT 1");
-if (!$queryInstansi || mysqli_num_rows($queryInstansi) === 0) {
+$stmtInstansi = mysqli_prepare(
+    $koneksi,
+    'SELECT
+        id,
+        nama AS nama_instansi,
+        jenis AS jenis_instansi,
+        alamat,
+        telepon,
+        email,
+        nama_penanggung_jawab AS penanggung_jawab,
+        kuota_siswa AS kuota,
+        status
+     FROM instansi
+     WHERE id = ?
+     LIMIT 1'
+);
+if ($stmtInstansi === false) {
+    error_log('Gagal menyiapkan detail instansi: ' . mysqli_error($koneksi));
+    http_response_code(500);
+    exit('Detail instansi tidak dapat dimuat.');
+}
+mysqli_stmt_bind_param($stmtInstansi, 'i', $id_instansi);
+$instansiQueryExecuted = mysqli_stmt_execute($stmtInstansi);
+$queryInstansi = $instansiQueryExecuted ? mysqli_stmt_get_result($stmtInstansi) : false;
+if (!$instansiQueryExecuted || !$queryInstansi) {
+    error_log('Gagal memuat detail instansi: ' . mysqli_stmt_error($stmtInstansi));
+    mysqli_stmt_close($stmtInstansi);
+    http_response_code(500);
+    exit('Detail instansi tidak dapat dimuat.');
+}
+if (mysqli_num_rows($queryInstansi) === 0) {
+    mysqli_stmt_close($stmtInstansi);
     echo "<script>alert('Data instansi tidak ditemukan!'); window.location='$urlDaftar';</script>";
     exit;
 }
 $instansi = mysqli_fetch_assoc($queryInstansi);
+mysqli_stmt_close($stmtInstansi);
 
 // ==========================================
 // 3. AMBIL DATA SISWA MAGANG DI INSTANSI INI
 // ==========================================
 $siswaList = [];
-$sqlSiswa = "SELECT 
-                s.id_siswa, 
-                s.nis, 
-                s.nama_siswa, 
-                k.nama_kelas AS kelas, 
+$sqlSiswa = "SELECT
+                s.id AS id_siswa,
+                COALESCE(s.nis, s.nisn) AS nis,
+                s.nama_lengkap AS nama_siswa,
+                k.nama AS kelas,
                 s.no_hp,
-                s.status
-            FROM siswa s
-            LEFT JOIN kelas k ON s.id_kelas = k.id_kelas
-            WHERE s.id_instansi = $id_instansi 
-            ORDER BY s.nama_siswa ASC";
+                s.status_siswa AS status
+            FROM penempatan_pkl p
+            INNER JOIN siswa s ON s.id = p.siswa_id
+            LEFT JOIN kelas k ON k.id = s.kelas_id
+            WHERE p.instansi_id = ?
+                AND p.status = 'aktif'
+            ORDER BY s.nama_lengkap ASC";
 
-$resultSiswa = mysqli_query($koneksi, $sqlSiswa);
-if ($resultSiswa) {
-    while ($row = mysqli_fetch_assoc($resultSiswa)) {
-        $siswaList[] = $row;
-    }
+$stmtSiswa = mysqli_prepare($koneksi, $sqlSiswa);
+if ($stmtSiswa === false) {
+    error_log('Gagal menyiapkan daftar siswa instansi: ' . mysqli_error($koneksi));
+    http_response_code(500);
+    exit('Daftar siswa instansi tidak dapat dimuat.');
 }
+mysqli_stmt_bind_param($stmtSiswa, 'i', $id_instansi);
+if (!mysqli_stmt_execute($stmtSiswa)) {
+    error_log('Gagal memuat daftar siswa instansi: ' . mysqli_stmt_error($stmtSiswa));
+    mysqli_stmt_close($stmtSiswa);
+    http_response_code(500);
+    exit('Daftar siswa instansi tidak dapat dimuat.');
+}
+$resultSiswa = mysqli_stmt_get_result($stmtSiswa);
+while ($row = mysqli_fetch_assoc($resultSiswa)) {
+    $siswaList[] = $row;
+}
+mysqli_stmt_close($stmtSiswa);
 
 // Hitung jumlah siswa terisi
 $terisi = count($siswaList);
-$kuota  = (int)$instansi['kuota'];
+$kuota  = (int) ($instansi['kuota'] ?? 0);
 $isPenuh = $kuota > 0 && $terisi >= $kuota;
 
 $e   = static fn ($v): string => htmlspecialchars((string) $v, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
@@ -130,7 +175,7 @@ ob_start();
             <div>
                 <h2 class="dt-name"><?= $e($instansi['nama_instansi']) ?></h2>
                 <div class="dt-meta">
-                    Sektor: <?= $val($instansi['sektor']) ?>
+                    Jenis: <?= $val($instansi['jenis_instansi']) ?>
                 </div>
             </div>
             
@@ -148,7 +193,7 @@ ob_start();
                 <div class="dt-sec">Informasi Perusahaan</div>
                 <div class="dt-row"><div class="k">Nama Instansi</div><div class="v"><?= $val($instansi['nama_instansi']) ?></div></div>
                 <div class="dt-row"><div class="k">Jenis Instansi</div><div class="v"><?= ucfirst($val($instansi['jenis_instansi'])) ?></div></div>
-                <div class="dt-row"><div class="k">Sektor / Bidang</div><div class="v"><?= $val($instansi['sektor']) ?></div></div>
+                <div class="dt-row"><div class="k">Status Instansi</div><div class="v"><?= $val($instansi['status']) ?></div></div>
                 <div class="dt-row"><div class="k">Penanggung Jawab</div><div class="v"><?= $val($instansi['penanggung_jawab']) ?></div></div>
                 <div class="dt-row"><div class="k">No. Telepon / WA</div><div class="v"><?= $val($instansi['telepon']) ?></div></div>
                 <div class="dt-row"><div class="k">Email</div><div class="v"><?= $val($instansi['email']) ?></div></div>

@@ -1,0 +1,18 @@
+﻿# Environment dan secrets
+.env
+.env.*
+!.env.example
+
+# Dependencies
+/vendor/
+/node_modules/
+
+# IDE dan OS
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+
+# Logs dan cache
+*.log
+.phpunit.result.cache

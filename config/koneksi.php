@@ -1,30 +1,21 @@
 <?php
 // ==========================================
-// KONEKSI DATABASE - db_mitra_sekolah
+// KONEKSI DATABASE - E-PKL
 // PHP Native + MySQLi + Laragon
 // ==========================================
 
-$host     = "localhost";
+$host     = "127.0.0.1";
 $user     = "root";
-$password = "";                     // Laragon default kosong
-$database = "db_mitra_sekolah";     // sesuai file SQL Anda
+$password = "";
+$database = "epkl";
 
-// Buat koneksi
 $koneksi = mysqli_connect($host, $user, $password, $database);
 
-// Cek koneksi
 if (!$koneksi) {
-    die("❌ Koneksi gagal: " . mysqli_connect_error());
+    die("Koneksi database gagal: " . mysqli_connect_error());
 }
 
-// Set charset UTF8MB4 (sesuai database Anda)
 mysqli_set_charset($koneksi, "utf8mb4");
 
-// Set timezone (opsional)
 date_default_timezone_set('Asia/Jakarta');
-
-// ==========================================
-// (Opsional) Test koneksi — hapus jika sudah OK
-// echo "✅ Terhubung ke database db_mitra_sekolah";
-// ==========================================
 ?>

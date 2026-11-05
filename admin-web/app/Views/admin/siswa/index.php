@@ -1,6 +1,8 @@
 <?php
 // 1. Panggil koneksi
 require_once __DIR__ . '/../../../../../config/koneksi.php';
+require_once dirname(__DIR__, 3) . '/Support/Csrf.php';
+$csrfToken = AdminCsrf::token();
 
 $activePage   = 'data-siswa';
 $pageTitle    = 'Data Siswa PKL';
@@ -26,36 +28,60 @@ $offset = ($page - 1) * $limit;
 // 2. HITUNG TOTAL DATA
 // ==========================================
 $qTotal = mysqli_query($koneksi, "SELECT COUNT(*) AS total FROM siswa");
+if (!$qTotal) {
+    error_log('Admin Siswa total query failed: ' . mysqli_error($koneksi));
+    http_response_code(500);
+    exit('Data Siswa tidak dapat dimuat saat ini.');
+}
 $totalSiswa = (int) mysqli_fetch_assoc($qTotal)['total'];
 
 $qStat = mysqli_query($koneksi, "
     SELECT 
-        SUM(CASE WHEN status = 'Aktif' THEN 1 ELSE 0 END) AS aktif,
-        SUM(CASE WHEN status = 'Selesai' THEN 1 ELSE 0 END) AS selesai
+        SUM(CASE WHEN status_siswa = 'aktif' THEN 1 ELSE 0 END) AS aktif,
+        SUM(CASE WHEN status_siswa = 'lulus' THEN 1 ELSE 0 END) AS selesai
     FROM siswa
 ");
+if (!$qStat) {
+    error_log('Admin Siswa statistics query failed: ' . mysqli_error($koneksi));
+    http_response_code(500);
+    exit('Statistik Siswa tidak dapat dimuat saat ini.');
+}
 $stat = mysqli_fetch_assoc($qStat);
 $siswaAktif   = (int) ($stat['aktif'] ?? 0);
 $siswaSelesai = (int) ($stat['selesai'] ?? 0);
 
-$totalPages = ceil($totalSiswa / $limit);
+$totalPages = max(1, (int) ceil($totalSiswa / $limit));
+$page = min($page, $totalPages);
+$offset = ($page - 1) * $limit;
 
 // ==========================================
 // 3. AMBIL DATA SISWA
 // ==========================================
-$sql = "SELECT 
-            s.*, 
-            i.nama_instansi,
-            k.nama_kelas AS kelas
-        FROM siswa s 
-        LEFT JOIN instansi i ON s.id_instansi = i.id_instansi 
-        LEFT JOIN kelas k ON s.id_kelas = k.id_kelas
-        ORDER BY s.nama_siswa ASC
+$sql = "SELECT
+            s.id AS id_siswa,
+            COALESCE(s.nis, s.nisn) AS nis,
+            s.nisn,
+            s.nama_lengkap AS nama_siswa,
+            s.status_siswa AS status,
+            k.nama AS kelas,
+            (
+                SELECT i.nama
+                FROM penempatan_pkl p
+                INNER JOIN instansi i ON i.id = p.instansi_id
+                WHERE p.siswa_id = s.id
+                ORDER BY p.tanggal_mulai DESC
+                LIMIT 1
+            ) AS nama_instansi
+        FROM siswa s
+        LEFT JOIN kelas k ON k.id = s.kelas_id
+        ORDER BY s.nama_lengkap ASC
         LIMIT $limit OFFSET $offset";
 
 $result = mysqli_query($koneksi, $sql);
 if (!$result) {
-    die("Query error: " . mysqli_error($koneksi));
+    error_log('Admin Siswa index query failed: ' . mysqli_error($koneksi));
+    http_response_code(500);
+    exit('Data Siswa tidak dapat dimuat saat ini.');
 }
 
 $siswaList = [];
@@ -263,13 +289,14 @@ ob_start();
                 <div class="modal-body">
                     <!-- INPUT HIDDEN UNTUK MENYIMPAN ID -->
                     <input type="hidden" name="id_siswa" id="slHId">
+                    <input type="hidden" name="csrf_token" value="<?= $e($csrfToken) ?>">
 
                     <div class="d-flex mb-3" style="gap:1rem;">
                         <div class="sl-trash"><i class="fas fa-trash-alt"></i></div>
                         <div>
-                            <h5 class="font-weight-bold mb-1" id="slModalHapusJudul">Hapus Data Siswa?</h5>
+                            <h5 class="font-weight-bold mb-1" id="slModalHapusJudul">Nonaktifkan Akun Siswa?</h5>
                             <p class="small text-muted mb-0">
-                                Apakah Anda yakin ingin menghapus data siswa
+                                Apakah Anda yakin ingin menonaktifkan akun Siswa
                                 <strong id="slHNama">-</strong> (NIS: <span id="slHNisn">-</span>)?
                             </p>
                         </div>
@@ -282,13 +309,13 @@ ob_start();
                     </div>
                     <div class="sl-warn d-flex mb-3" style="gap:.5rem;">
                         <i class="fas fa-exclamation-triangle mt-1"></i>
-                        <span>Pastikan koordinasi dengan guru pembimbing dan pihak instansi sebelum menghapus siswa aktif.</span>
+                        <span>Akun akan dinonaktifkan dan status Siswa menjadi keluar. Riwayat penempatan dan data lainnya tetap disimpan.</span>
                     </div>
                     <div class="d-flex justify-content-end" style="gap:.5rem;">
                         <button type="button" class="btn btn-light border btn-sm px-4" data-dismiss="modal">Batal</button>
                         <!-- TIPE SUBMIT UNTUK MENGIRIM FORM -->
-                        <button type="submit" class="btn btn-danger btn-sm px-3">
-                            <i class="fas fa-trash-alt mr-1"></i> Ya, Hapus Data
+                        <button type="submit" class="btn btn-warning btn-sm px-3">
+                            <i class="fas fa-user-slash mr-1"></i> Nonaktifkan Akun
                         </button>
                     </div>
                 </div>

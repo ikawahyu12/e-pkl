@@ -8,28 +8,46 @@ $urlEdit   = '?page=edit&id=';
 $id = (int) ($_GET['id'] ?? 0);
 if ($id <= 0) { echo "<script>alert('ID tidak valid'); window.location='$urlDaftar';</script>"; exit; }
 
-// Ambil data dari DB (JOIN instansi dan kelas)
-$sql = "SELECT 
-            s.*, 
-            i.nama_instansi,
-            k.nama_kelas AS kelas
-        FROM siswa s 
-        LEFT JOIN instansi i ON s.id_instansi = i.id_instansi 
-        LEFT JOIN kelas k ON s.id_kelas = k.id_kelas
-        WHERE s.id_siswa = $id LIMIT 1";
-
-$result = mysqli_query($koneksi, $sql);
+$sql = "SELECT
+            s.*,
+            s.nama_lengkap AS nama_siswa,
+            s.status_siswa AS status,
+            k.nama AS kelas,
+            (
+                SELECT i.nama
+                FROM penempatan_pkl p
+                INNER JOIN instansi i ON i.id = p.instansi_id
+                WHERE p.siswa_id = s.id
+                ORDER BY p.tanggal_mulai DESC
+                LIMIT 1
+            ) AS nama_instansi
+        FROM siswa s
+        LEFT JOIN kelas k ON k.id = s.kelas_id
+        WHERE s.id = ?
+        LIMIT 1";
+$statement = mysqli_prepare($koneksi, $sql);
+mysqli_stmt_bind_param($statement, 'i', $id);
+mysqli_stmt_execute($statement);
+$result = mysqli_stmt_get_result($statement);
 if (!$result || mysqli_num_rows($result) === 0) {
     echo "<script>alert('Data siswa tidak ditemukan'); window.location='$urlDaftar';</script>"; exit;
 }
 $s = mysqli_fetch_assoc($result);
+mysqli_stmt_close($statement);
 
 $e   = static fn ($v): string => htmlspecialchars((string) $v, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
 $val = static fn ($v): string => trim((string) $v) === '' ? '-' : htmlspecialchars((string) $v, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
 
 $inisial = '';
 foreach (array_slice(preg_split('/\s+/', trim($s['nama_siswa'])), 0, 2) as $kata) { $inisial .= mb_strtoupper(mb_substr($kata, 0, 1)); }
-$selesai = ($s['status'] ?? '') === 'Selesai';
+$statusSiswa = $s['status'] ?? '';
+$selesai = $statusSiswa === 'lulus';
+$keluar = $statusSiswa === 'keluar';
+$statusLabel = [
+    'aktif' => 'Aktif',
+    'lulus' => 'Lulus',
+    'keluar' => 'Keluar',
+][$statusSiswa] ?? 'Tidak diketahui';
 
 $pageTitle  = 'Detail Data Siswa';
 $activePage = 'data-siswa';
@@ -60,6 +78,7 @@ ob_start();
     .dt-meta { font-size: .78rem; color: #64748b; margin-top: .15rem; }
     .dt-pill { margin-left: auto; background: #dcfce7; color: #15803d; border: 1px solid #bbf7d0; border-radius: 999px; font-size: .68rem; font-weight: 700; padding: .25rem .9rem; }
     .dt-pill.selesai { background: #dbeafe; color: #1d4ed8; border-color: #bfdbfe; }
+    .dt-pill.nonaktif { background: #fee2e2; color: #dc2626; border-color: #fecaca; }
     .dt-sec { font-size: .68rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: #94a3b8; margin: 0 0 .5rem; }
     .dt-row { display: flex; gap: 1rem; padding: .65rem 0; border-bottom: 1px solid #f1f5f9; font-size: .8rem; }
     .dt-row:last-child { border-bottom: 0; }
@@ -89,7 +108,7 @@ ob_start();
                 <h2 class="dt-name"><?= $e($s['nama_siswa']) ?></h2>
                 <div class="dt-meta">NIS: <?= $e($s['nis'] ?? '-') ?> &middot; <?= $e($s['kelas'] ?? '-') ?></div>
             </div>
-            <span class="dt-pill<?= $selesai ? ' selesai' : '' ?>"><?= $selesai ? 'Selesai PKL' : 'Aktif PKL' ?></span>
+            <span class="dt-pill<?= $selesai ? ' selesai' : ($keluar ? ' nonaktif' : '') ?>"><?= $e($statusLabel) ?></span>
         </div>
     </div>
 
@@ -110,8 +129,8 @@ ob_start();
                 <div class="dt-sec">2. Penempatan Instansi &amp; Pembimbing</div>
                 <div class="dt-row"><div class="k">Instansi Mitra DU-DI</div><div class="v"><?= $val($s['nama_instansi'] ?? '-') ?></div></div>
                 
-                <div class="dt-sec" style="margin-top:1.25rem;">3. Status Magang</div>
-                <div class="dt-row"><div class="k">Status Bimbingan</div><div class="v"><?= $val($s['status'] ?? 'Aktif') ?></div></div>
+                <div class="dt-sec" style="margin-top:1.25rem;">3. Status Siswa</div>
+                <div class="dt-row"><div class="k">Status</div><div class="v"><?= $e($statusLabel) ?></div></div>
             </div>
         </div>
     </div>
