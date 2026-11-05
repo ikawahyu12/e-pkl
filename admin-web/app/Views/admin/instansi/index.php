@@ -15,16 +15,45 @@ $assetBaseUrl = $scriptDir . '/assets';
 $e            = static fn($v): string => htmlspecialchars((string) $v, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
 
 // ==========================================
-// QUERY DATA DARI DATABASE
+// 1. KONFIGURASI PAGINATION
 // ==========================================
+$limit = 10;
+$page  = isset($_GET['hal']) ? (int)$_GET['hal'] : 1;
+if ($page < 1) $page = 1;
+$offset = ($page - 1) * $limit;
 
-// 1. Ambil semua instansi + hitung jumlah siswa terisi via JOIN penempatan
+// ==========================================
+// 2. HITUNG TOTAL DATA
+// ==========================================
+$qTotal = mysqli_query($koneksi, "SELECT COUNT(*) AS total FROM instansi");
+$totalMitra = (int) mysqli_fetch_assoc($qTotal)['total'];
+
+// Statistik Ringkas (Total Kuota & Terisi)
+$stat = mysqli_fetch_assoc(mysqli_query($koneksi, "
+    SELECT 
+        COALESCE(SUM(kuota), 0) AS total_kuota
+    FROM instansi
+    WHERE status = 'aktif'
+"));
+$totalKuota = (int) $stat['total_kuota'];
+
+$terisi = (int) mysqli_fetch_assoc(mysqli_query($koneksi, "
+    SELECT COUNT(*) AS jml 
+    FROM penempatan_pkl 
+    WHERE status = 'aktif'
+"))['jml'];
+
+$totalPages = ceil($totalMitra / $limit);
+
+// ==========================================
+// 3. AMBIL DATA (DENGAN LIMIT & OFFSET)
+// ==========================================
 $sql = "SELECT 
             i.id_instansi,
             i.nama_instansi,
             i.alamat,
-            i.no_telepon,
-            i.nama_kontak,
+            i.telepon,
+            i.penanggung_jawab,
             i.email,
             i.jenis_instansi,
             i.status,
@@ -36,7 +65,8 @@ $sql = "SELECT
             ON p.id_instansi = i.id_instansi 
             AND p.status = 'aktif'
         GROUP BY i.id_instansi
-        ORDER BY i.nama_instansi ASC";
+        ORDER BY i.nama_instansi ASC
+        LIMIT $limit OFFSET $offset";
 
 $result = mysqli_query($koneksi, $sql);
 if (!$result) {
@@ -48,25 +78,7 @@ while ($row = mysqli_fetch_assoc($result)) {
     $mitraList[] = $row;
 }
 
-// 2. Statistik ringkas
-$stat = mysqli_fetch_assoc(mysqli_query($koneksi, "
-    SELECT 
-        COUNT(*) AS total_mitra,
-        COALESCE(SUM(kuota), 0) AS total_kuota
-    FROM instansi
-    WHERE status = 'aktif'
-"));
-
-$totalMitra = (int) $stat['total_mitra'];
-$totalKuota = (int) $stat['total_kuota'];
-
-$terisi = (int) mysqli_fetch_assoc(mysqli_query($koneksi, "
-    SELECT COUNT(*) AS jml 
-    FROM penempatan_pkl 
-    WHERE status = 'aktif'
-"))['jml'];
-
-// 3. Ambil daftar sektor unik untuk dropdown filter
+// 4. Ambil daftar sektor unik untuk dropdown filter
 $sektorList = [];
 $sektorQuery = mysqli_query($koneksi, "
     SELECT DISTINCT sektor 
@@ -131,6 +143,7 @@ ob_start();
     .sl-pager { display: flex; align-items: center; gap: .35rem; margin: 0; padding: 0; list-style: none; }
     .sl-pager a { display: inline-flex; align-items: center; justify-content: center; min-width: 24px; height: 24px; padding: 0 .35rem; border-radius: 5px; font-size: .7rem; color: #3b4a5e; text-decoration: none; }
     .sl-pager .active a { background: #0b5f8a; color: #fff; }
+    .sl-pager .disabled a { color: #3b4a5e; pointer-events: none; opacity: 0.6; }
 
     /* ---- Style Modal Hapus ---- */
     .sl-modal .modal-content { border: 0; border-radius: 16px; }
@@ -150,7 +163,7 @@ ob_start();
             <div class="sl-stat">
                 <span class="sl-stat-icon"><i class="fas fa-building"></i></span>
                 <div>
-                    <div class="sl-stat-label">Total Instansi Mitra Aktif</div>
+                    <div class="sl-stat-label">Total Instansi Mitra</div>
                     <div class="sl-stat-value" style="color:#0f1d3a;"><?= $e($totalMitra) ?></div>
                 </div>
             </div>
@@ -213,27 +226,31 @@ ob_start();
                         </tr>
                     <?php else: ?>
                         <?php foreach ($mitraList as $i => $m):
-                            $isPenuh = $m['kuota'] > 0 && $m['terisi'] >= $m['kuota'];
+                            // Cek apakah kuota sudah penuh
+                            $terisiSaatIni = (int)$m['terisi'];
+                            $kuotaMax = (int)$m['kuota'];
+                            $isPenuh = $kuotaMax > 0 && $terisiSaatIni >= $kuotaMax;
                         ?>
                             <tr data-sektor="<?= $e($m['sektor'] ?? '') ?>">
-                                <td class="c-no"><?= $i + 1 ?></td>
+                                <td class="c-no"><?= $offset + $i + 1 ?></td>
                                 <td class="sl-nama">
                                     <?= $e($m['nama_instansi']) ?>
                                     <small>
-                                        <span class="sl-badge sl-badge-<?= $e($m['jenis_instansi']) ?>">
-                                            <?= ucfirst($e($m['jenis_instansi'])) ?>
+                                        <span class="sl-badge sl-badge-<?= $e($m['jenis_instansi'] ?? 'eksternal') ?>">
+                                            <?= ucfirst($e($m['jenis_instansi'] ?? 'eksternal')) ?>
                                         </span>
-                                        <?php if ($m['status'] === 'nonaktif'): ?>
+                                        <?php if (($m['status'] ?? '') === 'nonaktif'): ?>
                                             <span class="sl-badge sl-badge-penuh">Nonaktif</span>
                                         <?php endif; ?>
                                     </small>
                                 </td>
                                 <td><?= $e($m['alamat']) ?></td>
-                                <td><?= $e($m['nama_kontak'] ?: '-') ?></td>
-                                <td><?= $e($m['no_telepon'] ?: '-') ?></td>
+                                <td><?= $e($m['penanggung_jawab'] ?: '-') ?></td>
+                                <td><?= $e($m['telepon'] ?: '-') ?></td>
                                 <td>
+                                    <!-- TAMPILAN KUOTA DINAMIS -->
                                     <span class="sl-badge <?= $isPenuh ? 'sl-badge-penuh' : 'sl-badge-tersedia' ?>">
-                                        <?= $e($m['terisi']) ?> / <?= $e($m['kuota']) ?> Siswa
+                                        <?= $terisiSaatIni ?> / <?= $kuotaMax ?> Siswa
                                     </span>
                                 </td>
                                 <td class="sl-aksi">
@@ -242,10 +259,10 @@ ob_start();
                                     <button type="button" class="a-hapus sl-hapus"
                                             data-id="<?= (int)$m['id_instansi'] ?>"
                                             data-nama="<?= $e($m['nama_instansi']) ?>"
-                                            data-pembimbing="<?= $e($m['nama_kontak'] ?: '-') ?>"
-                                            data-telepon="<?= $e($m['no_telepon'] ?: '-') ?>"
-                                            data-kuota="<?= (int)$m['kuota'] ?>"
-                                            data-terisi="<?= (int)$m['terisi'] ?>">Hapus</button>
+                                            data-pembimbing="<?= $e($m['penanggung_jawab'] ?: '-') ?>"
+                                            data-telepon="<?= $e($m['telepon'] ?: '-') ?>"
+                                            data-kuota="<?= $kuotaMax ?>"
+                                            data-terisi="<?= $terisiSaatIni ?>">Hapus</button>
                                 </td>
                             </tr>
                         <?php endforeach; ?>
@@ -259,12 +276,35 @@ ob_start();
 
         <div class="sl-foot">
             <div class="sl-info" id="slInfo">
-                Menampilkan 1-<?= count($mitraList) ?> dari <?= $e(count($mitraList)) ?> instansi
+                Menampilkan <?= ($offset + 1) ?>-<?= ($offset + count($mitraList)) ?> dari <?= $e($totalMitra) ?> instansi
             </div>
+            
             <ul class="sl-pager">
-                <li class="disabled"><a href="#">Sebelumnya</a></li>
-                <li class="active"><a href="#">1</a></li>
-                <li><a href="#">Selanjutnya</a></li>
+                <?php
+                // Tombol Sebelumnya
+                $prevClass = ($page <= 1) ? 'disabled' : '';
+                $prevHal   = max(1, $page - 1);
+                ?>
+                <li class="<?= $prevClass ?>"><a href="?page=data-mitra&hal=<?= $prevHal ?>">Sebelumnya</a></li>
+
+                <?php
+                // Tampilkan maksimal 5 halaman
+                $start = max(1, $page - 2);
+                $end   = min($totalPages, $start + 4);
+                $start = max(1, $end - 4);
+
+                for ($p = $start; $p <= $end; $p++):
+                    $activeClass = ($p == $page) ? 'active' : '';
+                ?>
+                    <li class="<?= $activeClass ?>"><a href="?page=data-mitra&hal=<?= $p ?>"><?= $p ?></a></li>
+                <?php endfor; ?>
+
+                <?php
+                // Tombol Selanjutnya
+                $nextClass = ($page >= $totalPages) ? 'disabled' : '';
+                $nextHal   = min($totalPages, $page + 1);
+                ?>
+                <li class="<?= $nextClass ?>"><a href="?page=data-mitra&hal=<?= $nextHal ?>">Selanjutnya</a></li>
             </ul>
         </div>
     </div>
@@ -321,8 +361,8 @@ ob_start();
 <script>
     window.addEventListener('load', function () {
         var $ = window.jQuery;
-        var total = <?= (int) count($mitraList) ?>;
-
+        
+        // Filter berlaku untuk 10 data yang tampil saat ini
         function terapkan() {
             var q = $('#slCari').val().toLowerCase().trim();
             var s = $('#slSektor').val();
@@ -335,7 +375,7 @@ ob_start();
                 if (cocok) { tampil++; }
             });
             $('#slKosong').toggle(tampil === 0);
-            $('#slInfo').text('Menampilkan ' + tampil + ' dari ' + total + ' instansi');
+            $('#slInfo').text('Menampilkan ' + tampil + ' instansi (difilter)');
         }
         $('#slCari').on('input', terapkan);
         $('#slSektor').on('change', terapkan);
@@ -350,8 +390,6 @@ ob_start();
             $('#slHKuota').text(d.terisi + ' / ' + d.kuota + ' Siswa');
             $('#slModalHapus').modal('show');
         });
-
-        $('.sl-pager a').on('click', function (ev) { ev.preventDefault(); });
     });
 </script>
 

@@ -1,6 +1,8 @@
 <?php
-// ===== 1. BLOK PHP ATAS =====
-// Set activePage ke 'instansi-mitra' agar menu sidebar kiri tetap menyala di Instansi Mitra
+// Mengarah ke file koneksi.php (sesuai perbaikan path sebelumnya)
+require_once __DIR__ . '/../../../../../config/koneksi.php';
+
+    // ===== 1. BLOK PHP ATAS =====
 $activePage   = 'instansi-mitra';
 $pageTitle    = 'Tambah Instansi Mitra';
 $pageSubtitle = 'Formulir pendaftaran data instansi/perusahaan mitra baru untuk tempat PKL.';
@@ -29,7 +31,26 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (empty($namaInstansi) || empty($sektor) || empty($pembimbing) || empty($telepon) || empty($alamat) || $kuota <= 0) {
         $pesanError = 'Harap isi seluruh kolom formulir dengan benar.';
     } else {
-        $pesanSukses = 'Data instansi <strong>' . $e($namaInstansi) . '</strong> berhasil ditambahkan!';
+        // --- PROSES SIMPAN KE DATABASE (MySQLi) ---
+        // --- PROSES SIMPAN KE DATABASE (MySQLi) ---
+$namaInstansi_db = mysqli_real_escape_string($koneksi, $namaInstansi);
+$sektor_db       = mysqli_real_escape_string($koneksi, $sektor);
+$pembimbing_db   = mysqli_real_escape_string($koneksi, $pembimbing);
+$telepon_db      = mysqli_real_escape_string($koneksi, $telepon);
+$alamat_db       = mysqli_real_escape_string($koneksi, $alamat);
+$kuota_db        = (int)$kuota;
+
+// Perhatikan perubahan di bawah ini: pembimbing_lapangan menjadi penanggung_jawab
+$query = "INSERT INTO instansi (nama_instansi, sektor, penanggung_jawab, telepon, kuota, alamat) 
+          VALUES ('$namaInstansi_db', '$sektor_db', '$pembimbing_db', '$telepon_db', '$kuota_db', '$alamat_db')";
+        
+        if (mysqli_query($koneksi, $query)) {
+            $pesanSukses = 'Data instansi <strong>' . $e($namaInstansi) . '</strong> berhasil ditambahkan ke database!';
+            // Kosongkan form setelah berhasil (opsional)
+            $_POST = array(); 
+        } else {
+            $pesanError = 'Gagal menyimpan ke database: ' . mysqli_error($koneksi);
+        }
     }
 }
 
@@ -213,10 +234,10 @@ ob_start();
                         <i class="fas fa-briefcase"></i>
                         <select name="sektor" class="sl-form-control" required>
                             <option value="">Pilih Sektor / Bidang Usaha</option>
-                            <option value="Teknologi Informasi">Teknologi Informasi</option>
-                            <option value="Industri Kreatif">Industri Kreatif</option>
-                            <option value="Jaringan & Telekomunikasi">Jaringan & Telekomunikasi</option>
-                            <option value="Pemerintahan">Pemerintahan</option>
+                            <option value="Teknologi Informasi" <?= (($_POST['sektor'] ?? '') == 'Teknologi Informasi') ? 'selected' : '' ?>>Teknologi Informasi</option>
+                            <option value="Industri Kreatif" <?= (($_POST['sektor'] ?? '') == 'Industri Kreatif') ? 'selected' : '' ?>>Industri Kreatif</option>
+                            <option value="Jaringan & Telekomunikasi" <?= (($_POST['sektor'] ?? '') == 'Jaringan & Telekomunikasi') ? 'selected' : '' ?>>Jaringan & Telekomunikasi</option>
+                            <option value="Pemerintahan" <?= (($_POST['sektor'] ?? '') == 'Pemerintahan') ? 'selected' : '' ?>>Pemerintahan</option>
                         </select>
                     </div>
                 </div>
@@ -244,7 +265,7 @@ ob_start();
             <!-- Baris 3: Kuota PKL -->
             <div class="row">
                 <div class="col-md-6 mb-3">
-                    <label class="sl-form-label">Kuota Kuota Tempat (Siswa) <span class="text-danger">*</span></label>
+                    <label class="sl-form-label">Kuota Tempat (Siswa) <span class="text-danger">*</span></label>
                     <div class="sl-input-group">
                         <i class="fas fa-users"></i>
                         <input type="number" name="kuota" class="sl-form-control" min="1" placeholder="Contoh: 5" value="<?= $e($_POST['kuota'] ?? '') ?>" required>

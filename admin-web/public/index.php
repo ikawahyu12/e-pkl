@@ -61,6 +61,10 @@ switch ($page) {
         require dirname(__DIR__) . '/app/Views/admin/manajemen_user/siswa/detail.php';
         break;
 
+    case 'hapus-siswa':
+    require dirname(__DIR__) . '/app/Views/admin/siswa/delete.php';
+    break;
+
     // ==========================================
     // DATA LAINNYA
     // ==========================================
@@ -101,6 +105,10 @@ switch ($page) {
 
     case 'detail-mitra':
         require dirname(__DIR__) . '/app/Views/admin/instansi/detail.php';
+        break;
+
+    case 'hapus-mitra':
+        require dirname(__DIR__) . '/app/Views/admin/instansi/delete.php';
         break;
 
     // ==========================================

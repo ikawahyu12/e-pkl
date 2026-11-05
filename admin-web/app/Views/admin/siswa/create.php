@@ -1,12 +1,13 @@
 <?php
 /**
- * Admin > Data Siswa > Tambah Siswa Baru  (UI saja, belum menyimpan ke database)
- *
- * File ini berdiri sendiri. Satu-satunya yang dibutuhkan: app/Views/layouts/admin.php
+ * Admin > Data Siswa > Tambah Siswa Baru (Terhubung Database)
  * Letak file: app/Views/admin/siswa/create.php
  */
 
-// 1. Alamat asset (layout mencari di <folder-halaman>/assets, padahal asset ada di public/assets)
+// 1. Panggil koneksi database
+require_once __DIR__ . '/../../../../../config/koneksi.php';
+
+// 2. Alamat asset
 if (!isset($assetBaseUrl)) {
     $scriptDir = str_replace('\\', '/', dirname($_SERVER['SCRIPT_NAME'] ?? '/'));
     if (preg_match('#^(.*?)/app/Views(?:/.*)?$#', $scriptDir, $m)) {
@@ -14,32 +15,81 @@ if (!isset($assetBaseUrl)) {
     }
 }
 
-// 2. Pilihan dropdown (dummy, ganti dengan data database nanti)
-$opsiKelas = [
-    'XII RPL 1 (Rekayasa Perangkat Lunak)',
-    'XII RPL 2 (Rekayasa Perangkat Lunak)',
-    'XII TKJ 1 (Teknik Komputer & Jaringan)',
-    'XII TKJ 2 (Teknik Komputer & Jaringan)',
-    'XII DKV 1 (Desain Komunikasi Visual)',
-    'XII DKV 2 (Desain Komunikasi Visual)',
-];
-$opsiInstansi = [
-    'PT Telkom Indonesia', 'Studio Animasi Semesta', 'Lintasarta Datacenter',
-    'CV Digital Optima', 'Biznet Networks', 'PT Kreatif Media Kreasi', 'PT Finnet Indonesia',
-];
+$urlDaftar = '?page=data-siswa';
+$pesanError = '';
+
+// ==========================================
+// PROSES SIMPAN (INSERT) SAAT FORM DISUBMIT
+// ==========================================
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    // Ambil data dari form dan amankan
+    $nis            = mysqli_real_escape_string($koneksi, $_POST['nis'] ?? '');
+    $nama_siswa     = mysqli_real_escape_string($koneksi, $_POST['nama'] ?? '');
+    $id_kelas       = (int) ($_POST['kelas'] ?? 0);
+    $jenis_kelamin  = mysqli_real_escape_string($koneksi, $_POST['jk'] ?? '');
+    $no_hp          = mysqli_real_escape_string($koneksi, $_POST['no_hp'] ?? '');
+    $alamat         = mysqli_real_escape_string($koneksi, $_POST['alamat'] ?? '');
+    $id_instansi    = (int) ($_POST['instansi'] ?? 0);
+    $status         = mysqli_real_escape_string($koneksi, $_POST['status'] ?? 'Aktif');
+
+    if (empty($nis) || empty($nama_siswa) || empty($id_kelas) || empty($jenis_kelamin)) {
+        $pesanError = 'Harap isi kolom NIS, Nama, Kelas, dan Jenis Kelamin.';
+    } else {
+        // Insert ke tabel siswa
+        $sql = "INSERT INTO siswa (
+                    nis, nama_siswa, id_kelas, no_hp, alamat, 
+                    status, id_instansi
+                ) VALUES (
+                    '$nis', '$nama_siswa', $id_kelas, '$no_hp', '$alamat',
+                    '$status', " . ($id_instansi > 0 ? $id_instansi : "NULL") . "
+                )";
+
+        try {
+            if (mysqli_query($koneksi, $sql)) {
+                echo "<script>alert('Data siswa berhasil ditambahkan!'); window.location='$urlDaftar';</script>";
+                exit;
+            }
+        } catch (mysqli_sql_exception $ex) {
+            if (strpos($ex->getMessage(), 'Duplicate entry') !== false) {
+                $pesanError = 'NIS <strong>' . htmlspecialchars($nis, ENT_QUOTES) . '</strong> sudah terdaftar di sistem. Silakan gunakan NIS lain.';
+            } else {
+                $pesanError = 'Gagal menyimpan: ' . htmlspecialchars($ex->getMessage(), ENT_QUOTES);
+            }
+        }
+    }
+}
+
+// ==========================================
+// AMBIL DATA DROPDOWN DARI DATABASE
+// ==========================================
+// Dropdown Kelas (dari tabel kelas)
+$opsiKelas = [];
+$qKelas = mysqli_query($koneksi, "SELECT id_kelas, nama_kelas FROM kelas ORDER BY nama_kelas ASC");
+if ($qKelas) {
+    while ($k = mysqli_fetch_assoc($qKelas)) {
+        $opsiKelas[] = $k;
+    }
+}
+
+// Dropdown Instansi (dari tabel instansi)
+$opsiInstansi = [];
+$qInst = mysqli_query($koneksi, "SELECT id_instansi, nama_instansi FROM instansi WHERE status = 'aktif' ORDER BY nama_instansi ASC");
+if ($qInst) {
+    while ($i = mysqli_fetch_assoc($qInst)) {
+        $opsiInstansi[] = $i;
+    }
+}
 
 $e = static fn ($v): string => htmlspecialchars((string) $v, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
 
 // 3. Variabel untuk layouts/admin.php
 $pageTitle  = 'Tambah Data Siswa';
-$activePage = 'siswa'; // samakan dengan kunci menu "Data Siswa" di sidebar.php
+$activePage = 'siswa';
 
 ob_start();
 ?>
 <style>
-    /* Judul + breadcrumb dibuat sendiri di halaman ini (sesuai Figma), jadi header bawaan layout disembunyikan */
     .page-heading { display: none !important; }
-
     .sf-crumb { font-size: .72rem; color: #64748b; margin-bottom: .5rem; }
     .sf-crumb a { color: #64748b; text-decoration: none; }
     .sf-crumb .now { color: #2563eb; font-weight: 700; }
@@ -98,24 +148,30 @@ ob_start();
 
 <div class="sf">
     <div class="sf-crumb">
-        <a href="index.php">Data Siswa</a><span class="sep">&gt;</span><span class="now">Tambah Siswa Baru</span>
+        <a href="<?= $urlDaftar ?>">Data Siswa</a><span class="sep">&gt;</span><span class="now">Tambah Siswa Baru</span>
     </div>
     <h1 class="sf-title">Tambah Data Siswa</h1>
     <p class="sf-sub">Formulir pendaftaran data siswa baru untuk penempatan Praktik Kerja Lapangan (PKL)</p>
 
-    <form id="sfForm" action="#" method="post" enctype="multipart/form-data" novalidate>
+    <?php if ($pesanError): ?>
+        <div class="alert alert-danger border-0 rounded-lg p-3 mb-3 small">
+            <i class="fas fa-exclamation-circle mr-2"></i><?= $pesanError ?>
+        </div>
+    <?php endif; ?>
+
+    <form id="sfForm" action="" method="post" enctype="multipart/form-data" novalidate>
         <div class="sf-card">
             <div class="row">
                 <div class="col-md-6 form-group">
                     <label class="sf-label" for="nama">Nama Lengkap Siswa <span class="req">*</span></label>
                     <div class="sf-ic"><i class="far fa-user"></i>
-                        <input class="sf-input" type="text" id="nama" name="nama" placeholder="Contoh: Ahmad Rizky Pratama" required>
+                        <input class="sf-input" type="text" id="nama" name="nama" placeholder="Contoh: Ahmad Rizky Pratama" value="<?= $e($_POST['nama'] ?? '') ?>" required>
                     </div>
                 </div>
                 <div class="col-md-6 form-group">
-                    <label class="sf-label" for="nisn">NISN (Nomor Induk Siswa Nasional) <span class="req">*</span></label>
+                    <label class="sf-label" for="nis">NIS (Nomor Induk Siswa) <span class="req">*</span></label>
                     <div class="sf-ic"><i class="fas fa-hashtag"></i>
-                        <input class="sf-input" type="text" id="nisn" name="nisn" placeholder="Contoh: 0061829102" inputmode="numeric" maxlength="10" required>
+                        <input class="sf-input" type="text" id="nis" name="nis" placeholder="Contoh: 0061829102" inputmode="numeric" maxlength="10" value="<?= $e($_POST['nis'] ?? '') ?>" required>
                     </div>
                 </div>
 
@@ -124,7 +180,11 @@ ob_start();
                     <div class="sf-ic"><i class="fas fa-layer-group"></i>
                         <select class="sf-input" id="kelas" name="kelas" required>
                             <option value="" selected disabled hidden>Pilih Jurusan &amp; Kelas</option>
-                            <?php foreach ($opsiKelas as $k): ?><option><?= $e($k) ?></option><?php endforeach; ?>
+                            <?php foreach ($opsiKelas as $k): ?>
+                                <option value="<?= $k['id_kelas'] ?>" <?= (($_POST['kelas'] ?? '') == $k['id_kelas']) ? 'selected' : '' ?>>
+                                    <?= $e($k['nama_kelas']) ?>
+                                </option>
+                            <?php endforeach; ?>
                         </select>
                         <i class="fas fa-chevron-down sf-caret"></i>
                     </div>
@@ -134,43 +194,43 @@ ob_start();
                     <div class="sf-ic"><i class="far fa-user"></i>
                         <select class="sf-input" id="jk" name="jk" required>
                             <option value="" selected disabled hidden>Pilih Jenis Kelamin</option>
-                            <option>Laki-laki</option>
-                            <option>Perempuan</option>
+                            <option value="Laki-laki" <?= (($_POST['jk'] ?? '') === 'Laki-laki') ? 'selected' : '' ?>>Laki-laki</option>
+                            <option value="Perempuan" <?= (($_POST['jk'] ?? '') === 'Perempuan') ? 'selected' : '' ?>>Perempuan</option>
                         </select>
                         <i class="fas fa-chevron-down sf-caret"></i>
                     </div>
                 </div>
 
                 <div class="col-md-6 form-group">
-                    <label class="sf-label" for="ttl">Tempat &amp; Tanggal Lahir <span class="req">*</span></label>
+                    <label class="sf-label" for="ttl">Tempat &amp; Tanggal Lahir</label>
                     <div class="sf-ic"><i class="far fa-calendar-alt"></i>
-                        <input class="sf-input" type="text" id="ttl" name="ttl" placeholder="Bandung, 14 Mei 2007" required>
+                        <input class="sf-input" type="text" id="ttl" name="ttl" placeholder="Bandung, 14 Mei 2007" value="<?= $e($_POST['ttl'] ?? '') ?>">
                     </div>
                 </div>
                 <div class="col-md-6 form-group">
-                    <label class="sf-label" for="wa">No. Kontak / WhatsApp Siswa <span class="req">*</span></label>
+                    <label class="sf-label" for="no_hp">No. Kontak / WhatsApp Siswa <span class="req">*</span></label>
                     <div class="sf-ic"><i class="fas fa-phone-alt"></i>
-                        <input class="sf-input" type="tel" id="wa" name="wa" placeholder="Contoh: 0812-xxxx-xxxx" required>
+                        <input class="sf-input" type="tel" id="no_hp" name="no_hp" placeholder="Contoh: 0812-xxxx-xxxx" value="<?= $e($_POST['no_hp'] ?? '') ?>" required>
                     </div>
                 </div>
 
                 <div class="col-12 form-group">
-                    <label class="sf-label" for="alamat">Alamat Lengkap Siswa <span class="req">*</span></label>
+                    <label class="sf-label" for="alamat">Alamat Lengkap Siswa</label>
                     <div class="sf-ic"><i class="fas fa-map-marker-alt"></i>
-                        <input class="sf-input" type="text" id="alamat" name="alamat" placeholder="Jalan, RT/RW, kelurahan, kecamatan, kota" required>
+                        <input class="sf-input" type="text" id="alamat" name="alamat" placeholder="Jalan, RT/RW, kelurahan, kecamatan, kota" value="<?= $e($_POST['alamat'] ?? '') ?>">
                     </div>
                 </div>
 
                 <div class="col-md-6 form-group">
-                    <label class="sf-label" for="ortu">Nama Orang Tua / Wali <span class="req">*</span></label>
+                    <label class="sf-label" for="ortu">Nama Orang Tua / Wali</label>
                     <div class="sf-ic"><i class="fas fa-user-friends"></i>
-                        <input class="sf-input" type="text" id="ortu" name="ortu" placeholder="Nama lengkap ayah / ibu / wali" required>
+                        <input class="sf-input" type="text" id="ortu" name="ortu" placeholder="Nama lengkap ayah / ibu / wali" value="<?= $e($_POST['ortu'] ?? '') ?>">
                     </div>
                 </div>
                 <div class="col-md-6 form-group">
-                    <label class="sf-label" for="tlp_ortu">No. Telepon Orang Tua / Wali <span class="req">*</span></label>
+                    <label class="sf-label" for="tlp_ortu">No. Telepon Orang Tua / Wali</label>
                     <div class="sf-ic"><i class="fas fa-phone-alt"></i>
-                        <input class="sf-input" type="tel" id="tlp_ortu" name="tlp_ortu" placeholder="Contoh: 0813-xxxx-xxxx" required>
+                        <input class="sf-input" type="tel" id="tlp_ortu" name="tlp_ortu" placeholder="Contoh: 0813-xxxx-xxxx" value="<?= $e($_POST['tlp_ortu'] ?? '') ?>">
                     </div>
                 </div>
 
@@ -179,7 +239,11 @@ ob_start();
                     <div class="sf-ic"><i class="far fa-building"></i>
                         <select class="sf-input" id="instansi" name="instansi">
                             <option value="" selected>Pilih Instansi Mitra (opsional)</option>
-                            <?php foreach ($opsiInstansi as $i): ?><option><?= $e($i) ?></option><?php endforeach; ?>
+                            <?php foreach ($opsiInstansi as $i): ?>
+                                <option value="<?= $i['id_instansi'] ?>" <?= (($_POST['instansi'] ?? '') == $i['id_instansi']) ? 'selected' : '' ?>>
+                                    <?= $e($i['nama_instansi']) ?>
+                                </option>
+                            <?php endforeach; ?>
                         </select>
                         <i class="fas fa-chevron-down sf-caret"></i>
                     </div>
@@ -187,12 +251,12 @@ ob_start();
                 <div class="col-md-6 form-group">
                     <span class="sf-label">Status Siswa <span class="req">*</span></span>
                     <div class="sf-radios">
-                        <label class="sf-radio on">
-                            <span class="txt"><input type="radio" name="status" value="Aktif" checked> Aktif / Terdaftar</span>
+                        <label class="sf-radio <?= (($_POST['status'] ?? 'Aktif') === 'Aktif') ? 'on' : '' ?>">
+                            <span class="txt"><input type="radio" name="status" value="Aktif" <?= (($_POST['status'] ?? 'Aktif') === 'Aktif') ? 'checked' : '' ?>> Aktif / Terdaftar</span>
                             <span class="sf-tag sf-tag-aktif">Aktif</span>
                         </label>
-                        <label class="sf-radio">
-                            <span class="txt"><input type="radio" name="status" value="Pending"> Menunggu Penempatan</span>
+                        <label class="sf-radio <?= (($_POST['status'] ?? '') === 'Pending') ? 'on' : '' ?>">
+                            <span class="txt"><input type="radio" name="status" value="Pending" <?= (($_POST['status'] ?? '') === 'Pending') ? 'checked' : '' ?>> Menunggu Penempatan</span>
                             <span class="sf-tag sf-tag-pending">Pending</span>
                         </label>
                     </div>
@@ -211,10 +275,9 @@ ob_start();
             </div>
 
             <div class="sf-foot">
-                <a href="index.php" class="sf-btn sf-btn-cancel">Batal</a>
+                <a href="<?= $urlDaftar ?>" class="sf-btn sf-btn-cancel">Batal</a>
                 <button type="submit" class="sf-btn sf-btn-save"><i class="fas fa-check mr-2"></i>Simpan Data Siswa</button>
             </div>
-            <div class="sf-toast" id="sfToast" role="status">Tampilan saja: data belum disimpan ke database.</div>
         </div>
     </form>
 </div>
@@ -247,14 +310,6 @@ ob_start();
             ev.preventDefault();
             var files = ev.originalEvent.dataTransfer.files;
             if (files.length) { input.files = files; tampil(files[0]); }
-        });
-
-        // Simpan: cek isian wajib, lalu tampilkan pesan (belum ada backend)
-        $('#sfForm').on('submit', function (ev) {
-            ev.preventDefault();
-            var form = this;
-            if (!form.checkValidity()) { form.reportValidity(); return; }
-            $('#sfToast').show();
         });
     });
 </script>
