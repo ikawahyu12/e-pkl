@@ -41,21 +41,19 @@
         .login-brand {
             display: flex;
             align-items: center;
-            gap: 12px;
-            font-size: 17px;
-            font-weight: 800;
+            width: fit-content;
+            min-height: 42px;
+            padding: 3px 7px;
+            border-radius: 14px;
+            background: rgba(255,255,255,.96);
         }
 
-        .login-brand-mark {
-            display: grid;
-            place-items: center;
-            width: 42px;
-            height: 42px;
-            border: 1px solid rgba(255,255,255,.4);
-            border-radius: 14px;
-            background: rgba(255,255,255,.18);
-            font-size: 21px;
-            font-style: italic;
+        .login-brand img {
+            display: block;
+            width: 96px;
+            height: 36px;
+            object-fit: cover;
+            object-position: center;
         }
 
         .login-intro-copy {
@@ -283,6 +281,19 @@
                 padding-left: 18px;
             }
         }
+
+        @media (max-width: 560px) {
+            .login-brand {
+                min-height: 36px;
+                padding: 2px 6px;
+                border-radius: 10px;
+            }
+
+            .login-brand img {
+                width: 78px;
+                height: 30px;
+            }
+        }
     </style>
 </head>
 <body>
@@ -291,8 +302,7 @@
     <div class="login-shell">
         <section class="login-intro" aria-label="Tentang E-PKL">
             <div class="login-brand">
-                <span class="login-brand-mark" aria-hidden="true">E</span>
-                <span>E-PKL</span>
+                <img src="<?= e(asset('img/logo_e-pkl.png')) ?>" alt="Logo E-PKL">
             </div>
             <div class="login-intro-copy">
                 <span class="login-eyebrow">PORTAL SISWA</span>

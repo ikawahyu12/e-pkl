@@ -1,6 +1,10 @@
 <?php
-// ===== 1. BLOK PHP ATAS =====
-// Set activePage ke 'instansi-mitra' agar menu sidebar kiri tetap menyala di Instansi Mitra
+require_once dirname(__DIR__, 3) . '/Support/Csrf.php';
+$csrfToken = AdminCsrf::token();
+// Mengarah ke file koneksi.php (sesuai perbaikan path sebelumnya)
+require_once __DIR__ . '/../../../../../config/koneksi.php';
+
+    // ===== 1. BLOK PHP ATAS =====
 $activePage   = 'instansi-mitra';
 $pageTitle    = 'Tambah Instansi Mitra';
 $pageSubtitle = 'Formulir pendaftaran data instansi/perusahaan mitra baru untuk tempat PKL.';
@@ -19,17 +23,60 @@ $pesanSukses = '';
 $pesanError  = '';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    if (!AdminCsrf::verify($_POST['csrf_token'] ?? null)) {
+        http_response_code(419);
+        $pesanError = 'Sesi formulir tidak valid. Muat ulang halaman lalu coba kembali.';
+    } else {
     $namaInstansi = trim($_POST['nama_instansi'] ?? '');
-    $sektor       = trim($_POST['sektor'] ?? '');
+    $jenis        = trim($_POST['jenis'] ?? '');
     $pembimbing   = trim($_POST['pembimbing_lapangan'] ?? '');
     $telepon      = trim($_POST['telepon'] ?? '');
-    $kuota        = (int)($_POST['kuota'] ?? 0);
+    $kuota        = filter_var($_POST['kuota'] ?? null, FILTER_VALIDATE_INT);
     $alamat       = trim($_POST['alamat'] ?? '');
 
-    if (empty($namaInstansi) || empty($sektor) || empty($pembimbing) || empty($telepon) || empty($alamat) || $kuota <= 0) {
+    if (
+        $namaInstansi === ''
+        || !in_array($jenis, ['internal', 'eksternal'], true)
+        || $pembimbing === ''
+        || $telepon === ''
+        || $alamat === ''
+        || $kuota === false
+        || $kuota <= 0
+    ) {
         $pesanError = 'Harap isi seluruh kolom formulir dengan benar.';
+    } elseif (
+        mb_strlen($namaInstansi, 'UTF-8') > 160
+        || mb_strlen($jenis, 'UTF-8') > 80
+        || mb_strlen($pembimbing, 'UTF-8') > 120
+        || mb_strlen($telepon, 'UTF-8') > 25
+        || $kuota > 4294967295
+    ) {
+        $pesanError = 'Panjang salah satu isian melebihi batas kolom database.';
     } else {
-        $pesanSukses = 'Data instansi <strong>' . $e($namaInstansi) . '</strong> berhasil ditambahkan!';
+        $status = 'aktif';
+        $stmt = mysqli_prepare(
+            $koneksi,
+            'INSERT INTO instansi (nama, jenis, nama_penanggung_jawab, telepon, kuota_siswa, alamat, status)
+             VALUES (?, ?, ?, ?, ?, ?, ?)'
+        );
+
+        if ($stmt === false) {
+            error_log('Gagal menyiapkan penyimpanan instansi: ' . mysqli_error($koneksi));
+            $pesanError = 'Data instansi belum dapat disimpan. Silakan coba kembali.';
+        } else {
+            mysqli_stmt_bind_param($stmt, 'ssssiss', $namaInstansi, $jenis, $pembimbing, $telepon, $kuota, $alamat, $status);
+            $saved = mysqli_stmt_execute($stmt);
+            mysqli_stmt_close($stmt);
+
+            if ($saved) {
+                $pesanSukses = 'Data instansi <strong>' . $e($namaInstansi) . '</strong> berhasil ditambahkan ke database!';
+                $_POST = [];
+            } else {
+                error_log('Gagal menyimpan instansi: ' . mysqli_error($koneksi));
+                $pesanError = 'Data instansi belum dapat disimpan. Silakan coba kembali.';
+            }
+        }
+    }
     }
 }
 
@@ -186,7 +233,7 @@ ob_start();
 
         <?php if ($pesanError): ?>
             <div class="alert alert-danger border-0 rounded-lg p-3 mb-4 small">
-                <i class="fas fa-exclamation-circle mr-2"></i><?= $pesanError ?>
+                <i class="fas fa-exclamation-circle mr-2"></i><?= $e($pesanError) ?>
             </div>
         <?php endif; ?>
 
@@ -197,26 +244,25 @@ ob_start();
         <?php endif; ?>
 
         <form method="POST" action="">
+            <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrfToken, ENT_QUOTES, 'UTF-8') ?>">
             <!-- Baris 1: Nama Instansi & Sektor -->
             <div class="row">
                 <div class="col-md-6 mb-3">
                     <label class="sl-form-label">Nama Lengkap Instansi / Perusahaan <span class="text-danger">*</span></label>
                     <div class="sl-input-group">
                         <i class="fas fa-building"></i>
-                        <input type="text" name="nama_instansi" class="sl-form-control" placeholder="Contoh: PT Telkom Indonesia (Persero) Tbk" value="<?= $e($_POST['nama_instansi'] ?? '') ?>" required>
+                        <input type="text" name="nama_instansi" class="sl-form-control" maxlength="160" placeholder="Contoh: PT Telkom Indonesia (Persero) Tbk" value="<?= $e($_POST['nama_instansi'] ?? '') ?>" required>
                     </div>
                 </div>
 
                 <div class="col-md-6 mb-3">
-                    <label class="sl-form-label">Sektor / Bidang Usaha <span class="text-danger">*</span></label>
+                    <label class="sl-form-label">Jenis Instansi <span class="text-danger">*</span></label>
                     <div class="sl-input-group sl-select-wrapper">
                         <i class="fas fa-briefcase"></i>
-                        <select name="sektor" class="sl-form-control" required>
-                            <option value="">Pilih Sektor / Bidang Usaha</option>
-                            <option value="Teknologi Informasi">Teknologi Informasi</option>
-                            <option value="Industri Kreatif">Industri Kreatif</option>
-                            <option value="Jaringan & Telekomunikasi">Jaringan & Telekomunikasi</option>
-                            <option value="Pemerintahan">Pemerintahan</option>
+                        <select name="jenis" class="sl-form-control" required>
+                            <option value="">Pilih jenis instansi</option>
+                            <option value="internal" <?= (($_POST['jenis'] ?? '') === 'internal') ? 'selected' : '' ?>>Internal</option>
+                            <option value="eksternal" <?= (($_POST['jenis'] ?? '') === 'eksternal') ? 'selected' : '' ?>>Eksternal</option>
                         </select>
                     </div>
                 </div>
@@ -228,7 +274,7 @@ ob_start();
                     <label class="sl-form-label">Penanggung Jawab / Pembimbing <span class="text-danger">*</span></label>
                     <div class="sl-input-group">
                         <i class="fas fa-user-tie"></i>
-                        <input type="text" name="pembimbing_lapangan" class="sl-form-control" placeholder="Contoh: Budi Santoso, S.Kom." value="<?= $e($_POST['pembimbing_lapangan'] ?? '') ?>" required>
+                        <input type="text" name="pembimbing_lapangan" class="sl-form-control" maxlength="120" placeholder="Contoh: Budi Santoso, S.Kom." value="<?= $e($_POST['pembimbing_lapangan'] ?? '') ?>" required>
                     </div>
                 </div>
 
@@ -236,7 +282,7 @@ ob_start();
                     <label class="sl-form-label">No. Kontak / WhatsApp Instansi <span class="text-danger">*</span></label>
                     <div class="sl-input-group">
                         <i class="fas fa-phone-alt"></i>
-                        <input type="text" name="telepon" class="sl-form-control" placeholder="Contoh: 0812-xxxx-xxxx" value="<?= $e($_POST['telepon'] ?? '') ?>" required>
+                        <input type="text" name="telepon" class="sl-form-control" maxlength="25" placeholder="Contoh: 0812-xxxx-xxxx" value="<?= $e($_POST['telepon'] ?? '') ?>" required>
                     </div>
                 </div>
             </div>
@@ -244,7 +290,7 @@ ob_start();
             <!-- Baris 3: Kuota PKL -->
             <div class="row">
                 <div class="col-md-6 mb-3">
-                    <label class="sl-form-label">Kuota Kuota Tempat (Siswa) <span class="text-danger">*</span></label>
+                    <label class="sl-form-label">Kuota Tempat (Siswa) <span class="text-danger">*</span></label>
                     <div class="sl-input-group">
                         <i class="fas fa-users"></i>
                         <input type="number" name="kuota" class="sl-form-control" min="1" placeholder="Contoh: 5" value="<?= $e($_POST['kuota'] ?? '') ?>" required>

@@ -9,7 +9,8 @@ use Illuminate\Support\Facades\Route;
 
 // Autentikasi Guru
 Route::prefix('v1/guru/auth')->group(function (): void {
-    Route::post('/login', [GuruAuthController::class, 'login']);
+    Route::post('/login', [GuruAuthController::class, 'login'])
+        ->middleware('throttle:5,1');
 
     Route::middleware([
         EnsureSanctumTokenStorage::class,
@@ -23,7 +24,8 @@ Route::prefix('v1/guru/auth')->group(function (): void {
 
 // Autentikasi Siswa
 Route::prefix('v1/siswa/auth')->group(function (): void {
-    Route::post('/login', [SiswaAuthController::class, 'login']);
+    Route::post('/login', [SiswaAuthController::class, 'login'])
+        ->middleware('throttle:5,1');
 
     Route::middleware([
         EnsureSanctumTokenStorage::class,

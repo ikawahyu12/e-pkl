@@ -1,4 +1,6 @@
 <?php
+require_once dirname(__DIR__, 3) . '/Support/Csrf.php';
+$csrfToken = AdminCsrf::token();
 // ===== 1. BLOK PHP ATAS =====
 require_once __DIR__ . '/../../../../../config/koneksi.php';
 
@@ -15,67 +17,108 @@ $assetBaseUrl = $scriptDir . '/assets';
 $e            = static fn($v): string => htmlspecialchars((string) $v, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
 
 // ==========================================
-// QUERY DATA DARI DATABASE
+// 1. KONFIGURASI PAGINATION
 // ==========================================
+$limit = 10;
+$page  = isset($_GET['hal']) ? (int)$_GET['hal'] : 1;
+if ($page < 1) $page = 1;
+$offset = ($page - 1) * $limit;
 
-// 1. Ambil semua instansi + hitung jumlah siswa terisi via JOIN penempatan
-$sql = "SELECT 
-            i.id_instansi,
-            i.nama_instansi,
+// ==========================================
+// 2. Hitung total data dan statistik dengan skema database epkl.
+$totalQuery = mysqli_query($koneksi, "SELECT COUNT(*) AS total FROM instansi");
+if (!$totalQuery) {
+    error_log('Gagal menghitung data instansi: ' . mysqli_error($koneksi));
+    http_response_code(500);
+    exit('Data instansi tidak dapat dimuat.');
+}
+$totalMitra = (int) mysqli_fetch_assoc($totalQuery)['total'];
+
+$statQuery = mysqli_query($koneksi, "
+    SELECT COALESCE(SUM(kuota_siswa), 0) AS total_kuota
+    FROM instansi
+    WHERE status = 'aktif'
+");
+if (!$statQuery) {
+    error_log('Gagal memuat statistik instansi: ' . mysqli_error($koneksi));
+    http_response_code(500);
+    exit('Statistik instansi tidak dapat dimuat.');
+}
+$totalKuota = (int) mysqli_fetch_assoc($statQuery)['total_kuota'];
+
+$terisiQuery = mysqli_query($koneksi, "
+    SELECT COUNT(*) AS jml
+    FROM penempatan_pkl
+    WHERE status = 'aktif'
+");
+if (!$terisiQuery) {
+    error_log('Gagal menghitung penempatan aktif: ' . mysqli_error($koneksi));
+    http_response_code(500);
+    exit('Statistik penempatan tidak dapat dimuat.');
+}
+$terisi = (int) mysqli_fetch_assoc($terisiQuery)['jml'];
+$totalPages = max(1, (int) ceil($totalMitra / $limit));
+
+// 3. Ambil instansi aktif pada halaman yang diminta.
+$sql = "SELECT
+            i.id AS id_instansi,
+            i.nama AS nama_instansi,
             i.alamat,
-            i.no_telepon,
-            i.nama_kontak,
+            i.telepon AS no_telepon,
+            i.nama_penanggung_jawab AS nama_kontak,
             i.email,
-            i.jenis_instansi,
+            i.jenis AS jenis_instansi,
             i.status,
-            i.kuota,
-            i.sektor,
-            COUNT(p.id_penempatan) AS terisi
+            i.kuota_siswa AS kuota,
+            COUNT(p.id) AS terisi
         FROM instansi i
-        LEFT JOIN penempatan_pkl p 
-            ON p.id_instansi = i.id_instansi 
+        LEFT JOIN penempatan_pkl p
+            ON p.instansi_id = i.id
             AND p.status = 'aktif'
-        GROUP BY i.id_instansi
-        ORDER BY i.nama_instansi ASC";
+        GROUP BY
+            i.id,
+            i.nama,
+            i.alamat,
+            i.telepon,
+            i.nama_penanggung_jawab,
+            i.email,
+            i.jenis,
+            i.status,
+            i.kuota_siswa
+        ORDER BY i.nama ASC
+        LIMIT $limit OFFSET $offset";
 
 $result = mysqli_query($koneksi, $sql);
+
 if (!$result) {
-    die("Query error: " . mysqli_error($koneksi));
+    error_log('Gagal memuat daftar instansi: ' . mysqli_error($koneksi));
+    http_response_code(500);
+    exit('Daftar instansi tidak dapat dimuat.');
 }
 
 $mitraList = [];
+
 while ($row = mysqli_fetch_assoc($result)) {
     $mitraList[] = $row;
 }
 
-// 2. Statistik ringkas
-$stat = mysqli_fetch_assoc(mysqli_query($koneksi, "
-    SELECT 
-        COUNT(*) AS total_mitra,
-        COALESCE(SUM(kuota), 0) AS total_kuota
+// 4. Daftar jenis instansi untuk filter.
+$jenisList = [];
+$jenisQuery = mysqli_query($koneksi, "
+    SELECT DISTINCT jenis
     FROM instansi
-    WHERE status = 'aktif'
-"));
-
-$totalMitra = (int) $stat['total_mitra'];
-$totalKuota = (int) $stat['total_kuota'];
-
-$terisi = (int) mysqli_fetch_assoc(mysqli_query($koneksi, "
-    SELECT COUNT(*) AS jml 
-    FROM penempatan_pkl 
-    WHERE status = 'aktif'
-"))['jml'];
-
-// 3. Ambil daftar sektor unik untuk dropdown filter
-$sektorList = [];
-$sektorQuery = mysqli_query($koneksi, "
-    SELECT DISTINCT sektor 
-    FROM instansi 
-    WHERE sektor IS NOT NULL AND sektor <> '' 
-    ORDER BY sektor ASC
+    WHERE jenis IS NOT NULL AND jenis <> ''
+    ORDER BY jenis ASC
 ");
-while ($s = mysqli_fetch_assoc($sektorQuery)) {
-    $sektorList[] = $s['sektor'];
+
+if (!$jenisQuery) {
+    error_log('Gagal memuat jenis instansi: ' . mysqli_error($koneksi));
+    http_response_code(500);
+    exit('Filter instansi tidak dapat dimuat.');
+}
+
+while ($j = mysqli_fetch_assoc($jenisQuery)) {
+    $jenisList[] = $j['jenis'];
 }
 
 ob_start();
@@ -131,6 +174,7 @@ ob_start();
     .sl-pager { display: flex; align-items: center; gap: .35rem; margin: 0; padding: 0; list-style: none; }
     .sl-pager a { display: inline-flex; align-items: center; justify-content: center; min-width: 24px; height: 24px; padding: 0 .35rem; border-radius: 5px; font-size: .7rem; color: #3b4a5e; text-decoration: none; }
     .sl-pager .active a { background: #0b5f8a; color: #fff; }
+    .sl-pager .disabled a { color: #3b4a5e; pointer-events: none; opacity: 0.6; }
 
     /* ---- Style Modal Hapus ---- */
     .sl-modal .modal-content { border: 0; border-radius: 16px; }
@@ -150,7 +194,7 @@ ob_start();
             <div class="sl-stat">
                 <span class="sl-stat-icon"><i class="fas fa-building"></i></span>
                 <div>
-                    <div class="sl-stat-label">Total Instansi Mitra Aktif</div>
+                    <div class="sl-stat-label">Total Instansi Mitra</div>
                     <div class="sl-stat-value" style="color:#0f1d3a;"><?= $e($totalMitra) ?></div>
                 </div>
             </div>
@@ -182,10 +226,10 @@ ob_start();
             <input type="search" id="slCari" class="sl-field" placeholder="Cari instansi atau alamat...">
         </div>
         <div class="sl-filters">
-            <select id="slSektor" class="sl-field sl-sektor">
-                <option value="">Semua Sektor / Bidang</option>
-                <?php foreach ($sektorList as $sk): ?>
-                    <option value="<?= $e($sk) ?>"><?= $e($sk) ?></option>
+            <select id="slJenis" class="sl-field sl-sektor">
+                <option value="">Semua Jenis Instansi</option>
+                <?php foreach ($jenisList as $jenis): ?>
+                    <option value="<?= $e($jenis) ?>"><?= $e($jenis) ?></option>
                 <?php endforeach; ?>
             </select>
         </div>
@@ -213,17 +257,20 @@ ob_start();
                         </tr>
                     <?php else: ?>
                         <?php foreach ($mitraList as $i => $m):
-                            $isPenuh = $m['kuota'] > 0 && $m['terisi'] >= $m['kuota'];
+                            // Cek apakah kuota sudah penuh
+                            $terisiSaatIni = (int)$m['terisi'];
+                            $kuotaMax = (int)$m['kuota'];
+                            $isPenuh = $kuotaMax > 0 && $terisiSaatIni >= $kuotaMax;
                         ?>
-                            <tr data-sektor="<?= $e($m['sektor'] ?? '') ?>">
-                                <td class="c-no"><?= $i + 1 ?></td>
+                            <tr data-jenis="<?= $e($m['jenis_instansi'] ?? '') ?>">
+                                <td class="c-no"><?= $offset + $i + 1 ?></td>
                                 <td class="sl-nama">
                                     <?= $e($m['nama_instansi']) ?>
                                     <small>
-                                        <span class="sl-badge sl-badge-<?= $e($m['jenis_instansi']) ?>">
-                                            <?= ucfirst($e($m['jenis_instansi'])) ?>
+                                        <span class="sl-badge sl-badge-<?= $e($m['jenis_instansi'] ?? 'eksternal') ?>">
+                                            <?= ucfirst($e($m['jenis_instansi'] ?? 'eksternal')) ?>
                                         </span>
-                                        <?php if ($m['status'] === 'nonaktif'): ?>
+                                        <?php if (($m['status'] ?? '') === 'nonaktif'): ?>
                                             <span class="sl-badge sl-badge-penuh">Nonaktif</span>
                                         <?php endif; ?>
                                     </small>
@@ -232,8 +279,9 @@ ob_start();
                                 <td><?= $e($m['nama_kontak'] ?: '-') ?></td>
                                 <td><?= $e($m['no_telepon'] ?: '-') ?></td>
                                 <td>
+                                    <!-- TAMPILAN KUOTA DINAMIS -->
                                     <span class="sl-badge <?= $isPenuh ? 'sl-badge-penuh' : 'sl-badge-tersedia' ?>">
-                                        <?= $e($m['terisi']) ?> / <?= $e($m['kuota']) ?> Siswa
+                                        <?= $terisiSaatIni ?> / <?= $kuotaMax ?> Siswa
                                     </span>
                                 </td>
                                 <td class="sl-aksi">
@@ -244,8 +292,8 @@ ob_start();
                                             data-nama="<?= $e($m['nama_instansi']) ?>"
                                             data-pembimbing="<?= $e($m['nama_kontak'] ?: '-') ?>"
                                             data-telepon="<?= $e($m['no_telepon'] ?: '-') ?>"
-                                            data-kuota="<?= (int)$m['kuota'] ?>"
-                                            data-terisi="<?= (int)$m['terisi'] ?>">Hapus</button>
+                                            data-kuota="<?= $kuotaMax ?>"
+                                            data-terisi="<?= $terisiSaatIni ?>">Hapus</button>
                                 </td>
                             </tr>
                         <?php endforeach; ?>
@@ -259,12 +307,35 @@ ob_start();
 
         <div class="sl-foot">
             <div class="sl-info" id="slInfo">
-                Menampilkan 1-<?= count($mitraList) ?> dari <?= $e(count($mitraList)) ?> instansi
+                Menampilkan <?= ($offset + 1) ?>-<?= ($offset + count($mitraList)) ?> dari <?= $e($totalMitra) ?> instansi
             </div>
+            
             <ul class="sl-pager">
-                <li class="disabled"><a href="#">Sebelumnya</a></li>
-                <li class="active"><a href="#">1</a></li>
-                <li><a href="#">Selanjutnya</a></li>
+                <?php
+                // Tombol Sebelumnya
+                $prevClass = ($page <= 1) ? 'disabled' : '';
+                $prevHal   = max(1, $page - 1);
+                ?>
+                <li class="<?= $prevClass ?>"><a href="?page=data-mitra&hal=<?= $prevHal ?>">Sebelumnya</a></li>
+
+                <?php
+                // Tampilkan maksimal 5 halaman
+                $start = max(1, $page - 2);
+                $end   = min($totalPages, $start + 4);
+                $start = max(1, $end - 4);
+
+                for ($p = $start; $p <= $end; $p++):
+                    $activeClass = ($p == $page) ? 'active' : '';
+                ?>
+                    <li class="<?= $activeClass ?>"><a href="?page=data-mitra&hal=<?= $p ?>"><?= $p ?></a></li>
+                <?php endfor; ?>
+
+                <?php
+                // Tombol Selanjutnya
+                $nextClass = ($page >= $totalPages) ? 'disabled' : '';
+                $nextHal   = min($totalPages, $page + 1);
+                ?>
+                <li class="<?= $nextClass ?>"><a href="?page=data-mitra&hal=<?= $nextHal ?>">Selanjutnya</a></li>
             </ul>
         </div>
     </div>
@@ -276,6 +347,7 @@ ob_start();
         <div class="modal-content p-2">
             <form method="POST" action="?page=hapus-mitra">
                 <div class="modal-body">
+                    <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrfToken, ENT_QUOTES, 'UTF-8') ?>">
                     <input type="hidden" name="delete_id" id="slHId">
 
                     <!-- Header Modal -->
@@ -284,9 +356,9 @@ ob_start();
                         <div>
                             <h5 class="font-weight-bold mb-1" id="slModalHapusJudul">Hapus Instansi Mitra?</h5>
                             <p class="small text-muted mb-0">
-                                Apakah Anda yakin ingin menghapus data instansi 
+                                Apakah Anda yakin ingin menonaktifkan instansi
                                 <strong id="slHNama">-</strong>? 
-                                Tindakan ini akan membatalkan status penempatan PKL dan seluruh kuota siswa terkait.
+                                Riwayat penempatan PKL akan tetap disimpan.
                             </p>
                         </div>
                     </div>
@@ -308,8 +380,8 @@ ob_start();
                     <!-- Tombol Aksi -->
                     <div class="d-flex justify-content-end" style="gap:.5rem;">
                         <button type="button" class="btn btn-light border btn-sm px-4" data-dismiss="modal">Batal</button>
-                        <button type="submit" class="btn btn-danger btn-sm px-3" id="slKonfirmasiHapus">
-                            <i class="fas fa-trash-alt mr-1"></i> Ya, Hapus Data
+                        <button type="submit" class="btn btn-warning btn-sm px-3" id="slKonfirmasiHapus">
+                            <i class="fas fa-ban mr-1"></i> Ya, Nonaktifkan
                         </button>
                     </div>
                 </div>
@@ -321,24 +393,33 @@ ob_start();
 <script>
     window.addEventListener('load', function () {
         var $ = window.jQuery;
-        var total = <?= (int) count($mitraList) ?>;
-
+        var totalHalaman = <?= (int) count($mitraList) ?>;
+        
+        // Filter berlaku untuk 10 data yang tampil saat ini
         function terapkan() {
             var q = $('#slCari').val().toLowerCase().trim();
-            var s = $('#slSektor').val();
+            var jenis = $('#slJenis').val();
             var tampil = 0;
-            $('#slTabel tbody tr[data-sektor]').each(function () {
+
+            $('#slTabel tbody tr[data-jenis]').each(function () {
                 var $r = $(this);
+
                 var cocok = (!q || $r.text().toLowerCase().indexOf(q) > -1)
-                    && (!s || $r.data('sektor') === s);
+                    && (!jenis || $r.data('jenis') === jenis);
+
                 $r.toggle(cocok);
-                if (cocok) { tampil++; }
+
+                if (cocok) {
+                    tampil++;
+                }
             });
+
             $('#slKosong').toggle(tampil === 0);
-            $('#slInfo').text('Menampilkan ' + tampil + ' dari ' + total + ' instansi');
+            $('#slInfo').text('Menampilkan ' + tampil + ' dari ' + totalHalaman + ' instansi di halaman ini');
         }
+
         $('#slCari').on('input', terapkan);
-        $('#slSektor').on('change', terapkan);
+        $('#slJenis').on('change', terapkan);
 
         // Modal Hapus
         $(document).on('click', '.sl-hapus', function () {
@@ -350,8 +431,6 @@ ob_start();
             $('#slHKuota').text(d.terisi + ' / ' + d.kuota + ' Siswa');
             $('#slModalHapus').modal('show');
         });
-
-        $('.sl-pager a').on('click', function (ev) { ev.preventDefault(); });
     });
 </script>
 

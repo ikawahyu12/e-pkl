@@ -15,13 +15,13 @@ ob_start();
 
 <div class="container-fluid p-0">
     <div class="mb-3 small text-muted">
-        <a href="index.php" class="text-secondary">Manajemen Admin</a> &gt; <span class="text-primary font-weight-bold">Detail Admin</span>
+        <a href="?page=manajemen-admin" class="text-secondary">Manajemen Admin</a> &gt; <span class="text-primary font-weight-bold">Detail Admin</span>
     </div>
 
     <div class="card border-0 shadow-sm rounded-lg mb-4">
         <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center">
             <h6 class="m-0 font-weight-bold text-primary"><i class="fas fa-user-shield mr-2"></i>Detail Akun Admin</h6>
-            <a href="index.php" class="btn btn-outline-secondary btn-sm"><i class="fas fa-arrow-left mr-1"></i> Kembali</a>
+            <a href="?page=manajemen-admin" class="btn btn-outline-secondary btn-sm"><i class="fas fa-arrow-left mr-1"></i> Kembali</a>
         </div>
         <div class="card-body">
             <table class="table table-borderless table-sm mb-0">

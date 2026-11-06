@@ -43,9 +43,27 @@ class App
     private function parseUrl()
     {
         $path = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
-        if (BASE_PATH !== '' && strpos($path, BASE_PATH) === 0) {
-            $path = substr($path, strlen(BASE_PATH));
+
+        $basePaths = [rtrim(BASE_PATH, '/')];
+        $publicSuffix = '/public';
+        $configuredBasePath = end($basePaths);
+        if (
+            $configuredBasePath !== ''
+            && substr($configuredBasePath, -strlen($publicSuffix)) === $publicSuffix
+        ) {
+            $basePaths[] = substr($configuredBasePath, 0, -strlen($publicSuffix));
         }
+
+        foreach ($basePaths as $basePath) {
+            if (
+                $basePath !== ''
+                && ($path === $basePath || strpos($path, $basePath . '/') === 0)
+            ) {
+                $path = substr($path, strlen($basePath));
+                break;
+            }
+        }
+
         $path = trim($path, '/');
         if ($path === '' || $path === 'index.php') return [];
         return explode('/', filter_var($path, FILTER_SANITIZE_URL));

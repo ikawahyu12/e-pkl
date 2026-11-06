@@ -9,6 +9,9 @@ use Illuminate\Support\Facades\Schema;
 
 class SiswaAuthService
 {
+    /**
+     * @return array{token: string, user: array<string, mixed>}|null
+     */
     public function login(string $login, string $password): ?array
     {
         $user = User::query()
@@ -32,7 +35,11 @@ class SiswaAuthService
             throw new TokenStorageUnavailable;
         }
 
-        $newToken = $user->createToken('web-siswa', ['siswa']);
+        $newToken = $user->createToken(
+            'web-siswa',
+            ['siswa'],
+            now()->addHours(12)
+        );
 
         return [
             'token' => $newToken->plainTextToken,
@@ -40,6 +47,9 @@ class SiswaAuthService
         ];
     }
 
+    /**
+     * @return array<string, mixed>|null
+     */
     public function authenticatedSiswaData(User $user): ?array
     {
         $user->loadMissing(['role', 'siswa']);
@@ -59,6 +69,9 @@ class SiswaAuthService
             && $user->siswa->status_siswa === 'aktif';
     }
 
+    /**
+     * @return array<string, mixed>
+     */
     private function userData(User $user): array
     {
         return [

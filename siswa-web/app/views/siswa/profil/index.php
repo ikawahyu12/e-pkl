@@ -64,7 +64,7 @@ $guru =
     $row('phone', 'No. Kontak', $val('kontak_guru')) .
     $row('mail', 'Email', $val('email_guru'));
 ?>
-<div class="pf-stack reveal">
+<div class="pf-stack pf-overview reveal">
     <?php if (!empty($flash)): ?>
         <div class="pf-alert pf-alert-<?= e($flash['type']) ?>"><?= e($flash['message']) ?></div>
     <?php endif; ?>

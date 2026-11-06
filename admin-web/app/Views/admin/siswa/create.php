@@ -1,12 +1,13 @@
 <?php
 /**
- * Admin > Data Siswa > Tambah Siswa Baru  (UI saja, belum menyimpan ke database)
- *
- * File ini berdiri sendiri. Satu-satunya yang dibutuhkan: app/Views/layouts/admin.php
+ * Admin > Data Siswa > Tambah Siswa Baru (Terhubung Database)
  * Letak file: app/Views/admin/siswa/create.php
  */
 
-// 1. Alamat asset (layout mencari di <folder-halaman>/assets, padahal asset ada di public/assets)
+// 1. Panggil koneksi database
+require_once __DIR__ . '/../../../../../config/koneksi.php';
+
+// 2. Alamat asset
 if (!isset($assetBaseUrl)) {
     $scriptDir = str_replace('\\', '/', dirname($_SERVER['SCRIPT_NAME'] ?? '/'));
     if (preg_match('#^(.*?)/app/Views(?:/.*)?$#', $scriptDir, $m)) {
@@ -14,32 +15,169 @@ if (!isset($assetBaseUrl)) {
     }
 }
 
-// 2. Pilihan dropdown (dummy, ganti dengan data database nanti)
-$opsiKelas = [
-    'XII RPL 1 (Rekayasa Perangkat Lunak)',
-    'XII RPL 2 (Rekayasa Perangkat Lunak)',
-    'XII TKJ 1 (Teknik Komputer & Jaringan)',
-    'XII TKJ 2 (Teknik Komputer & Jaringan)',
-    'XII DKV 1 (Desain Komunikasi Visual)',
-    'XII DKV 2 (Desain Komunikasi Visual)',
-];
-$opsiInstansi = [
-    'PT Telkom Indonesia', 'Studio Animasi Semesta', 'Lintasarta Datacenter',
-    'CV Digital Optima', 'Biznet Networks', 'PT Kreatif Media Kreasi', 'PT Finnet Indonesia',
-];
+$urlDaftar = '?page=data-siswa';
+$pesanError = '';
+$csrfHelper = dirname(__DIR__, 3) . '/Support/Csrf.php';
+require_once $csrfHelper;
+$csrfToken = AdminCsrf::token();
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    if (!AdminCsrf::verify($_POST['csrf_token'] ?? null)) {
+        $pesanError = 'Formulir kedaluwarsa atau tidak valid. Muat ulang halaman dan coba lagi.';
+    } else {
+        $nisn = trim((string) ($_POST['nisn'] ?? ''));
+        $nis = trim((string) ($_POST['nis'] ?? ''));
+        $namaSiswa = trim((string) ($_POST['nama'] ?? ''));
+        $username = trim((string) ($_POST['username'] ?? ''));
+        $email = trim((string) ($_POST['email'] ?? ''));
+        $password = (string) ($_POST['password'] ?? '');
+        $kelasId = filter_var($_POST['kelas'] ?? null, FILTER_VALIDATE_INT);
+        $jenisKelamin = (string) ($_POST['jk'] ?? '');
+        $noHp = trim((string) ($_POST['no_hp'] ?? ''));
+        $alamat = trim((string) ($_POST['alamat'] ?? ''));
+        $namaOrangTua = trim((string) ($_POST['ortu'] ?? ''));
+        $noHpOrangTua = trim((string) ($_POST['tlp_ortu'] ?? ''));
+        $statusSiswa = (string) ($_POST['status'] ?? 'aktif');
+
+        if (
+            $nisn === ''
+            || $namaSiswa === ''
+            || $username === ''
+            || $password === ''
+            || $kelasId === false
+            || $kelasId < 1
+            || !in_array($jenisKelamin, ['L', 'P'], true)
+            || !in_array($statusSiswa, ['aktif', 'lulus', 'keluar'], true)
+        ) {
+            $pesanError = 'Lengkapi NISN, nama, username, password, kelas, jenis kelamin, dan status dengan nilai yang valid.';
+        } elseif (strlen($password) < 12) {
+            $pesanError = 'Password awal harus terdiri dari minimal 12 karakter.';
+        } elseif (
+            mb_strlen($nisn, 'UTF-8') > 20
+            || mb_strlen($nis, 'UTF-8') > 30
+            || mb_strlen($namaSiswa, 'UTF-8') > 120
+            || mb_strlen($username, 'UTF-8') > 60
+            || mb_strlen($email, 'UTF-8') > 150
+            || mb_strlen($noHp, 'UTF-8') > 25
+            || mb_strlen($namaOrangTua, 'UTF-8') > 120
+            || mb_strlen($noHpOrangTua, 'UTF-8') > 25
+            || strlen($password) > 255
+        ) {
+            $pesanError = 'Panjang salah satu isian melebihi batas kolom database.';
+        } elseif ($email !== '' && !filter_var($email, FILTER_VALIDATE_EMAIL)) {
+            $pesanError = 'Masukkan alamat email yang valid atau kosongkan kolom email.';
+        } else {
+            $transactionStarted = false;
+
+            try {
+                mysqli_begin_transaction($koneksi);
+                $transactionStarted = true;
+
+                $roleName = 'siswa';
+                $roleStatement = mysqli_prepare($koneksi, 'SELECT id FROM roles WHERE LOWER(nama) = ? LIMIT 1');
+                mysqli_stmt_bind_param($roleStatement, 's', $roleName);
+                mysqli_stmt_execute($roleStatement);
+                mysqli_stmt_bind_result($roleStatement, $roleId);
+                $roleFound = mysqli_stmt_fetch($roleStatement);
+                mysqli_stmt_close($roleStatement);
+
+                if (!$roleFound) {
+                    mysqli_rollback($koneksi);
+                    $transactionStarted = false;
+                    $pesanError = 'Role Siswa belum tersedia di database. Data tidak disimpan.';
+                } else {
+                    $emailValue = $email === '' ? null : $email;
+                    $passwordHash = password_hash($password, PASSWORD_BCRYPT);
+                    $namaTampilan = $namaSiswa;
+                    $statusAkun = $statusSiswa === 'keluar' ? 'nonaktif' : 'aktif';
+                    $wajibGantiPassword = 1;
+                    $userStatement = mysqli_prepare(
+                        $koneksi,
+                        'INSERT INTO users (role_id, username, email, password_hash, nama_tampilan, status, wajib_ganti_password)
+                         VALUES (?, ?, ?, ?, ?, ?, ?)'
+                    );
+                    mysqli_stmt_bind_param(
+                        $userStatement,
+                        'isssssi',
+                        $roleId,
+                        $username,
+                        $emailValue,
+                        $passwordHash,
+                        $namaTampilan,
+                        $statusAkun,
+                        $wajibGantiPassword
+                    );
+                    mysqli_stmt_execute($userStatement);
+                    $userId = mysqli_insert_id($koneksi);
+                    mysqli_stmt_close($userStatement);
+
+                    $nisValue = $nis === '' ? null : $nis;
+                    $studentStatement = mysqli_prepare(
+                        $koneksi,
+                        'INSERT INTO siswa (
+                            user_id, nisn, nis, nama_lengkap, kelas_id, jenis_kelamin, no_hp,
+                            alamat, nama_orang_tua, no_hp_orang_tua, status_siswa
+                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
+                    );
+                    mysqli_stmt_bind_param(
+                        $studentStatement,
+                        'isssissssss',
+                        $userId,
+                        $nisn,
+                        $nisValue,
+                        $namaSiswa,
+                        $kelasId,
+                        $jenisKelamin,
+                        $noHp,
+                        $alamat,
+                        $namaOrangTua,
+                        $noHpOrangTua,
+                        $statusSiswa
+                    );
+                    mysqli_stmt_execute($studentStatement);
+                    mysqli_stmt_close($studentStatement);
+
+                    mysqli_commit($koneksi);
+                    $transactionStarted = false;
+                    header('Location: ' . $urlDaftar);
+                    exit;
+                }
+            } catch (mysqli_sql_exception $exception) {
+                if ($transactionStarted) {
+                    mysqli_rollback($koneksi);
+                }
+
+                error_log('Admin Siswa create failed: ' . $exception->getMessage());
+                $pesanError = $exception->getCode() === 1062
+                    ? 'NISN, NIS, username, atau email sudah terdaftar.'
+                    : 'Data Siswa gagal disimpan. Periksa kembali isian dan konfigurasi database.';
+            }
+        }
+    }
+}
+
+// ==========================================
+// AMBIL DATA DROPDOWN DARI DATABASE
+// ==========================================
+// Dropdown Kelas (dari tabel kelas)
+$opsiKelas = [];
+$qKelas = mysqli_query($koneksi, "SELECT id, nama FROM kelas ORDER BY nama ASC");
+if ($qKelas) {
+    while ($k = mysqli_fetch_assoc($qKelas)) {
+        $opsiKelas[] = $k;
+    }
+}
 
 $e = static fn ($v): string => htmlspecialchars((string) $v, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
 
 // 3. Variabel untuk layouts/admin.php
 $pageTitle  = 'Tambah Data Siswa';
-$activePage = 'siswa'; // samakan dengan kunci menu "Data Siswa" di sidebar.php
+$activePage = 'siswa';
 
 ob_start();
 ?>
 <style>
-    /* Judul + breadcrumb dibuat sendiri di halaman ini (sesuai Figma), jadi header bawaan layout disembunyikan */
     .page-heading { display: none !important; }
-
     .sf-crumb { font-size: .72rem; color: #64748b; margin-bottom: .5rem; }
     .sf-crumb a { color: #64748b; text-decoration: none; }
     .sf-crumb .now { color: #2563eb; font-weight: 700; }
@@ -98,24 +236,49 @@ ob_start();
 
 <div class="sf">
     <div class="sf-crumb">
-        <a href="index.php">Data Siswa</a><span class="sep">&gt;</span><span class="now">Tambah Siswa Baru</span>
+        <a href="<?= $urlDaftar ?>">Data Siswa</a><span class="sep">&gt;</span><span class="now">Tambah Siswa Baru</span>
     </div>
     <h1 class="sf-title">Tambah Data Siswa</h1>
     <p class="sf-sub">Formulir pendaftaran data siswa baru untuk penempatan Praktik Kerja Lapangan (PKL)</p>
 
-    <form id="sfForm" action="#" method="post" enctype="multipart/form-data" novalidate>
+    <?php if ($pesanError): ?>
+        <div class="alert alert-danger border-0 rounded-lg p-3 mb-3 small">
+            <i class="fas fa-exclamation-circle mr-2"></i><?= $e($pesanError) ?>
+        </div>
+    <?php endif; ?>
+
+    <form id="sfForm" action="" method="post">
+        <input type="hidden" name="csrf_token" value="<?= $e($csrfToken) ?>">
         <div class="sf-card">
+            <div class="row">
+                <div class="col-md-6 form-group">
+                    <label class="sf-label" for="nisn">NISN <span class="req">*</span></label>
+                    <input class="sf-input" type="text" id="nisn" name="nisn" maxlength="20" value="<?= $e($_POST['nisn'] ?? '') ?>" required>
+                </div>
+                <div class="col-md-6 form-group">
+                    <label class="sf-label" for="username">Username akun <span class="req">*</span></label>
+                    <input class="sf-input" type="text" id="username" name="username" maxlength="60" value="<?= $e($_POST['username'] ?? '') ?>" required>
+                </div>
+                <div class="col-md-6 form-group">
+                    <label class="sf-label" for="email">Email akun</label>
+                    <input class="sf-input" type="email" id="email" name="email" maxlength="150" value="<?= $e($_POST['email'] ?? '') ?>">
+                </div>
+                <div class="col-md-6 form-group">
+                    <label class="sf-label" for="password">Password awal <span class="req">*</span></label>
+                    <input class="sf-input" type="password" id="password" name="password" minlength="12" maxlength="255" required>
+                </div>
+            </div>
             <div class="row">
                 <div class="col-md-6 form-group">
                     <label class="sf-label" for="nama">Nama Lengkap Siswa <span class="req">*</span></label>
                     <div class="sf-ic"><i class="far fa-user"></i>
-                        <input class="sf-input" type="text" id="nama" name="nama" placeholder="Contoh: Ahmad Rizky Pratama" required>
+                        <input class="sf-input" type="text" id="nama" name="nama" maxlength="120" placeholder="Contoh: Ahmad Rizky Pratama" value="<?= $e($_POST['nama'] ?? '') ?>" required>
                     </div>
                 </div>
                 <div class="col-md-6 form-group">
-                    <label class="sf-label" for="nisn">NISN (Nomor Induk Siswa Nasional) <span class="req">*</span></label>
+                    <label class="sf-label" for="nis">NIS (Nomor Induk Siswa)</label>
                     <div class="sf-ic"><i class="fas fa-hashtag"></i>
-                        <input class="sf-input" type="text" id="nisn" name="nisn" placeholder="Contoh: 0061829102" inputmode="numeric" maxlength="10" required>
+                        <input class="sf-input" type="text" id="nis" name="nis" placeholder="Contoh: 0061829102" inputmode="numeric" maxlength="30" value="<?= $e($_POST['nis'] ?? '') ?>">
                     </div>
                 </div>
 
@@ -124,7 +287,11 @@ ob_start();
                     <div class="sf-ic"><i class="fas fa-layer-group"></i>
                         <select class="sf-input" id="kelas" name="kelas" required>
                             <option value="" selected disabled hidden>Pilih Jurusan &amp; Kelas</option>
-                            <?php foreach ($opsiKelas as $k): ?><option><?= $e($k) ?></option><?php endforeach; ?>
+                            <?php foreach ($opsiKelas as $k): ?>
+                                <option value="<?= $k['id'] ?>" <?= (($_POST['kelas'] ?? '') == $k['id']) ? 'selected' : '' ?>>
+                                    <?= $e($k['nama']) ?>
+                                </option>
+                            <?php endforeach; ?>
                         </select>
                         <i class="fas fa-chevron-down sf-caret"></i>
                     </div>
@@ -134,87 +301,63 @@ ob_start();
                     <div class="sf-ic"><i class="far fa-user"></i>
                         <select class="sf-input" id="jk" name="jk" required>
                             <option value="" selected disabled hidden>Pilih Jenis Kelamin</option>
-                            <option>Laki-laki</option>
-                            <option>Perempuan</option>
+                            <option value="L" <?= (($_POST['jk'] ?? '') === 'L') ? 'selected' : '' ?>>Laki-laki</option>
+                            <option value="P" <?= (($_POST['jk'] ?? '') === 'P') ? 'selected' : '' ?>>Perempuan</option>
                         </select>
                         <i class="fas fa-chevron-down sf-caret"></i>
                     </div>
                 </div>
 
                 <div class="col-md-6 form-group">
-                    <label class="sf-label" for="ttl">Tempat &amp; Tanggal Lahir <span class="req">*</span></label>
-                    <div class="sf-ic"><i class="far fa-calendar-alt"></i>
-                        <input class="sf-input" type="text" id="ttl" name="ttl" placeholder="Bandung, 14 Mei 2007" required>
-                    </div>
-                </div>
-                <div class="col-md-6 form-group">
-                    <label class="sf-label" for="wa">No. Kontak / WhatsApp Siswa <span class="req">*</span></label>
+                    <label class="sf-label" for="no_hp">No. Kontak / WhatsApp Siswa <span class="req">*</span></label>
                     <div class="sf-ic"><i class="fas fa-phone-alt"></i>
-                        <input class="sf-input" type="tel" id="wa" name="wa" placeholder="Contoh: 0812-xxxx-xxxx" required>
+                        <input class="sf-input" type="tel" id="no_hp" name="no_hp" maxlength="25" placeholder="Contoh: 0812-xxxx-xxxx" value="<?= $e($_POST['no_hp'] ?? '') ?>" required>
                     </div>
                 </div>
 
                 <div class="col-12 form-group">
-                    <label class="sf-label" for="alamat">Alamat Lengkap Siswa <span class="req">*</span></label>
+                    <label class="sf-label" for="alamat">Alamat Lengkap Siswa</label>
                     <div class="sf-ic"><i class="fas fa-map-marker-alt"></i>
-                        <input class="sf-input" type="text" id="alamat" name="alamat" placeholder="Jalan, RT/RW, kelurahan, kecamatan, kota" required>
+                        <input class="sf-input" type="text" id="alamat" name="alamat" placeholder="Jalan, RT/RW, kelurahan, kecamatan, kota" value="<?= $e($_POST['alamat'] ?? '') ?>">
                     </div>
                 </div>
 
                 <div class="col-md-6 form-group">
-                    <label class="sf-label" for="ortu">Nama Orang Tua / Wali <span class="req">*</span></label>
+                    <label class="sf-label" for="ortu">Nama Orang Tua / Wali</label>
                     <div class="sf-ic"><i class="fas fa-user-friends"></i>
-                        <input class="sf-input" type="text" id="ortu" name="ortu" placeholder="Nama lengkap ayah / ibu / wali" required>
+                        <input class="sf-input" type="text" id="ortu" name="ortu" maxlength="120" placeholder="Nama lengkap ayah / ibu / wali" value="<?= $e($_POST['ortu'] ?? '') ?>">
                     </div>
                 </div>
                 <div class="col-md-6 form-group">
-                    <label class="sf-label" for="tlp_ortu">No. Telepon Orang Tua / Wali <span class="req">*</span></label>
+                    <label class="sf-label" for="tlp_ortu">No. Telepon Orang Tua / Wali</label>
                     <div class="sf-ic"><i class="fas fa-phone-alt"></i>
-                        <input class="sf-input" type="tel" id="tlp_ortu" name="tlp_ortu" placeholder="Contoh: 0813-xxxx-xxxx" required>
+                        <input class="sf-input" type="tel" id="tlp_ortu" name="tlp_ortu" maxlength="25" placeholder="Contoh: 0813-xxxx-xxxx" value="<?= $e($_POST['tlp_ortu'] ?? '') ?>">
                     </div>
                 </div>
 
-                <div class="col-md-6 form-group">
-                    <label class="sf-label" for="instansi">Pilihan Instansi Penempatan</label>
-                    <div class="sf-ic"><i class="far fa-building"></i>
-                        <select class="sf-input" id="instansi" name="instansi">
-                            <option value="" selected>Pilih Instansi Mitra (opsional)</option>
-                            <?php foreach ($opsiInstansi as $i): ?><option><?= $e($i) ?></option><?php endforeach; ?>
-                        </select>
-                        <i class="fas fa-chevron-down sf-caret"></i>
-                    </div>
-                </div>
                 <div class="col-md-6 form-group">
                     <span class="sf-label">Status Siswa <span class="req">*</span></span>
                     <div class="sf-radios">
-                        <label class="sf-radio on">
-                            <span class="txt"><input type="radio" name="status" value="Aktif" checked> Aktif / Terdaftar</span>
+                        <label class="sf-radio <?= (($_POST['status'] ?? 'aktif') === 'aktif') ? 'on' : '' ?>">
+                            <span class="txt"><input type="radio" name="status" value="aktif" <?= (($_POST['status'] ?? 'aktif') === 'aktif') ? 'checked' : '' ?>> Aktif / Terdaftar</span>
                             <span class="sf-tag sf-tag-aktif">Aktif</span>
                         </label>
-                        <label class="sf-radio">
-                            <span class="txt"><input type="radio" name="status" value="Pending"> Menunggu Penempatan</span>
-                            <span class="sf-tag sf-tag-pending">Pending</span>
+                        <label class="sf-radio <?= (($_POST['status'] ?? '') === 'lulus') ? 'on' : '' ?>">
+                            <span class="txt"><input type="radio" name="status" value="lulus" <?= (($_POST['status'] ?? '') === 'lulus') ? 'checked' : '' ?>> Lulus</span>
+                            <span class="sf-tag sf-tag-pending">Lulus</span>
                         </label>
-                    </div>
-                </div>
-
-                <div class="col-12 form-group mb-0 mt-3">
-                    <span class="sf-label">Upload Berkas Persyaratan / Surat Pernyataan Orang Tua</span>
-                    <div class="sf-drop" id="sfDrop" tabindex="0" role="button" aria-label="Unggah berkas persyaratan">
-                        <div class="sf-drop-ic"><i class="fas fa-cloud-upload-alt"></i></div>
-                        <div class="sf-drop-main"><b>Unggah berkas persyaratan</b> atau tarik dan lepas di sini</div>
-                        <div class="sf-drop-hint">Format dokumen PDF resmi atau Foto Surat Pernyataan (Maksimal ukuran file: 5MB)</div>
-                        <div class="sf-drop-file" id="sfFile"></div>
-                        <input type="file" id="sfInput" name="berkas" accept=".pdf,.jpg,.jpeg,.png" hidden>
+                        <label class="sf-radio <?= (($_POST['status'] ?? '') === 'keluar') ? 'on' : '' ?>">
+                            <span class="txt"><input type="radio" name="status" value="keluar" <?= (($_POST['status'] ?? '') === 'keluar') ? 'checked' : '' ?>> Keluar</span>
+                            <span class="sf-tag sf-tag-pending">Keluar</span>
+                        </label>
                     </div>
                 </div>
             </div>
 
             <div class="sf-foot">
-                <a href="index.php" class="sf-btn sf-btn-cancel">Batal</a>
+                <a href="<?= $urlDaftar ?>" class="sf-btn sf-btn-cancel">Batal</a>
                 <button type="submit" class="sf-btn sf-btn-save"><i class="fas fa-check mr-2"></i>Simpan Data Siswa</button>
             </div>
-            <div class="sf-toast" id="sfToast" role="status">Tampilan saja: data belum disimpan ke database.</div>
         </div>
     </form>
 </div>
@@ -229,33 +372,6 @@ ob_start();
             $(this).closest('.sf-radio').addClass('on');
         });
 
-        // Dropzone: klik, pilih berkas, tarik dan lepas (maks 5MB)
-        var $drop = $('#sfDrop'), input = document.getElementById('sfInput');
-        function tampil(f) {
-            if (f && f.size > 5 * 1024 * 1024) { alert('Ukuran file maksimal 5MB.'); input.value = ''; f = null; }
-            $('#sfFile').text(f ? f.name : '');
-        }
-        $drop.on('click keydown', function (ev) {
-            if (ev.type === 'keydown' && ev.key !== 'Enter' && ev.key !== ' ') { return; }
-            ev.preventDefault();
-            input.click();
-        });
-        $(input).on('click', function (ev) { ev.stopPropagation(); }).on('change', function () { tampil(this.files[0]); });
-        $drop.on('dragover', function (ev) { ev.preventDefault(); $drop.addClass('over'); });
-        $drop.on('dragleave drop', function () { $drop.removeClass('over'); });
-        $drop.on('drop', function (ev) {
-            ev.preventDefault();
-            var files = ev.originalEvent.dataTransfer.files;
-            if (files.length) { input.files = files; tampil(files[0]); }
-        });
-
-        // Simpan: cek isian wajib, lalu tampilkan pesan (belum ada backend)
-        $('#sfForm').on('submit', function (ev) {
-            ev.preventDefault();
-            var form = this;
-            if (!form.checkValidity()) { form.reportValidity(); return; }
-            $('#sfToast').show();
-        });
     });
 </script>
 <?php

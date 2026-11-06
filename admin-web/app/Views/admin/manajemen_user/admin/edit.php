@@ -46,17 +46,17 @@ ob_start();
 
 <div class="sf">
     <div class="sf-crumb">
-        <a href="index.php">Manajemen Admin</a><span class="sep">&gt;</span><span class="now">Edit Admin</span>
+        <a href="?page=manajemen-admin">Manajemen Admin</a><span class="sep">&gt;</span><span class="now">Edit Admin</span>
     </div>
     <h1 class="sf-title">Edit Data Admin</h1>
     <p class="sf-sub">Perbarui informasi akun administrator sistem</p>
 
-    <form id="sfForm" action="index.php" method="post">
+    <form id="sfForm" action="?page=manajemen-admin" method="post">
         <div class="sf-card">
             <?php include __DIR__ . '/_form.php'; ?>
 
             <div class="sf-foot">
-                <a href="index.php" class="sf-btn sf-btn-cancel">Batal</a>
+                <a href="?page=manajemen-admin" class="sf-btn sf-btn-cancel">Batal</a>
                 <button type="submit" class="sf-btn sf-btn-save"><i class="fas fa-save mr-2"></i>Perbarui Admin</button>
             </div>
         </div>

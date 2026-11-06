@@ -1,96 +1,89 @@
-<!DOCTYPE html>
-<html lang="id">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Riwayat Siswa</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
-    <style>
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
-        body { font-family: 'Inter', sans-serif; background-color: #f3f4f6; }
-    </style>
-</head>
-<body class="flex justify-center">
 
-    <!-- Container Mobile -->
-    <div class="w-full max-w-md bg-gray-50 min-h-screen relative shadow-xl pb-10">
-        
-        
-
-        <div class="p-5 pt-4">
-            <h2 class="text-lg font-bold text-gray-900 mb-1">Riwayat PKL Siswa</h2>
-            <p class="text-sm text-gray-500 mb-4">Rekap aktivitas dan status kehadiran Anda</p>
-
-            <!-- Tabs -->
-            <div class="flex space-x-2 mb-4">
-                <button class="flex-1 bg-blue-600 text-white text-sm font-medium py-2 rounded-full shadow-sm">Semua</button>
-                <button class="flex-1 bg-white border border-gray-200 text-gray-600 text-sm font-medium py-2 rounded-full shadow-sm">Presensi</button>
-                <button class="flex-1 bg-white border border-gray-200 text-gray-600 text-sm font-medium py-2 rounded-full shadow-sm">Jurnal</button>
-            </div>
-
-            <!-- Filter Dropdown -->
-            <div class="flex space-x-2 mb-6">
-                <select class="flex-1 bg-white border border-gray-200 rounded-lg p-2 text-sm text-gray-700 outline-none shadow-sm">
-                    <option>Minggu Ini</option>
-                </select>
-                <select class="flex-1 bg-white border border-gray-200 rounded-lg p-2 text-sm text-gray-700 outline-none shadow-sm">
-                    <option>Bulan -</option>
-                </select>
-            </div>
-
-            <!-- List Riwayat -->
-            <div class="space-y-3">
-                <!-- Item 1 -->
-                <div class="bg-white border border-gray-200 rounded-xl p-4 flex justify-between items-center shadow-sm">
-                    <div>
-                        <p class="text-sm font-bold text-gray-800">Kamis, 12 Mar 2026</p>
-                        <p class="text-xs text-gray-500 mt-1">Presensi: Masuk</p>
-                    </div>
-                    <div class="text-right">
-                        <span class="bg-green-100 text-green-700 text-[10px] font-bold px-2 py-1 rounded-md inline-block mb-1">Masuk</span>
-                        <p class="text-xs text-gray-500">07:42 WIB</p>
-                    </div>
-                </div>
-                
-                <!-- Item 2 -->
-                <div class="bg-white border border-gray-200 rounded-xl p-4 flex justify-between items-center shadow-sm">
-                    <div>
-                        <p class="text-sm font-bold text-gray-800">Rabu, 11 Mar 2026</p>
-                        <p class="text-xs text-gray-500 mt-1">Laporan Jurnal Harian</p>
-                    </div>
-                    <div class="text-right">
-                        <span class="bg-blue-100 text-blue-700 text-[10px] font-bold px-2 py-1 rounded-md inline-block mb-1">Terverifikasi</span>
-                        <p class="text-xs text-gray-500">11:21 WIB</p>
-                    </div>
-                </div>
-
-                <!-- Item 3 -->
-                <div class="bg-white border border-gray-200 rounded-xl p-4 flex justify-between items-center shadow-sm">
-                    <div>
-                        <p class="text-sm font-bold text-gray-800">Rabu, 11 Mar 2026</p>
-                        <p class="text-xs text-gray-500 mt-1">Presensi: Pulang</p>
-                    </div>
-                    <div class="text-right">
-                        <span class="bg-green-100 text-green-700 text-[10px] font-bold px-2 py-1 rounded-md inline-block mb-1">Pulang</span>
-                        <p class="text-xs text-gray-500">17:02 WIB</p>
-                    </div>
-                </div>
-                
-                <!-- Item 4 -->
-                <div class="bg-white border border-gray-200 rounded-xl p-4 flex justify-between items-center shadow-sm">
-                    <div>
-                        <p class="text-sm font-bold text-gray-800">Senin, 09 Mar 2026</p>
-                        <p class="text-xs text-gray-500 mt-1">Presensi: Masuk</p>
-                    </div>
-                    <div class="text-right">
-                        <span class="bg-green-100 text-green-700 text-[10px] font-bold px-2 py-1 rounded-md inline-block mb-1">Masuk</span>
-                        <p class="text-xs text-gray-500">08:12 WIB</p>
-                    </div>
-                </div>
-            </div>
-        </div>
-        
+<section class="activity-card history-page" data-pkl-start-date="<?= e($tanggalMulaiPkl ?? '') ?>">
+    <div class="activity-heading">
+        <h2>Riwayat PKL Siswa</h2>
+        <p>Rekap aktivitas dan status kehadiran Anda.</p>
     </div>
-</body>
-</html>
+
+    <div class="history-toolbar">
+        <div class="history-tabs" role="group" aria-label="Filter jenis riwayat">
+            <button type="button" class="is-active" data-history-type="all" aria-pressed="true">Semua</button>
+            <button type="button" data-history-type="attendance" aria-pressed="false">Presensi</button>
+            <button type="button" data-history-type="journal" aria-pressed="false">Jurnal</button>
+        </div>
+
+        <div class="history-filters">
+            <label class="sr-only" for="history-week">Minggu</label>
+            <select id="history-week">
+                <option value="all">Semua Minggu</option>
+            </select>
+
+            <label class="sr-only" for="history-month">Bulan</label>
+            <select id="history-month">
+                <option value="all">Semua Bulan</option>
+                <option value="1">Januari</option>
+                <option value="2">Februari</option>
+                <option value="3">Maret</option>
+                <option value="4">April</option>
+                <option value="5">Mei</option>
+                <option value="6">Juni</option>
+                <option value="7">Juli</option>
+                <option value="8">Agustus</option>
+                <option value="9">September</option>
+                <option value="10">Oktober</option>
+                <option value="11">November</option>
+                <option value="12">Desember</option>
+            </select>
+        </div>
+    </div>
+
+    <div class="history-list" id="history-list">
+        <article class="history-item" data-history-item data-type="attendance" data-date="2026-03-12">
+            <div>
+                <strong>Kamis, 12 Mar 2026</strong>
+                <p>Presensi: Masuk</p>
+            </div>
+            <div class="history-meta">
+                <span class="pill pill-ok">Masuk</span>
+                <small>07:42 WIB</small>
+            </div>
+        </article>
+
+        <article class="history-item" data-history-item data-type="journal" data-date="2026-03-11">
+            <div>
+                <strong>Rabu, 11 Mar 2026</strong>
+                <p>Laporan Jurnal Harian</p>
+            </div>
+            <div class="history-meta">
+                <span class="pill pill-info">Terverifikasi</span>
+                <small>11:21 WIB</small>
+            </div>
+        </article>
+
+        <article class="history-item" data-history-item data-type="attendance" data-date="2026-03-11">
+            <div>
+                <strong>Rabu, 11 Mar 2026</strong>
+                <p>Presensi: Pulang</p>
+            </div>
+            <div class="history-meta">
+                <span class="pill pill-ok">Pulang</span>
+                <small>17:02 WIB</small>
+            </div>
+        </article>
+
+        <article class="history-item" data-history-item data-type="attendance" data-date="2026-03-09">
+            <div>
+                <strong>Senin, 09 Mar 2026</strong>
+                <p>Presensi: Masuk</p>
+            </div>
+            <div class="history-meta">
+                <span class="pill pill-ok">Masuk</span>
+                <small>08:12 WIB</small>
+            </div>
+        </article>
+    </div>
+
+    <p class="history-empty" id="history-empty" role="status" hidden>
+        Tidak ada riwayat untuk filter yang dipilih.
+    </p>
+</section>

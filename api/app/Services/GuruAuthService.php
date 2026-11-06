@@ -35,7 +35,11 @@ class GuruAuthService
             throw new TokenStorageUnavailable;
         }
 
-        $newToken = $user->createToken('flutter-guru', ['guru']);
+        $newToken = $user->createToken(
+            'flutter-guru',
+            ['guru'],
+            now()->addHours(12)
+        );
 
         return [
             'token' => $newToken->plainTextToken,

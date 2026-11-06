@@ -45,17 +45,17 @@ ob_start();
 
 <div class="sf">
     <div class="sf-crumb">
-        <a href="index.php">Manajemen Guru</a><span class="sep">&gt;</span><span class="now">Edit Akun</span>
+        <a href="?page=manajemen-guru">Manajemen Guru</a><span class="sep">&gt;</span><span class="now">Edit Akun</span>
     </div>
     <h1 class="sf-title">Edit Akun Guru</h1>
     <p class="sf-sub">Perbarui nama, username, password, dan status akun guru</p>
 
-    <form id="sfForm" action="index.php" method="post">
+    <form id="sfForm" action="?page=manajemen-guru" method="post">
         <div class="sf-card">
             <?php include __DIR__ . '/_form.php'; ?>
 
             <div class="sf-foot">
-                <a href="index.php" class="sf-btn sf-btn-cancel">Batal</a>
+                <a href="?page=manajemen-guru" class="sf-btn sf-btn-cancel">Batal</a>
                 <button type="submit" class="sf-btn sf-btn-save"><i class="fas fa-save mr-2"></i>Perbarui Akun</button>
             </div>
         </div>

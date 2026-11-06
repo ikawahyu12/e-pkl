@@ -1,14 +1,8 @@
-<!DOCTYPE html>
-<html lang="id">
-
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Presensi Siswa - E-PKL</title>
-    <!-- Leaflet CSS untuk Peta GPS -->
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<section class="attendance-page">
     <style>
-        :root {
+        @import url('https://unpkg.com/leaflet@1.9.4/dist/leaflet.css');
+
+        .attendance-page {
             --primary-blue: #0d87f2;
             --bg-light: #f4f8fb;
             --card-border: #d2e4f7;
@@ -21,28 +15,25 @@
             --success-text: #15803d;
         }
 
-        * {
+        .attendance-page,
+        .attendance-page * {
             box-sizing: border-box;
             margin: 0;
             padding: 0;
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
         }
 
-        body {
-            background-color: var(--bg-light);
+        .attendance-page {
+            width: 100%;
             color: var(--text-dark);
-            min-height: 100vh;
-            display: flex;
-            flex-direction: column;
         }
 
         /* Container Responsive: Lebar penuh di HP, terpusat di Laptop */
-        .container {
+        .attendance-container {
             width: 100%;
-            max-width: 500px;
+            max-width: 1000px;
             margin: 0 auto;
-            padding: 20px 16px;
-            flex: 1;
+            padding: 0;
         }
 
         .card-main {
@@ -211,12 +202,47 @@
             color: #64748b;
             font-size: 16px;
         }
+
+        #schedule-container {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 16px;
+        }
+
+        .presensi-item-card {
+            min-width: 0;
+            margin-bottom: 0;
+        }
+
+        @media (max-width: 640px) {
+            .card-main {
+                padding: 18px 14px;
+                border-radius: 16px;
+            }
+
+            #schedule-container {
+                grid-template-columns: 1fr;
+                gap: 12px;
+            }
+
+            .presensi-item-card .header {
+                align-items: flex-start;
+                flex-wrap: wrap;
+                gap: 4px 12px;
+            }
+
+            .presensi-item-card .title,
+            .presensi-item-card .time-range {
+                font-size: 14px;
+            }
+
+            .time-display {
+                font-size: 28px;
+            }
+        }
     </style>
-</head>
 
-<body>
-
-    <div class="container">
+    <div class="attendance-container">
         <!-- MODE 1: Tampilan Utama Pilih Jadwal Presensi -->
         <div id="view-schedule-list" class="card-main">
             <div class="date-header" id="current-date-text">Kamis, 12 Maret 2026</div>
@@ -454,6 +480,4 @@
                 });
         }
     </script>
-</body>
-
-</html>
+</section>
