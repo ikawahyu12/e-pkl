@@ -1,15 +1,17 @@
+# Logs
 *.log
-/bootstrap/cache/*
-!/bootstrap/cache/.gitignore
-/storage/framework/cache/data/*
-/storage/framework/sessions/*
-/storage/framework/testing/*
-/storage/framework/views/*
-/storage/logs/*
+
+# macOS dan Windows
 .DS_Store
+Thumbs.db
+
+# Environment dan secrets
 .env
 .env.backup
 .env.production
+/auth.json
+
+# IDE dan editor
 .phpactor.json
 .phpunit.result.cache
 /.codex
@@ -19,16 +21,46 @@
 /.phpunit.cache
 /.vscode
 /.zed
-/auth.json
+
+# Dependencies
 /node_modules
+/vendor
+
+# Laravel generated assets
 /public/build
 /public/fonts-manifest.dev.json
 /public/hot
 /public/storage
+
+# Laravel bootstrap cache
+/bootstrap/cache/*
+!/bootstrap/cache/.gitignore
+
+# Laravel generated runtime files
+/bootstrap/cache/*.php
+
+# Storage
 /storage/*.key
 /storage/pail
-/vendor
+
+# Framework cache
+/storage/framework/cache/data/*
+!/storage/framework/cache/data/.gitignore
+
+# Framework sessions
+/storage/framework/sessions/*
+!/storage/framework/sessions/.gitignore
+
+# Framework testing
+/storage/framework/testing/*
+
+# Framework views
+/storage/framework/views/*
+
+# Application logs
+/storage/logs/*
+
+# Laravel helper files
 _ide_helper.php
 Homestead.json
 Homestead.yaml
-Thumbs.db

@@ -14,6 +14,7 @@ class DatabaseSeeder extends Seeder
      */
     public function run(): void
     {
-        // epkl accounts are managed by the application; do not seed demo credentials.
+        // Akun E-PKL dikelola oleh aplikasi.
+        // Jangan membuat akun demo secara otomatis.
     }
 }

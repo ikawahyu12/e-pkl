@@ -2,8 +2,8 @@
 
 namespace Database\Factories;
 
-use App\Models\User;
 use App\Models\Role;
+use App\Models\User;
 use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
@@ -24,7 +24,9 @@ class UserFactory extends Factory
         $roleId = Role::query()->where('nama', 'siswa')->value('id');
 
         if ($roleId === null) {
-            throw new RuntimeException('Seed role siswa before creating a User factory instance.');
+            throw new RuntimeException(
+                'Seed role siswa before creating a User factory instance.'
+            );
         }
 
         return [

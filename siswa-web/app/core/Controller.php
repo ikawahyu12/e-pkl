@@ -1,20 +1,15 @@
+
 <?php
-/**
- * Controller dasar. Semua controller halaman siswa mewarisi class ini.
- *
- *  $this->render('siswa/jurnal/index', [
- *      'title'    => 'Jurnal',   // judul halaman
- *      'showBack' => true,       // tampilkan tombol kembali + judul (false = Beranda)
- *      'backUrl'  => url('beranda'),
- *      'wide'     => false,      // true = konten lebar (dashboard), false = konten ringkas (form)
- *  ]);
- */
+
 class Controller
 {
     protected function requireLogin()
     {
-        if (DEV_MODE) return;
-        if (empty($_SESSION['user'])) {
+        if (
+            empty($_SESSION['api_token'])
+            || empty($_SESSION['user'])
+            || ($_SESSION['user']['role'] ?? '') !== 'siswa'
+        ) {
             $this->redirect('login');
         }
     }
@@ -25,10 +20,16 @@ class Controller
         exit;
     }
 
-    /** Render view di dalam layout siswa (header + area konten + footer). */
     protected function render($view, $data = [])
     {
-        $data += ['title' => APP_NAME, 'showBack' => false, 'backUrl' => url('beranda'), 'wide' => false];
+        $data += [
+            'title' => APP_NAME,
+            'showBack' => false,
+            'backUrl' => url('beranda'),
+            'wide' => false,
+            'csrfToken' => $this->csrfToken(),
+        ];
+
         extract($data, EXTR_SKIP);
 
         ob_start();
@@ -38,10 +39,28 @@ class Controller
         require APP_PATH . '/views/layouts/siswa.php';
     }
 
-    /** Render view polos tanpa layout (login, dll). */
     protected function renderPlain($view, $data = [])
     {
         extract($data, EXTR_SKIP);
         require APP_PATH . '/views/' . $view . '.php';
+    }
+
+    protected function csrfToken()
+    {
+        if (empty($_SESSION['csrf_token'])) {
+            $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
+        }
+
+        return $_SESSION['csrf_token'];
+    }
+
+    protected function verifyCsrfToken()
+    {
+        $sessionToken = $_SESSION['csrf_token'] ?? '';
+        $formToken = $_POST['csrf_token'] ?? '';
+
+        return is_string($formToken)
+            && $sessionToken !== ''
+            && hash_equals($sessionToken, $formToken);
     }
 }

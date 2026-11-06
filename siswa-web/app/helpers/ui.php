@@ -12,11 +12,27 @@ function asset($path) { return ASSET_URL . '/' . ltrim($path, '/'); }
 // Data siswa yang sedang login (sementara dummy bila belum ada session login)
 function current_user()
 {
-    $u    = $_SESSION['user'] ?? [];
-    $nama = $u['nama'] ?? 'Rian Hidayat';
-    $p    = preg_split('/\s+/', trim($nama));
-    $ini  = strtoupper(substr($p[0], 0, 1) . (isset($p[1]) ? substr($p[1], 0, 1) : ''));
-    return ['nama' => $nama, 'inisial' => $ini, 'instansi' => $u['instansi'] ?? 'PT Sinergi Teknologi Indonesia'];
+    $u = $_SESSION['user'] ?? [];
+
+    $nama = $u['nama_tampilan']
+        ?? $u['siswa']['nama_lengkap']
+        ?? $u['username']
+        ?? 'Siswa';
+
+    $nama = trim($nama);
+
+    $p = preg_split('/\s+/', $nama);
+
+    $inisial = strtoupper(
+        substr($p[0] ?? 'S', 0, 1)
+        . (isset($p[1]) ? substr($p[1], 0, 1) : '')
+    );
+
+    return [
+        'nama' => $nama,
+        'inisial' => $inisial,
+        'instansi' => $u['instansi'] ?? 'Belum tersedia',
+    ];
 }
 
 // ---------- ikon (inline SVG) ----------

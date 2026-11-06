@@ -35,7 +35,11 @@ class SiswaAuthService
             throw new TokenStorageUnavailable;
         }
 
-        $newToken = $user->createToken('web-siswa', ['siswa'], now()->addHours(12));
+        $newToken = $user->createToken(
+            'web-siswa',
+            ['siswa'],
+            now()->addHours(12)
+        );
 
         return [
             'token' => $newToken->plainTextToken,
@@ -62,7 +66,7 @@ class SiswaAuthService
         return $user->role?->nama === 'siswa'
             && $user->status === 'aktif'
             && $user->siswa !== null
-            && $user->siswa->status_siswa !== 'keluar';
+            && $user->siswa->status_siswa === 'aktif';
     }
 
     /**

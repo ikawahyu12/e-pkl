@@ -12,8 +12,10 @@ use Laravel\Sanctum\PersonalAccessToken;
 
 class SiswaAuthController extends Controller
 {
-    public function login(LoginSiswaRequest $request, SiswaAuthService $authService): JsonResponse
-    {
+    public function login(
+        LoginSiswaRequest $request,
+        SiswaAuthService $authService
+    ): JsonResponse {
         try {
             $result = $authService->login(
                 $request->validated('login'),
@@ -44,8 +46,10 @@ class SiswaAuthController extends Controller
         ]);
     }
 
-    public function me(Request $request, SiswaAuthService $authService): JsonResponse
-    {
+    public function me(
+        Request $request,
+        SiswaAuthService $authService
+    ): JsonResponse {
         $user = $request->user();
 
         if (! $user instanceof User) {

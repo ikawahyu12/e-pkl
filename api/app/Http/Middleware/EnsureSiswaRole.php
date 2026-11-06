@@ -11,9 +11,13 @@ class EnsureSiswaRole
     public function handle(Request $request, Closure $next): Response
     {
         $user = $request->user();
-        $user?->loadMissing('role');
 
-        if ($user?->role?->nama !== 'siswa') {
+        $user?->loadMissing(['role', 'siswa']);
+
+        if (
+            $user?->role?->nama !== 'siswa'
+            || $user?->siswa === null
+        ) {
             return response()->json([
                 'success' => false,
                 'message' => 'Akses hanya tersedia untuk akun Siswa.',

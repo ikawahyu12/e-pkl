@@ -1,11 +1,18 @@
-﻿# Environment dan secrets
+# Environment dan secrets
 .env
 .env.*
 !.env.example
 
+# Laravel API environment
+/api/.env
+/api/.env.*
+!/api/.env.example
+
 # Dependencies
 /vendor/
 /node_modules/
+/api/vendor/
+/api/node_modules/
 
 # IDE dan OS
 .idea/
@@ -16,3 +23,11 @@ Thumbs.db
 # Logs dan cache
 *.log
 .phpunit.result.cache
+
+# Laravel generated assets
+/api/public/build/
+/api/public/hot
+
+# Local database
+/api/database/*.sqlite
+/api/database/*.sqlite-*

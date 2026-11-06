@@ -2,9 +2,12 @@
 define('APP_NAME', 'Pantau PKL');
 define('APP_PATH', dirname(__DIR__));
 
+// API Laravel E-PKL
+define('API_BASE_URL', 'http://127.0.0.1:8000/api/v1');
+
 // DEV_MODE = true -> halaman bisa dibuka tanpa login (untuk tahap pengembangan UI).
 // Ubah ke false saat fitur login dari anggota lain sudah terhubung.
-define('DEV_MODE', true);
+define('DEV_MODE', false);
 
 
 // Deteksi base URL otomatis (XAMPP/Laragon di subfolder maupun php -S)

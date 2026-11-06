@@ -316,7 +316,8 @@
             <h2 id="loginTitle">Selamat datang</h2>
             <p class="login-description">Masuk menggunakan email atau username yang terdaftar.</p>
 
-            <div class="login-form" role="group" aria-labelledby="loginTitle">
+            <form class="login-form" method="POST" action="<?= e(url('login')) ?>" aria-labelledby="loginTitle">
+                <input type="hidden" name="csrf_token" value="<?= e($csrfToken) ?>">
                 <div class="login-field">
                     <label for="loginIdentifier">Email atau username</label>
                     <input
@@ -324,6 +325,7 @@
                         id="loginIdentifier"
                         name="identifier"
                         type="text"
+                        value="<?= e($identifier ?? '') ?>"
                         autocomplete="username"
                         placeholder="Masukkan email atau username"
                         aria-describedby="identifierError"
@@ -361,73 +363,33 @@
                     <span class="login-error" id="passwordError"></span>
                 </div>
 
-                <button class="login-submit" id="loginSubmit" type="button">Masuk</button>
-                <p class="login-message" id="loginMessage" role="status" aria-live="polite"></p>
-            </div>
+                <button class="login-submit" id="loginSubmit" type="submit">Masuk</button>
 
-            <p class="login-footer">E-PKL · Portal Siswa</p>
-        </section>
+                <?php if (!empty($error)): ?>
+                    <p class="login-message" role="alert"><?= e($error) ?></p>
+                <?php endif; ?>
+            </form>
+
+            <p class="login-footer">E-PKL</p>
+            </section>
     </div>
 </main>
 <script>
-    (function () {
-        var identifier = document.getElementById('loginIdentifier');
-        var password = document.getElementById('loginPassword');
-        var identifierError = document.getElementById('identifierError');
-        var passwordError = document.getElementById('passwordError');
-        var message = document.getElementById('loginMessage');
-        var toggle = document.getElementById('togglePassword');
-        var submit = document.getElementById('loginSubmit');
+(function () {
+    var password = document.getElementById('loginPassword');
+    var toggle = document.getElementById('togglePassword');
 
-        function validateAndContinue() {
-            var identifierIsEmpty = identifier.value.trim() === '';
-            var passwordIsEmpty = password.value === '';
+    toggle.addEventListener('click', function () {
+        var shouldShow = password.type === 'password';
 
-            identifier.setAttribute('aria-invalid', String(identifierIsEmpty));
-            password.setAttribute('aria-invalid', String(passwordIsEmpty));
-            identifierError.textContent = identifierIsEmpty
-                ? 'Email atau username wajib diisi.'
-                : '';
-            passwordError.textContent = passwordIsEmpty
-                ? 'Password wajib diisi.'
-                : '';
-            message.textContent = '';
-
-            if (identifierIsEmpty || passwordIsEmpty) {
-                (identifierIsEmpty ? identifier : password).focus();
-                return;
-            }
-
-            message.textContent = 'Autentikasi belum tersedia. Tidak ada data yang dikirim.';
-        }
-
-        submit.addEventListener('click', validateAndContinue);
-
-        [identifier, password].forEach(function (input) {
-            input.addEventListener('keydown', function (event) {
-                if (event.key === 'Enter') {
-                    event.preventDefault();
-                    validateAndContinue();
-                }
-            });
-            input.addEventListener('input', function () {
-                input.removeAttribute('aria-invalid');
-                if (input === identifier) identifierError.textContent = '';
-                if (input === password) passwordError.textContent = '';
-                message.textContent = '';
-            });
-        });
-
-        toggle.addEventListener('click', function () {
-            var shouldShow = password.type === 'password';
-            password.type = shouldShow ? 'text' : 'password';
-            toggle.setAttribute('aria-pressed', String(shouldShow));
-            toggle.setAttribute(
-                'aria-label',
-                shouldShow ? 'Sembunyikan password' : 'Tampilkan password'
-            );
-        });
-    })();
+        password.type = shouldShow ? 'text' : 'password';
+        toggle.setAttribute('aria-pressed', String(shouldShow));
+        toggle.setAttribute(
+            'aria-label',
+            shouldShow ? 'Sembunyikan password' : 'Tampilkan password'
+        );
+    });
+})();
 </script>
 </body>
 </html>
