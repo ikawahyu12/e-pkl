@@ -6,6 +6,7 @@ use App\Http\Middleware\EnsureGuruRole;
 use App\Http\Middleware\EnsureSiswaRole;
 use App\Http\Middleware\EnsureSanctumTokenStorage;
 use Illuminate\Support\Facades\Route;
+use App\Http\Controllers\Api\V1\Siswa\ProfilController;
 
 // Autentikasi Guru
 Route::prefix('v1/guru/auth')->group(function (): void {
@@ -35,4 +36,13 @@ Route::prefix('v1/siswa/auth')->group(function (): void {
         Route::get('/me', [SiswaAuthController::class, 'me']);
         Route::post('/logout', [SiswaAuthController::class, 'logout']);
     });
+});
+// Profil Siswa
+Route::prefix('v1/siswa')->middleware([
+    EnsureSanctumTokenStorage::class,
+    'auth:sanctum',
+    EnsureSiswaRole::class,
+])->group(function (): void {
+    Route::get('/profil', [ProfilController::class, 'show']);
+    Route::post('/profil', [ProfilController::class, 'update']);
 });

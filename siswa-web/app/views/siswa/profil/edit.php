@@ -19,9 +19,11 @@ $fallback = 'data:image/svg+xml;base64,' . base64_encode(
     '<text x="50%" y="54%" font-family="Arial" font-size="80" font-weight="700" fill="#fff" text-anchor="middle" dominant-baseline="middle">' .
     htmlspecialchars($ini ?: '?') . '</text></svg>'
 );
-$foto = !empty($siswa['foto']) ? url('uploads/siswa/' . $siswa['foto']) : $fallback;
+// UBAH: foto dari API sudah berupa URL lengkap
+$foto = !empty($siswa['foto']) ? $siswa['foto'] : $fallback;
 ?>
 <form class="pf-stack reveal" method="POST" action="<?= url('profil/update') ?>" enctype="multipart/form-data">
+    <input type="hidden" name="csrf_token" value="<?= e($csrfToken ?? '') ?>"> <!-- TAMBAH -->
     <?php if (!empty($flash)): ?>
         <div class="pf-alert pf-alert-<?= e($flash['type']) ?>"><?= e($flash['message']) ?></div>
     <?php endif; ?>

@@ -35,7 +35,8 @@ $fallback = 'data:image/svg+xml;base64,' . base64_encode(
     '<text x="50%" y="54%" font-family="Arial" font-size="80" font-weight="700" fill="#fff" text-anchor="middle" dominant-baseline="middle">' .
     htmlspecialchars($ini ?: '?') . '</text></svg>'
 );
-$foto = !empty($siswa['foto']) ? url('uploads/siswa/' . $siswa['foto']) : $fallback;
+// UBAH: foto dari API sudah berupa URL lengkap
+$foto = !empty($siswa['foto']) ? $siswa['foto'] : $fallback;
 
 $statusMap = [
     'berjalan' => ['Sedang Berjalan', ''],
@@ -88,6 +89,12 @@ $guru =
     <a class="pf-menu" href="<?= url('profil/password') ?>">
         <span class="l"><?= pf_icon('lock', 20) ?> Ubah Kata Sandi</span><?= pf_icon('chevron', 18) ?>
     </a>
-        <span class="l"><?= pf_icon('logout', 20) ?> Keluar (Logout)</span>
-    </a>
+
+    <!-- UBAH: tag pembuka hilang di file asli; logout harus POST + csrf_token -->
+    <form method="POST" action="<?= url('login/logout') ?>" style="margin:0">
+        <input type="hidden" name="csrf_token" value="<?= e($csrfToken ?? '') ?>">
+        <button type="submit" class="pf-menu" style="width:100%;border:0;cursor:pointer;font:inherit;text-align:left">
+            <span class="l"><?= pf_icon('logout', 20) ?> Keluar (Logout)</span>
+        </button>
+    </form>
 </div>

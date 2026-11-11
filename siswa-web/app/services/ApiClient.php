@@ -9,6 +9,103 @@ class ApiClient
         $this->baseUrl = rtrim(API_BASE_URL, '/');
     }
 
+    /** POST multipart (untuk upload file). $fields boleh berisi CURLFile. */
+    public function postForm(string $endpoint, array $fields, ?string $token = null): array
+    {
+        $url = $this->baseUrl . '/' . ltrim($endpoint, '/');
+
+        $headers = ['Accept: application/json'];
+        if ($token !== null && $token !== '') {
+            $headers[] = 'Authorization: Bearer ' . $token;
+        }
+
+        $ch = curl_init($url);
+        curl_setopt_array($ch, [
+            CURLOPT_POST => true,
+            CURLOPT_POSTFIELDS => $fields,
+            CURLOPT_HTTPHEADER => $headers,
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_CONNECTTIMEOUT => 5,
+            CURLOPT_TIMEOUT => 30,
+        ]);
+
+        $responseBody = curl_exec($ch);
+        $status = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        $curlError = curl_error($ch);
+        curl_close($ch);
+
+        if ($responseBody === false) {
+            return [
+                'success' => false,
+                'message' => 'Tidak dapat menghubungi server API: ' . $curlError,
+                'status' => 0,
+            ];
+        }
+
+        $result = json_decode($responseBody, true);
+
+        if (!is_array($result)) {
+            return [
+                'success' => false,
+                'message' => 'Server API mengirim respons yang tidak valid.',
+                'status' => $status,
+            ];
+        }
+
+        $result['status'] = $status;
+
+        return $result;
+    }
+
+    public function get(string $endpoint, ?string $token = null): array
+    {
+        $url = $this->baseUrl . '/' . ltrim($endpoint, '/');
+
+        $headers = ['Accept: application/json'];
+
+        if ($token !== null && $token !== '') {
+            $headers[] = 'Authorization: Bearer ' . $token;
+        }
+
+        $ch = curl_init($url);
+
+        curl_setopt_array($ch, [
+            CURLOPT_HTTPGET => true,
+            CURLOPT_HTTPHEADER => $headers,
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_CONNECTTIMEOUT => 5,
+            CURLOPT_TIMEOUT => 15,
+        ]);
+
+        $responseBody = curl_exec($ch);
+        $status = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        $curlError = curl_error($ch);
+
+        curl_close($ch);
+
+        if ($responseBody === false) {
+            return [
+                'success' => false,
+                'message' => 'Tidak dapat menghubungi server API: ' . $curlError,
+                'status' => 0,
+            ];
+        }
+
+        $result = json_decode($responseBody, true);
+
+        if (!is_array($result)) {
+            return [
+                'success' => false,
+                'message' => 'Server API mengirim respons yang tidak valid.',
+                'status' => $status,
+            ];
+        }
+
+        $result['status'] = $status;
+
+        return $result;
+    }
+
     public function post(string $endpoint, array $payload = [], ?string $token = null): array
     {
         $url = $this->baseUrl . '/' . ltrim($endpoint, '/');

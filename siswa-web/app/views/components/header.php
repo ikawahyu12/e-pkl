@@ -1,5 +1,9 @@
 <?php
 $u = current_user();
+$fotoHeader = $_SESSION['user']['foto'] ?? '';
+$avatarStyle = $fotoHeader !== ''
+    ? "background-image:url('" . e($fotoHeader) . "');background-size:cover;background-position:center;color:transparent;"
+    : '';
 ?>
 
 <header class="topbar">
@@ -10,7 +14,7 @@ $u = current_user();
 
         <div class="topbar-actions">
             <a class="user-chip" href="<?= url('profil') ?>" title="Profil saya">
-                <span class="avatar"><?= e($u['inisial']) ?></span>
+                <span class="avatar" style="<?= $avatarStyle ?>"><?= e($u['inisial']) ?></span>
                 <span class="user-name"><?= e($u['nama']) ?></span>
             </a>
 
