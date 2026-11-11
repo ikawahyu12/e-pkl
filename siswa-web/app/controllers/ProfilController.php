@@ -10,7 +10,7 @@ class ProfilController extends Controller
     }
 
     /** Ambil data profil dari API dan ubah ke bentuk yang dipakai view */
-        private function ambilProfil(): array
+           private function ambilProfil(): array
     {
         $api = new ApiClient();
         $res = $api->get('siswa/profil', $_SESSION['api_token']);
@@ -28,26 +28,41 @@ class ProfilController extends Controller
         }
 
         $s = $d['siswa'] ?? [];
+        $p = $d['pkl'] ?? [];
+        $g = $d['guru_pembimbing'] ?? [];
 
         $error = null;
         if (($res['success'] ?? false) !== true) {
             $error = $res['message'] ?? 'Gagal memuat data profil.';
         }
 
+        // Status di database -> status di tampilan
+        $statusMap = ['aktif' => 'berjalan', 'belum_mulai' => 'belum', 'selesai' => 'selesai'];
+
         $siswa = [
-            'nisn'         => $s['nisn'] ?? '',
-            'nama_lengkap' => $s['nama_lengkap'] ?? ($d['nama_tampilan'] ?? ''),
-            'kelas'        => '',
-            'no_hp'        => $s['no_hp'] ?? '',
-            'email'        => $s['email_sekolah'] ?? ($d['email'] ?? ''),
-            'alamat'       => $s['alamat'] ?? '',
-            'foto'         => $d['foto_url'] ?? '',
-            'status_pkl'   => 'belum',
+            'nisn'                       => $s['nisn'] ?? '',
+            'nama_lengkap'               => $s['nama_lengkap'] ?? ($d['nama_tampilan'] ?? ''),
+            'kelas'                      => $d['kelas'] ?? '',
+            'no_hp'                      => $s['no_hp'] ?? '',
+            'email'                      => $s['email_sekolah'] ?? ($d['email'] ?? ''),
+            'alamat'                     => $s['alamat'] ?? '',
+            'foto'                       => $d['foto_url'] ?? '',
+
+            'status_pkl'                 => $statusMap[$p['status'] ?? ''] ?? 'belum',
+            'nama_perusahaan'            => $p['nama_perusahaan'] ?? '',
+            'alamat_instansi'            => $p['alamat_instansi'] ?? '',
+            'pembimbing_lapangan'        => $p['pembimbing_lapangan'] ?? '',
+            'kontak_pembimbing_lapangan' => $p['kontak_pembimbing'] ?? '',
+            'tanggal_mulai'              => $p['tanggal_mulai'] ?? '',
+            'tanggal_selesai'            => $p['tanggal_selesai'] ?? '',
+
+            'guru_pembimbing'            => $g['nama'] ?? '',
+            'kontak_guru'                => $g['no_hp'] ?? '',
+            'email_guru'                 => $g['email'] ?? '',
         ];
 
         return [$siswa, $error];
     }
-
     /** Halaman profil: url('profil') */
     public function index()
     {
