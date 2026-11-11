@@ -66,11 +66,14 @@ $adminUserRole = isset($adminUserRole) && is_string($adminUserRole) ? $adminUser
                 <span class="dropdown-item-text small font-weight-bold"><?= $e($adminUserName) ?></span>
                 <span class="dropdown-item-text small text-muted"><?= $e($adminUserRole) ?></span>
                 <div class="dropdown-divider"></div>
-                <span class="dropdown-item-text text-muted" aria-disabled="true"
-                      title="Logout tersedia setelah autentikasi diimplementasikan">
-                    <i class="fas fa-sign-out-alt fa-sm fa-fw mr-2 text-gray-400" aria-hidden="true"></i>
-                    Logout belum tersedia
-                </span>
+                <form method="POST" action="<?= $e($routerUrl) ?>" class="m-0">
+                    <input type="hidden" name="action" value="logout">
+                    <input type="hidden" name="csrf_token" value="<?= $e($csrfToken) ?>">
+                    <button type="submit" class="dropdown-item">
+                        <i class="fas fa-sign-out-alt fa-sm fa-fw mr-2 text-gray-400" aria-hidden="true"></i>
+                        Logout
+                    </button>
+                </form>
             </div>
         </li>
     </ul>
