@@ -400,7 +400,15 @@ $e = static fn ($value): string => htmlspecialchars((string) $value, ENT_QUOTES 
                     </p>
 
 
-                    <form id="adminLoginForm" autocomplete="on">
+                    <form id="adminLoginForm" method="POST" action="<?= $e($routerUrl) ?>?page=login" autocomplete="on">
+                        <input type="hidden" name="action" value="login">
+                        <input type="hidden" name="csrf_token" value="<?= $e($csrfToken) ?>">
+
+                        <?php if (isset($loginError) && is_string($loginError) && $loginError !== ''): ?>
+                            <div class="alert alert-danger small" role="alert">
+                                <?= $e($loginError) ?>
+                            </div>
+                        <?php endif; ?>
 
                         <!-- USERNAME -->
                         <div class="login-field">
@@ -475,7 +483,7 @@ $e = static fn ($value): string => htmlspecialchars((string) $value, ENT_QUOTES 
 
                         </button>
 
-                        <p id="loginStatus" class="ui-only-note" role="status" aria-live="polite"></p>
+
                     </form>
 
                 </div>
@@ -498,18 +506,6 @@ $e = static fn ($value): string => htmlspecialchars((string) $value, ENT_QUOTES 
             passwordToggle.innerHTML = `<i class="far ${showPassword ? 'fa-eye-slash' : 'fa-eye'}" aria-hidden="true"></i>`;
         });
 
-        const loginForm = document.getElementById('adminLoginForm');
-        const loginStatus = document.getElementById('loginStatus');
-
-        loginForm.addEventListener('submit', (event) => {
-            event.preventDefault();
-
-            if (!loginForm.reportValidity()) {
-                return;
-            }
-
-            loginStatus.textContent = 'Autentikasi Admin belum tersedia. Tidak ada sesi yang dibuat.';
-        });
     </script>
 </body>
 </html>

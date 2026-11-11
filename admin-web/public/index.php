@@ -1,132 +1,335 @@
 <?php
-$page = $_GET['page'] ?? 'dashboard';
 
-switch ($page) {
-    case 'login':
-        require dirname(__DIR__) . '/app/Views/auth/login.php';
-        break;
+declare(strict_types=1);
 
-    // ==========================================
-    // MANAJEMEN USER (ADMIN, GURU, SISWA)
-    // ==========================================
-    // --- Admin ---
+$adminRoot = dirname(__DIR__);
+
+require_once $adminRoot . '/app/Support/Csrf.php';
+require_once $adminRoot . '/app/Support/AdminApiClient.php';
+
+$scriptPath = str_replace('\\', '/', $_SERVER['SCRIPT_NAME'] ?? '/index.php');
+$publicDirectory = str_replace('\\', '/', dirname($scriptPath));
+$publicDirectory = rtrim($publicDirectory, '/');
+
+if ($publicDirectory === '.' || $publicDirectory === '/') {
+    $publicDirectory = '';
+}
+
+if ($publicDirectory === '') {
+    $sessionCookiePath = '/';
+} else {
+    $appDirectory = dirname($publicDirectory);
+    $sessionCookiePath = rtrim($appDirectory, '/') . '/';
+}
+
+$isHttps = isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== ''
+    && strtolower((string) $_SERVER['HTTPS']) !== 'off';
+
+ini_set('session.use_strict_mode', '1');
+ini_set('session.use_only_cookies', '1');
+
+session_name('EPKL_ADMIN_SESSION');
+session_set_cookie_params([
+    'lifetime' => 0,
+    'path' => $sessionCookiePath,
+    'secure' => $isHttps,
+    'httponly' => true,
+    'samesite' => 'Lax',
+]);
+
+if (session_status() !== PHP_SESSION_ACTIVE) {
+    session_start();
+}
+
+$api = new AdminApiClient();
+$routerUrl = $publicDirectory . '/index.php';
+
+$redirectTo = static function (string $destination) use ($routerUrl): never {
+    header('Location: ' . $routerUrl . '?page=' . rawurlencode($destination));
+    exit;
+};
+
+$destroyAdminSession = static function () use ($sessionCookiePath, $isHttps): void {
+    $_SESSION = [];
+
+    if (session_status() === PHP_SESSION_ACTIVE) {
+        setcookie(session_name(), '', [
+            'expires' => time() - 42000,
+            'path' => $sessionCookiePath,
+            'secure' => $isHttps,
+            'httponly' => true,
+            'samesite' => 'Lax',
+        ]);
+
+        session_destroy();
+    }
+};
+
+$loginError = null;
+$requestMethod = strtoupper($_SERVER['REQUEST_METHOD'] ?? 'GET');
+$routePage = $_GET['page'] ?? 'dashboard';
+
+if (!is_string($routePage)) {
+    $routePage = 'dashboard';
+}
+
+/*
+|--------------------------------------------------------------------------
+| Proses login dan logout
+|--------------------------------------------------------------------------
+*/
+if ($requestMethod === 'POST') {
+    $action = $_POST['action'] ?? '';
+
+    // POST CRUD diteruskan ke route masing-masing.
+    if (is_string($action) && in_array($action, ['login', 'logout'], true)) {
+        if (!AdminCsrf::verify($_POST['csrf_token'] ?? null)) {
+            http_response_code(419);
+            echo '419 - Sesi formulir tidak valid atau telah kedaluwarsa.';
+            exit;
+        }
+
+        if ($action === 'login') {
+            $identifier = $_POST['username'] ?? '';
+            $password = $_POST['password'] ?? '';
+
+            if (
+                !is_string($identifier)
+                || !is_string($password)
+                || trim($identifier) === ''
+                || $password === ''
+            ) {
+                $loginError = 'Username/email dan password wajib diisi.';
+            } else {
+                try {
+                    $result = $api->login(trim($identifier), $password);
+                    $status = $result['status'];
+                    $responseData = $result['body']['data'] ?? [];
+
+                    if (
+                        $status >= 200
+                        && $status < 300
+                        && is_array($responseData)
+                        && isset($responseData['token'], $responseData['user'])
+                        && is_string($responseData['token'])
+                        && $responseData['token'] !== ''
+                        && is_array($responseData['user'])
+                    ) {
+                        session_regenerate_id(true);
+
+                        $_SESSION['admin_csrf_token'] = bin2hex(random_bytes(32));
+                        $_SESSION['admin_token'] = $responseData['token'];
+                        $_SESSION['admin_user'] = $responseData['user'];
+
+                        $redirectTo('dashboard');
+                    }
+
+                    if ($status === 401) {
+                        $loginError = 'Username/email atau password tidak valid.';
+                    } elseif ($status === 422) {
+                        $loginError = 'Data login tidak memenuhi validasi.';
+                    } elseif ($status === 403) {
+                        $loginError = 'Akun Admin tidak memiliki akses.';
+                    } elseif ($status === 503) {
+                        $loginError = 'Layanan autentikasi sedang tidak tersedia.';
+                    } else {
+                        $loginError = 'Login gagal. Periksa koneksi dan konfigurasi API.';
+                    }
+                } catch (Throwable $exception) {
+                    error_log('Admin login API error: ' . $exception->getMessage());
+                    $loginError = 'Tidak dapat menghubungi server autentikasi.';
+                }
+            }
+
+            $routePage = 'login';
+        } elseif ($action === 'logout') {
+            $token = $_SESSION['admin_token'] ?? null;
+
+            if (is_string($token) && $token !== '') {
+                try {
+                    $api->logout($token);
+                } catch (Throwable $exception) {
+                    error_log('Admin logout API error: ' . $exception->getMessage());
+                }
+            }
+
+            $destroyAdminSession();
+            $redirectTo('login');
+        }
+    }
+}
+/*
+|--------------------------------------------------------------------------
+| Pemeriksaan autentikasi untuk seluruh halaman Admin
+|--------------------------------------------------------------------------
+*/
+if ($routePage !== 'login') {
+    $token = $_SESSION['admin_token'] ?? null;
+
+    if (!is_string($token) || $token === '') {
+        $redirectTo('login');
+    }
+
+    try {
+        $result = $api->me($token);
+
+        if ($result['status'] === 401 || $result['status'] === 403) {
+            $destroyAdminSession();
+            $redirectTo('login');
+        }
+
+        if ($result['status'] < 200 || $result['status'] >= 300) {
+            http_response_code(503);
+            echo 'Layanan autentikasi tidak dapat memvalidasi sesi Admin.';
+            exit;
+        }
+
+        $user = $result['body']['data']['user'] ?? null;
+
+        if (!is_array($user)) {
+            http_response_code(503);
+            echo 'Respons autentikasi tidak valid.';
+            exit;
+        }
+
+        $_SESSION['admin_user'] = $user;
+    } catch (Throwable $exception) {
+        error_log('Admin session validation error: ' . $exception->getMessage());
+        http_response_code(503);
+        echo 'Server autentikasi tidak dapat dihubungi. Halaman Admin belum dapat dibuka.';
+        exit;
+    }
+}
+
+/*
+|--------------------------------------------------------------------------
+| Data sesi untuk tampilan
+|--------------------------------------------------------------------------
+*/
+$csrfToken = AdminCsrf::token();
+
+$adminUser = $_SESSION['admin_user'] ?? [];
+
+$adminUserName = is_array($adminUser)
+    ? (string) ($adminUser['nama_tampilan'] ?? 'Administrator')
+    : 'Administrator';
+
+$adminUserRole = 'Administrator';
+
+if ($routePage === 'login') {
+    require $adminRoot . '/app/Views/auth/login.php';
+    exit;
+}
+
+/*
+|--------------------------------------------------------------------------
+| Router halaman Admin
+|--------------------------------------------------------------------------
+*/
+switch ($routePage) {
     case 'manajemen-admin':
-        require dirname(__DIR__) . '/app/Views/admin/manajemen_user/admin/index.php';
+        require $adminRoot . '/app/Views/admin/manajemen_user/admin/index.php';
         break;
 
     case 'create-admin':
-        require dirname(__DIR__) . '/app/Views/admin/manajemen_user/admin/create.php';
+        require $adminRoot . '/app/Views/admin/manajemen_user/admin/create.php';
         break;
 
     case 'edit-admin':
-        require dirname(__DIR__) . '/app/Views/admin/manajemen_user/admin/edit.php';
+        require $adminRoot . '/app/Views/admin/manajemen_user/admin/edit.php';
         break;
 
     case 'detail-admin':
-        require dirname(__DIR__) . '/app/Views/admin/manajemen_user/admin/detail.php';
+        require $adminRoot . '/app/Views/admin/manajemen_user/admin/detail.php';
         break;
 
-    // --- Guru ---
     case 'manajemen-guru':
-        require dirname(__DIR__) . '/app/Views/admin/manajemen_user/guru/index.php';
+        require $adminRoot . '/app/Views/admin/manajemen_user/guru/index.php';
         break;
 
     case 'create-guru':
-        require dirname(__DIR__) . '/app/Views/admin/manajemen_user/guru/create.php';
+        require $adminRoot . '/app/Views/admin/manajemen_user/guru/create.php';
         break;
 
     case 'edit-guru':
-        require dirname(__DIR__) . '/app/Views/admin/manajemen_user/guru/edit.php';
+        require $adminRoot . '/app/Views/admin/manajemen_user/guru/edit.php';
         break;
 
     case 'detail-guru':
-        require dirname(__DIR__) . '/app/Views/admin/manajemen_user/guru/detail.php';
+        require $adminRoot . '/app/Views/admin/manajemen_user/guru/detail.php';
         break;
 
-    // --- Siswa ---
     case 'manajemen-siswa':
-    case 'manajemen-user': // Alias jika dipanggil generik
-        require dirname(__DIR__) . '/app/Views/admin/manajemen_user/siswa/index.php';
+    case 'manajemen-user':
+        require $adminRoot . '/app/Views/admin/manajemen_user/siswa/index.php';
         break;
 
     case 'create-siswa':
-        require dirname(__DIR__) . '/app/Views/admin/manajemen_user/siswa/create.php';
+        require $adminRoot . '/app/Views/admin/manajemen_user/siswa/create.php';
         break;
 
     case 'edit-siswa':
-        require dirname(__DIR__) . '/app/Views/admin/manajemen_user/siswa/edit.php';
+        require $adminRoot . '/app/Views/admin/manajemen_user/siswa/edit.php';
         break;
 
     case 'detail-siswa':
-        require dirname(__DIR__) . '/app/Views/admin/manajemen_user/siswa/detail.php';
+        require $adminRoot . '/app/Views/admin/manajemen_user/siswa/detail.php';
         break;
 
     case 'hapus-siswa':
-    require dirname(__DIR__) . '/app/Views/admin/siswa/delete.php';
-    break;
+        require $adminRoot . '/app/Views/admin/siswa/delete.php';
+        break;
 
-    // ==========================================
-    // DATA LAINNYA
-    // ==========================================
     case 'data-mitra':
-        require dirname(__DIR__) . '/app/Views/admin/instansi/index.php';
+        require $adminRoot . '/app/Views/admin/instansi/index.php';
         break;
 
     case 'data-guru':
-        require dirname(__DIR__) . '/app/Views/admin/guru/index.php';
+        require $adminRoot . '/app/Views/admin/guru/index.php';
         break;
 
     case 'data-siswa':
-        require dirname(__DIR__) . '/app/Views/admin/siswa/index.php';
+        require $adminRoot . '/app/Views/admin/siswa/index.php';
         break;
 
     case 'create':
-        require dirname(__DIR__) . '/app/Views/admin/siswa/create.php';
+        require $adminRoot . '/app/Views/admin/siswa/create.php';
         break;
 
     case 'edit':
-        require dirname(__DIR__) . '/app/Views/admin/siswa/edit.php';
+        require $adminRoot . '/app/Views/admin/siswa/edit.php';
         break;
 
     case 'detail':
-        require dirname(__DIR__) . '/app/Views/admin/siswa/detail.php';
+        require $adminRoot . '/app/Views/admin/siswa/detail.php';
         break;
 
-    // ==========================================
-    // DATA INSTANSI MITRA
-    // ==========================================
     case 'create-mitra':
-        require dirname(__DIR__) . '/app/Views/admin/instansi/create.php';
+        require $adminRoot . '/app/Views/admin/instansi/create.php';
         break;
 
     case 'edit-mitra':
-        require dirname(__DIR__) . '/app/Views/admin/instansi/edit.php';
+        require $adminRoot . '/app/Views/admin/instansi/edit.php';
         break;
 
     case 'detail-mitra':
-        require dirname(__DIR__) . '/app/Views/admin/instansi/detail.php';
+        require $adminRoot . '/app/Views/admin/instansi/detail.php';
         break;
 
     case 'hapus-mitra':
-        require dirname(__DIR__) . '/app/Views/admin/instansi/delete.php';
+        require $adminRoot . '/app/Views/admin/instansi/delete.php';
         break;
 
-    // ==========================================
-    // LAPORAN & REKAPITULASI
-    // ==========================================
     case 'laporan':
-        require dirname(__DIR__) . '/app/Views/admin/laporan/index.php';
+        require $adminRoot . '/app/Views/admin/laporan/index.php';
         break;
 
     case 'laporan-export':
-        require dirname(__DIR__) . '/app/Controllers/LaporanController.php';
+        require $adminRoot . '/app/Controllers/LaporanController.php';
         break;
 
-    // ==========================================
-    // DEFAULT
-    // ==========================================
     case 'dashboard':
-        require dirname(__DIR__) . '/app/Views/admin/dashboard.php';
+        require $adminRoot . '/app/Views/admin/dashboard.php';
         break;
 
     default:

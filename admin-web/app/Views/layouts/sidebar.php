@@ -163,11 +163,16 @@ $menuItems = [
     <hr class="sidebar-divider d-none d-md-block">
 
     <li class="nav-item">
-        <span class="nav-link text-muted" aria-disabled="true"
-              title="Logout tersedia setelah autentikasi diimplementasikan">
-            <i class="fas fa-fw fa-sign-out-alt" aria-hidden="true"></i>
-            <span>Logout <small class="d-block">Belum tersedia</small></span>
-        </span>
+        <form method="POST" action="<?= $e($routerUrl) ?>" class="m-0">
+            <input type="hidden" name="action" value="logout">
+            <input type="hidden" name="csrf_token" value="<?= $e($csrfToken) ?>">
+            <button type="submit"
+                    class="nav-link border-0 bg-transparent w-100 text-left"
+                    style="cursor:pointer;">
+                <i class="fas fa-fw fa-sign-out-alt" aria-hidden="true"></i>
+                <span>Logout</span>
+            </button>
+        </form>
     </li>
 
     <li class="nav-item mt-auto px-4 pb-2 pt-3">
