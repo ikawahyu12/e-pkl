@@ -26,6 +26,10 @@ class ProfilController extends Controller
         if (!empty($d['foto_url'])) {
             $_SESSION['user']['foto'] = $d['foto_url'];
         }
+                // Simpan nama terbaru untuk header
+        if (!empty($d['nama_tampilan'])) {
+            $_SESSION['user']['nama_tampilan'] = $d['nama_tampilan'];
+        }
 
         $s = $d['siswa'] ?? [];
         $p = $d['pkl'] ?? [];

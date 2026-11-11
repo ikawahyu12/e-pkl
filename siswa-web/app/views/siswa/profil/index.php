@@ -8,7 +8,7 @@ include __DIR__ . '/_styles.php';
 // Sesuaikan nama variabel dengan yang dikirim controllermu (cukup ubah di sini)
 $siswa = $siswa ?? $profil ?? $user ?? [];
 $flash = $flash ?? null;
-if (empty($siswa)) $siswa = require __DIR__ . '/_dummy.php'; // DUMMY: hapus kalau controller sudah kirim data
+
 
 $val = fn($k) => e(($siswa[$k] ?? '') !== '' ? $siswa[$k] : '-');
 $row = fn($icon, $label, $v) =>

@@ -8,7 +8,7 @@ include __DIR__ . '/_styles.php';
 // Sesuaikan nama variabel dengan yang dikirim controllermu (cukup ubah di sini)
 $siswa = $siswa ?? $profil ?? $user ?? [];
 $flash = $flash ?? null;
-if (empty($siswa)) $siswa = require __DIR__ . '/_dummy.php'; // DUMMY: hapus kalau controller sudah kirim data
+ // DUMMY: hapus kalau controller sudah kirim data
 // Avatar: pakai foto kalau ada, kalau tidak pakai inisial nama (tanpa butuh file gambar)
 $ini = '';
 foreach (array_slice(preg_split('/\s+/', trim($siswa['nama_lengkap'] ?? '')), 0, 2) as $w) {
