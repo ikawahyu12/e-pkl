@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\PenempatanPkl;
 use App\Models\User;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Storage;
 
 class ProfilController extends Controller
@@ -74,9 +75,10 @@ class ProfilController extends Controller
     public function update(Request $request)
     {
         $data = $request->validate([
-            'no_hp'  => 'nullable|string|max:20',
-            'alamat' => 'nullable|string',
-            'foto'   => 'nullable|image|max:2048',
+            'nama_lengkap' => 'nullable|string|max:120',
+            'no_hp'        => 'nullable|string|max:20',
+            'alamat'       => 'nullable|string',
+            'foto'         => 'nullable|image|max:2048',
         ]);
 
         $user = $request->user();
@@ -89,23 +91,61 @@ class ProfilController extends Controller
             ], 404);
         }
 
+        $nama = trim($data['nama_lengkap'] ?? '');
+
         $siswa->update([
-            'no_hp'  => $data['no_hp'] ?? $siswa->no_hp,
-            'alamat' => $data['alamat'] ?? $siswa->alamat,
+            'nama_lengkap' => $nama !== '' ? $nama : $siswa->nama_lengkap,
+            'no_hp'        => $data['no_hp'] ?? $siswa->no_hp,
+            'alamat'       => $data['alamat'] ?? $siswa->alamat,
         ]);
+
+        if ($nama !== '') {
+            $user->nama_tampilan = $nama;
+        }
 
         if ($request->hasFile('foto')) {
             if ($user->foto_profil) {
                 Storage::disk('public')->delete($user->foto_profil);
             }
             $user->foto_profil = $request->file('foto')->store('foto-siswa', 'public');
-            $user->save();
         }
+
+        $user->save();
 
         return response()->json([
             'success' => true,
             'message' => 'Profil berhasil diperbarui',
             'data'    => $siswa->fresh(),
+        ]);
+    }
+
+    public function updatePassword(Request $request)
+    {
+        $data = $request->validate([
+            'password_lama' => 'required|string',
+            'password_baru' => 'required|string|min:8|confirmed|different:password_lama',
+        ]);
+
+        $user = $request->user();
+
+        if (! Hash::check($data['password_lama'], $user->password_hash)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Kata sandi lama salah.',
+            ], 422);
+        }
+
+        $user->password_hash = Hash::make($data['password_baru']);
+        $user->wajib_ganti_password = false;
+        $user->save();
+
+        // Logout perangkat lain, token yang sedang dipakai tetap hidup
+        $currentId = $request->user()->currentAccessToken()?->id;
+        $user->tokens()->when($currentId, fn ($q) => $q->where('id', '!=', $currentId))->delete();
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Kata sandi berhasil diubah.',
         ]);
     }
 }

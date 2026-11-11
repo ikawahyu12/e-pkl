@@ -104,7 +104,7 @@ class ProfilController extends Controller
     }
 
     /** Proses simpan edit profil (POST): url('profil/update') */
-    public function update()
+        public function update()
     {
         if ($_SERVER['REQUEST_METHOD'] !== 'POST' || !$this->verifyCsrfToken()) {
             $_SESSION['flash'] = ['type' => 'error', 'message' => 'Sesi formulir tidak valid. Coba lagi.'];
@@ -112,8 +112,9 @@ class ProfilController extends Controller
         }
 
         $fields = [
-            'no_hp'  => trim($_POST['no_hp'] ?? ''),
-            'alamat' => trim($_POST['alamat'] ?? ''),
+            'nama_lengkap' => trim($_POST['nama_lengkap'] ?? ''),
+            'no_hp'        => trim($_POST['no_hp'] ?? ''),
+            'alamat'       => trim($_POST['alamat'] ?? ''),
         ];
 
         if (!empty($_FILES['foto']['name'])) {
@@ -131,7 +132,6 @@ class ProfilController extends Controller
         $api = new ApiClient();
         $res = $api->postForm('siswa/profil', $fields, $_SESSION['api_token']);
 
-
         if (($res['status'] ?? 0) === 401) {
             unset($_SESSION['api_token'], $_SESSION['user']);
             $this->redirect('login');
@@ -148,21 +148,72 @@ class ProfilController extends Controller
         ];
         $this->redirect('profil/edit');
     }
-
     /** Form ganti password: url('profil/password') */
+        /** Form ganti password: url('profil/password') */
     public function password()
     {
+        $flash = $_SESSION['flash'] ?? null;
+        unset($_SESSION['flash']);
+
         $this->render('siswa/profil/password', [
             'title'    => 'Ganti Password',
             'showBack' => true,
+            'flash'    => $flash,
         ]);
     }
 
     /** Proses simpan password baru (POST): url('profil/updatePassword') */
     public function updatePassword()
     {
-        // TODO: ganti password
-        header('Location: ' . url('profil'));
-        exit;
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST' || !$this->verifyCsrfToken()) {
+            $_SESSION['flash'] = ['type' => 'error', 'message' => 'Sesi formulir tidak valid. Coba lagi.'];
+            $this->redirect('profil/password');
+        }
+
+        $lama    = $_POST['password_lama'] ?? '';
+        $baru    = $_POST['password_baru'] ?? '';
+        $konfirm = $_POST['confirm_password'] ?? '';
+
+        if ($lama === '' || $baru === '' || $konfirm === '') {
+            $_SESSION['flash'] = ['type' => 'error', 'message' => 'Semua kolom wajib diisi.'];
+            $this->redirect('profil/password');
+        }
+
+        if ($baru !== $konfirm) {
+            $_SESSION['flash'] = ['type' => 'error', 'message' => 'Konfirmasi kata sandi tidak sama.'];
+            $this->redirect('profil/password');
+        }
+
+        if (strlen($baru) < 8) {
+            $_SESSION['flash'] = ['type' => 'error', 'message' => 'Kata sandi baru minimal 8 karakter.'];
+            $this->redirect('profil/password');
+        }
+
+        $api = new ApiClient();
+        $res = $api->post('siswa/profil/password', [
+            'password_lama'              => $lama,
+            'password_baru'              => $baru,
+            'password_baru_confirmation' => $konfirm,
+        ], $_SESSION['api_token']);
+
+        if (($res['status'] ?? 0) === 401) {
+            unset($_SESSION['api_token'], $_SESSION['user']);
+            $this->redirect('login');
+        }
+
+        if (($res['success'] ?? false) === true) {
+            $_SESSION['flash'] = ['type' => 'success', 'message' => 'Kata sandi berhasil diubah.'];
+            $this->redirect('profil');
+        }
+
+        // Ambil pesan error pertama dari validasi Laravel kalau ada
+        $pesan = $res['message'] ?? 'Gagal mengubah kata sandi.';
+        if (!empty($res['errors']) && is_array($res['errors'])) {
+            $first = reset($res['errors']);
+            $pesan = is_array($first) ? ($first[0] ?? $pesan) : $pesan;
+        }
+
+        $_SESSION['flash'] = ['type' => 'error', 'message' => $pesan];
+        $this->redirect('profil/password');
     }
 }

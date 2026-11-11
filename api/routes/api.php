@@ -10,6 +10,7 @@ use App\Http\Middleware\EnsureSanctumTokenStorage;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Api\V1\Siswa\ProfilController;
 
+
 // Autentikasi Guru
 Route::prefix('v1/guru/auth')->group(function (): void {
     Route::post('/login', [GuruAuthController::class, 'login'])
@@ -47,6 +48,7 @@ Route::prefix('v1/siswa')->middleware([
 ])->group(function (): void {
     Route::get('/profil', [ProfilController::class, 'show']);
     Route::post('/profil', [ProfilController::class, 'update']);
+    Route::post('/profil/password', [ProfilController::class, 'updatePassword']);
 });
 
 // Autentikasi Admin

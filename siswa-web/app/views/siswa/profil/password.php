@@ -1,52 +1,28 @@
 <?php
 /**
  * Ganti Password (fragment, dipasang oleh layouts)
- * Variabel: $flash (array|null)
+ * Variabel: $flash (array|null), $csrfToken (string)
  */
 include __DIR__ . '/_styles.php';
-
 $flash = $flash ?? null;
 ?>
 <form class="pf-stack reveal" method="POST" action="<?= url('profil/updatePassword') ?>">
+    <input type="hidden" name="csrf_token" value="<?= e($csrfToken ?? '') ?>">
+
     <?php if (!empty($flash)): ?>
         <div class="pf-alert pf-alert-<?= e($flash['type']) ?>"><?= e($flash['message']) ?></div>
     <?php endif; ?>
 
     <?php
-    $field = fn($id, $label, $ph, $last = false) =>
-        '<div class="pf-group"' . ($last ? ' style="margin-bottom:0"' : '') . '>' .
-        '<label for="' . $id . '">' . e($label) . '</label>' .
-        '<div class="pf-pw"><input class="pf-input" type="password" id="' . $id . '" name="' . $id . '" placeholder="' . e($ph) . '" minlength="8" required>' .
-        '<button type="button" data-toggle="' . $id . '">Lihat</button></div></div>';
-
-    echo ui_card(
-        $field('password', 'Password', 'Password baru') .
-        $field('confirm_password', 'Confirm Password', 'Ulangi password baru', true)
-    );
+    $form =
+        '<div class="pf-group"><label for="password_lama">Kata Sandi Lama</label><input class="pf-input" id="password_lama" name="password_lama" type="password" autocomplete="current-password" required></div>' .
+        '<div class="pf-group"><label for="password_baru">Kata Sandi Baru</label><input class="pf-input" id="password_baru" name="password_baru" type="password" minlength="8" autocomplete="new-password" required></div>' .
+        '<div class="pf-group" style="margin-bottom:0"><label for="confirm_password">Konfirmasi Kata Sandi Baru</label><input class="pf-input" id="confirm_password" name="confirm_password" type="password" minlength="8" autocomplete="new-password" required></div>';
+    echo ui_card($form);
     ?>
 
     <div class="pf-actions">
-        <button type="submit" class="pf-btn pf-btn-primary">Simpan Perubahan</button>
+        <button type="submit" class="pf-btn pf-btn-primary">Simpan Kata Sandi</button>
         <a href="<?= url('profil') ?>" class="pf-btn pf-btn-outline">Batal</a>
     </div>
 </form>
-
-<script>
-    // Tampilkan / sembunyikan password
-    document.querySelectorAll('[data-toggle]').forEach(function (btn) {
-        btn.addEventListener('click', function () {
-            var input = document.getElementById(btn.dataset.toggle);
-            var show = input.type === 'password';
-            input.type = show ? 'text' : 'password';
-            btn.textContent = show ? 'Sembunyi' : 'Lihat';
-        });
-    });
-
-    // Cek kecocokan password sebelum submit
-    document.querySelector('form').addEventListener('submit', function (e) {
-        if (document.getElementById('password').value !== document.getElementById('confirm_password').value) {
-            e.preventDefault();
-            alert('Password dan konfirmasi password tidak sama.');
-        }
-    });
-</script>
