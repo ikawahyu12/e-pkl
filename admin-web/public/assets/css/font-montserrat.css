@@ -1,0 +1,5 @@
+html,
+body,
+body *:not(i):not(.fa):not(.fas):not(.far):not(.fab):not(.fal):not(.fad):not(.fa-solid):not(.fa-regular):not(.fa-brands) {
+    font-family: 'Montserrat', sans-serif !important;
+}

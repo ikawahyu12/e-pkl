@@ -6,8 +6,9 @@
     <meta name="theme-color" content="#f1f6ff">
     <title>Masuk - <?= e(APP_NAME) ?></title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="<?= e(asset('css/app.css')) ?>">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="<?= e(asset('css/app.css')) ?>?v=<?= filemtime(dirname(APP_PATH) . '/public/assets/css/app.css') ?>">
     <style>
         .login-page {
             min-height: 100vh;

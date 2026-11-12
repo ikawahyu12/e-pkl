@@ -11,21 +11,6 @@ $adminUserRole = isset($adminUserRole) && is_string($adminUserRole) ? $adminUser
         <i class="fa fa-bars" aria-hidden="true"></i>
     </button>
 
-    <form class="form-inline d-none d-sm-inline-block" role="search">
-        <div class="input-group">
-            <input class="form-control bg-light border-0 small"
-                   type="search"
-                   placeholder="Pencarian belum tersedia"
-                   disabled
-                   aria-label="Cari siswa, instansi, atau NISN">
-            <div class="input-group-append">
-                <button class="btn btn-primary" type="submit" aria-label="Cari" disabled>
-                    <i class="fas fa-search fa-sm" aria-hidden="true"></i>
-                </button>
-            </div>
-        </div>
-    </form>
-
     <ul class="navbar-nav ml-auto align-items-center">
         <li class="nav-item dropdown no-arrow mx-1">
             <a class="nav-link dropdown-toggle" href="#" id="academicYearDropdown" role="button"
