@@ -4,6 +4,7 @@ use App\Http\Controllers\AdminAuthController;
 use App\Http\Controllers\AdminStudentController;
 use App\Http\Controllers\AdminTeacherController;
 use App\Http\Controllers\AdminUserController;
+use App\Http\Controllers\Api\V1\Siswa\PresensiController;
 use App\Http\Controllers\Api\V1\Siswa\ProfilController;
 use App\Http\Controllers\GuruAuthController;
 use App\Http\Controllers\SiswaAuthController;
@@ -51,6 +52,7 @@ Route::prefix('v1/siswa')->middleware([
     Route::get('/profil', [ProfilController::class, 'show']);
     Route::post('/profil', [ProfilController::class, 'update']);
     Route::post('/profil/password', [ProfilController::class, 'updatePassword']);
+    Route::post('/presensi', [PresensiController::class, 'store']);
 });
 
 // Autentikasi Admin

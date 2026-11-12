@@ -1,10 +1,11 @@
 <?php
 /** Presensi Siswa - mengelola halaman presensi, check-in, dan check-out. */
+require_once APP_PATH . '/services/ApiClient.php';
+
 class PresensiController extends Controller
 {
     public function __construct()
     {
-        // Pastikan siswa sudah login menggunakan method bawaan framework kamu
         $this->requireLogin();
     }
 
@@ -15,69 +16,84 @@ class PresensiController extends Controller
             'title'    => 'Presensi Harian',
             'showBack' => true,
             'wide'     => true,
-            // TODO: Ambil data status presensi hari ini dari database jika diperlukan
         ]);
     }
 
-    /** Proses simpan presensi (POST via AJAX/Fetch): url('presensi/store') */
+    /** Proses simpan presensi melalui API Laravel. */
     public function store()
     {
-        header('Content-Type: application/json');
+        header('Content-Type: application/json; charset=utf-8');
 
-        // Terima data JSON dari request JavaScript
+        if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'POST') {
+            $this->respond('error', 'Metode permintaan tidak diizinkan.', 405);
+            return;
+        }
+
         $input = json_decode(file_get_contents('php://input'), true);
-
-        $type = $input['type'] ?? '';
-        $lat  = $input['latitude'] ?? null;
-        $lng  = $input['longitude'] ?? null;
-
-        // Validasi input
-        if (!$lat || !$lng || !in_array($type, ['datang', 'pulang'])) {
-            echo json_encode([
-                'status'  => 'error',
-                'message' => 'Data lokasi atau jenis presensi tidak valid.'
-            ]);
+        if (!is_array($input)) {
+            $this->respond('error', 'Data permintaan tidak valid.', 400);
             return;
         }
 
-        // Koordinat Mitra (Lokasi PKL) & Radius Maksimal (misal 100 Meter)
-        $mitraLat = -8.1585;
-        $mitraLng = 113.7226;
-        $maxRadiusMeters = 100;
-
-        $distance = $this->haversineDistance($lat, $lng, $mitraLat, $mitraLng);
-
-        if ($distance > $maxRadiusMeters) {
-            echo json_encode([
-                'status'  => 'error',
-                'message' => 'Posisi Anda berada di luar radius lokasi PKL (' . round($distance) . 'm).'
-            ]);
+        $sessionToken = $_SESSION['csrf_token'] ?? '';
+        $formToken = $input['csrf_token'] ?? '';
+        if (
+            !is_string($formToken)
+            || $sessionToken === ''
+            || !hash_equals($sessionToken, $formToken)
+        ) {
+            $this->respond('error', 'Sesi formulir tidak valid. Muat ulang halaman dan coba lagi.', 419);
             return;
         }
 
-        // TODO: Simpan data presensi ($type, $lat, $lng) ke database melalui Model
-        // Contoh: $this->model('PresensiModel')->savePresensi($type, $lat, $lng);
+        $type = $input['type'] ?? null;
+        $latitude = $input['latitude'] ?? null;
+        $longitude = $input['longitude'] ?? null;
+        if (
+            !in_array($type, ['datang', 'pulang'], true)
+            || !is_numeric($latitude)
+            || !is_numeric($longitude)
+            || !is_finite((float) $latitude)
+            || !is_finite((float) $longitude)
+            || (float) $latitude < -90
+            || (float) $latitude > 90
+            || (float) $longitude < -180
+            || (float) $longitude > 180
+        ) {
+            $this->respond('error', 'Data lokasi atau jenis presensi tidak valid.', 422);
+            return;
+        }
 
-        echo json_encode([
-            'status'  => 'success',
-            'message' => 'Presensi ' . $type . ' berhasil dikonfirmasi server!'
-        ]);
+        $api = new ApiClient();
+        $response = $api->post('siswa/presensi', [
+            'type' => $type,
+            'latitude' => (float) $latitude,
+            'longitude' => (float) $longitude,
+        ], $_SESSION['api_token'] ?? null);
+
+        $statusCode = (int) ($response['status'] ?? 502);
+        if ($statusCode === 401) {
+            unset($_SESSION['api_token'], $_SESSION['user']);
+        }
+        if ($statusCode < 100 || $statusCode > 599) {
+            $statusCode = 502;
+        }
+
+        $this->respond(
+            ($response['success'] ?? false) === true ? 'success' : 'error',
+            $response['message'] ?? 'Server API tidak dapat memproses presensi.',
+            $statusCode,
+            $response['data'] ?? null,
+        );
     }
 
-    /** Algoritma menghitung jarak latitude & longitude dalam satuan meter (Haversine Formula) */
-    private function haversineDistance($lat1, $lon1, $lat2, $lon2)
+    private function respond(string $status, string $message, int $statusCode, ?array $data = null): void
     {
-        $earthRadius = 6371000; // Meter
-
-        $dLat = deg2rad($lat2 - $lat1);
-        $dLon = deg2rad($lon2 - $lon1);
-
-        $a = sin($dLat / 2) * sin($dLat / 2) +
-             cos(deg2rad($lat1)) * cos(deg2rad($lat2)) *
-             sin($dLon / 2) * sin($dLon / 2);
-
-        $c = 2 * atan2(sqrt($a), sqrt(1 - $a));
-
-        return $earthRadius * $c;
+        http_response_code($statusCode);
+        echo json_encode([
+            'status' => $status,
+            'message' => $message,
+            'data' => $data,
+        ], JSON_UNESCAPED_UNICODE);
     }
 }
