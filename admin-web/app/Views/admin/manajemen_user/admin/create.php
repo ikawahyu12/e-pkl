@@ -1,6 +1,8 @@
 <?php
 $pageTitle  = 'Tambah Admin';
 $activePage = 'user-admin';
+$isEditing = false;
+$escape = static fn ($value): string => htmlspecialchars((string) $value, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
 
 ob_start();
 ?>
@@ -38,17 +40,33 @@ ob_start();
 
 <div class="sf">
     <div class="sf-crumb">
-        <a href="index.php">Manajemen Admin</a><span class="sep">&gt;</span><span class="now">Tambah Admin Baru</span>
+        <a href="?page=manajemen-admin">Manajemen Admin</a><span class="sep">&gt;</span><span class="now">Tambah Admin Baru</span>
     </div>
     <h1 class="sf-title">Tambah Akun Admin</h1>
     <p class="sf-sub">Formulir pendaftaran akun administrator sistem baru</p>
 
-    <form id="sfForm" action="index.php" method="post">
+    <?php if (is_string($adminPageError ?? null)): ?>
+        <div class="alert alert-danger"><?= $escape($adminPageError) ?></div>
+    <?php endif; ?>
+    <?php if (is_array($adminFlash ?? null) && ($adminFlash['type'] ?? '') === 'danger'): ?>
+        <div class="alert alert-danger">
+            <?= $escape($adminFlash['message'] ?? 'Akun Admin gagal disimpan.') ?>
+            <?php foreach (($adminFlash['errors'] ?? []) as $fieldErrors): ?>
+                <?php foreach ((array) $fieldErrors as $fieldError): ?>
+                    <div><?= $escape($fieldError) ?></div>
+                <?php endforeach; ?>
+            <?php endforeach; ?>
+        </div>
+    <?php endif; ?>
+
+    <form id="sfForm" action="?page=create-admin" method="post">
+        <input type="hidden" name="action" value="admin-user-create">
+        <input type="hidden" name="csrf_token" value="<?= $escape($csrfToken) ?>">
         <div class="sf-card">
             <?php include __DIR__ . '/_form.php'; ?>
 
             <div class="sf-foot">
-                <a href="index.php" class="sf-btn sf-btn-cancel">Batal</a>
+                <a href="?page=manajemen-admin" class="sf-btn sf-btn-cancel">Batal</a>
                 <button type="submit" class="sf-btn sf-btn-save"><i class="fas fa-check mr-2"></i>Simpan Admin</button>
             </div>
         </div>

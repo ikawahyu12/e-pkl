@@ -39,17 +39,25 @@ ob_start();
 
 <div class="sf">
     <div class="sf-crumb">
-        <a href="index.php">Manajemen Siswa</a><span class="sep">&gt;</span><span class="now">Tambah Siswa</span>
+        <a href="?page=manajemen-siswa">Manajemen Siswa</a><span class="sep">&gt;</span><span class="now">Tambah Siswa</span>
     </div>
     <h1 class="sf-title">Tambah Akun Siswa</h1>
     <p class="sf-sub">Formulir pendaftaran akun pengguna siswa baru</p>
 
-    <form id="sfForm" action="index.php" method="post">
+    <?php if (is_string($adminPageError ?? null)): ?>
+        <div class="alert alert-danger"><?= htmlspecialchars($adminPageError, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') ?></div>
+    <?php endif; ?>
+    <?php if (is_array($adminFlash ?? null) && ($adminFlash['type'] ?? '') === 'danger'): ?>
+        <div class="alert alert-danger"><?= htmlspecialchars($adminFlash['message'] ?? 'Permintaan gagal.', ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') ?></div>
+    <?php endif; ?>
+    <form id="sfForm" action="?page=create-siswa" method="post">
+        <input type="hidden" name="action" value="student-user-create">
+        <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrfToken, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') ?>">
         <div class="sf-card">
             <?php include __DIR__ . '/_form.php'; ?>
 
             <div class="sf-foot">
-                <a href="index.php" class="sf-btn sf-btn-cancel">Batal</a>
+                <a href="?page=manajemen-siswa" class="sf-btn sf-btn-cancel">Batal</a>
                 <button type="submit" class="sf-btn sf-btn-save"><i class="fas fa-check mr-2"></i>Simpan Siswa</button>
             </div>
         </div>

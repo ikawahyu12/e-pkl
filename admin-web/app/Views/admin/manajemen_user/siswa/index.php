@@ -2,44 +2,18 @@
 $pageTitle = 'Manajemen Siswa';
 $activePage = 'user-siswa';
 
-$users = [
-    [
-        'id'       => 1,
-        'nama'     => 'Ahmad Fauzan',
-        'username' => '0056789123',
-        'password' => 'Ahmad@123',
-        'kelas'    => 'XII RPL 1',
-        'status'   => 'Aktif',
-        'login'    => '04 Okt 2026, 08:15'
-    ],
-    [
-        'id'       => 2,
-        'nama'     => 'Budi Santoso',
-        'username' => '0056789124',
-        'password' => 'Budi@123',
-        'kelas'    => 'XII RPL 1',
-        'status'   => 'Aktif',
-        'login'    => '03 Okt 2026, 13:20'
-    ],
-    [
-        'id'       => 3,
-        'nama'     => 'Citra Lestari',
-        'username' => '0056789125',
-        'password' => 'Citra@123',
-        'kelas'    => 'XII RPL 2',
-        'status'   => 'Aktif',
-        'login'    => '02 Okt 2026, 09:45'
-    ],
-    [
-        'id'       => 4,
-        'nama'     => 'Dimas Pratama',
-        'username' => '0056789126',
-        'password' => 'Dimas@123',
-        'kelas'    => 'XII RPL 2',
-        'status'   => 'Nonaktif',
-        'login'    => '28 Sep 2026, 10:30'
-    ]
-];
+$users = is_array($studentUsers ?? null) ? $studentUsers : [];
+$search = is_string($_GET['search'] ?? null) ? $_GET['search'] : '';
+$statusFilter = is_string($_GET['status'] ?? null) ? $_GET['status'] : '';
+$currentPage = (int) ($studentPagination['current_page'] ?? 1);
+$lastPage = (int) ($studentPagination['last_page'] ?? 1);
+$escape = static fn ($value): string => htmlspecialchars((string) $value, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+$pageUrl = static fn (int $page): string => '?' . http_build_query([
+    'page' => 'manajemen-siswa',
+    'search' => $search,
+    'status' => $statusFilter,
+    'list_page' => $page,
+]);
 
 ob_start();
 ?>
@@ -49,7 +23,6 @@ ob_start();
     .table-user thead th { background: #f8f9fc; color: #5a6573; font-size: .78rem; font-weight: 700; border-top: 0; white-space: nowrap; }
     .table-user tbody td { vertical-align: middle; color: #344054; font-size: .85rem; }
     .username-text { color: #176b8b; font-weight: 600; }
-    .password-text { font-family: monospace; font-size: .82rem; color: #344054; background: #f5f7fa; padding: .3rem .5rem; border-radius: .3rem; }
     .status-badge { font-size: .72rem; padding: .35rem .6rem; border-radius: 20px; }
     .status-active { color: #198754; background: #e8f7ef; }
     .status-inactive { color: #dc3545; background: #fdebec; }
@@ -84,21 +57,33 @@ ob_start();
             Admin dapat membuat, melihat detail, dan mengedit akun siswa melalui halaman ini.
         </div>
 
-        <div class="row mb-3">
+        <?php if (is_string($adminPageError ?? null)): ?>
+            <div class="alert alert-danger"><?= $escape($adminPageError) ?></div>
+        <?php endif; ?>
+        <?php if (is_array($adminFlash ?? null) && ($adminFlash['type'] ?? '') === 'danger'): ?>
+            <div class="alert alert-danger"><?= $escape($adminFlash['message'] ?? 'Permintaan gagal.') ?></div>
+        <?php endif; ?>
+        <?php if (is_string($adminPageSuccess ?? null)): ?>
+            <div class="alert alert-success"><?= $escape($adminPageSuccess) ?></div>
+        <?php endif; ?>
+
+        <form class="row mb-3" method="get" action="">
+            <input type="hidden" name="page" value="manajemen-siswa">
             <div class="col-md-6 mb-2 mb-md-0">
                 <div class="input-group search-box">
                     <div class="input-group-prepend"><span class="input-group-text bg-white"><i class="fas fa-search text-muted"></i></span></div>
-                    <input type="text" id="searchUser" class="form-control" placeholder="Cari nama atau username...">
+                    <input type="text" name="search" class="form-control" value="<?= $escape($search) ?>" placeholder="Cari nama atau username...">
                 </div>
             </div>
             <div class="col-md-3 ml-auto">
-                <select id="filterStatus" class="custom-select">
+                <select name="status" class="custom-select">
                     <option value="">Semua Status</option>
-                    <option value="Aktif">Aktif</option>
-                    <option value="Nonaktif">Nonaktif</option>
+                    <option value="aktif" <?= $statusFilter === 'aktif' ? 'selected' : '' ?>>Aktif</option>
+                    <option value="nonaktif" <?= $statusFilter === 'nonaktif' ? 'selected' : '' ?>>Nonaktif</option>
                 </select>
             </div>
-        </div>
+            <div class="col-md-auto mt-2 mt-md-0"><button class="btn btn-primary" type="submit">Cari</button></div>
+        </form>
 
         <div class="table-responsive">
             <table class="table table-hover table-user mb-0" id="userTable">
@@ -116,59 +101,49 @@ ob_start();
                 </thead>
                 <tbody>
                     <?php foreach ($users as $index => $user): ?>
-                        <tr data-nama="<?= htmlspecialchars(strtolower($user['nama'])) ?>" data-username="<?= htmlspecialchars(strtolower($user['username'])) ?>" data-status="<?= htmlspecialchars($user['status']) ?>">
-                            <td><?= $index + 1 ?></td>
-                            <td><span class="font-weight-bold"><?= htmlspecialchars($user['nama']) ?></span></td>
-                            <td><span class="username-text"><?= htmlspecialchars($user['username']) ?></span></td>
-                            <td><span class="password-text"><?= htmlspecialchars($user['password']) ?></span></td>
-                            <td><?= htmlspecialchars($user['kelas']) ?></td>
+                        <tr>
+                            <td><?= (($currentPage - 1) * (int) ($studentPagination['per_page'] ?? 15)) + $index + 1 ?></td>
+                            <td><span class="font-weight-bold"><?= $escape($user['nama'] ?? '') ?></span></td>
+                            <td><span class="username-text"><?= $escape($user['username'] ?? '') ?></span></td>
+                            <td><span class="text-muted" title="Password disimpan sebagai hash dan tidak dapat ditampilkan.">••••••••</span></td>
+                            <td><?= $escape($user['kelas'] ?? '-') ?></td>
                             <td>
-                                <?php if ($user['status'] === 'Aktif'): ?>
+                                <?php if (strtolower((string) ($user['status'] ?? '')) === 'aktif'): ?>
                                     <span class="status-badge status-active"><i class="fas fa-check-circle mr-1"></i>Aktif</span>
                                 <?php else: ?>
                                     <span class="status-badge status-inactive"><i class="fas fa-times-circle mr-1"></i>Nonaktif</span>
                                 <?php endif; ?>
                             </td>
-                            <td><span class="small text-muted"><?= htmlspecialchars($user['login']) ?></span></td>
+                            <td><span class="small text-muted"><?= $escape(!empty($user['terakhir_login_at']) ? date('d M Y, H:i', strtotime((string) $user['terakhir_login_at'])) : '-') ?></span></td>
                             
                             <!-- AKSI: Disesuaikan dengan routing ?page=... -->
                             <td class="sl-aksi">
-                                <a class="a-detail" href="?page=detail-siswa&id=<?= $user['id'] ?>">Detail</a>
-                                <a class="a-edit" href="?page=edit-siswa&id=<?= $user['id'] ?>">Edit</a>
-                                <button type="button" class="a-hapus" onclick="deleteUser('<?= htmlspecialchars($user['nama'], ENT_QUOTES) ?>')">Hapus</button>
+                                <a class="a-detail" href="?page=detail-siswa&amp;id=<?= (int) $user['id'] ?>">Detail</a>
+                                <a class="a-edit" href="?page=edit-siswa&amp;id=<?= (int) $user['id'] ?>">Edit</a>
+                                <form method="post" action="?page=manajemen-siswa" class="d-inline" onsubmit="return confirm('Yakin ingin menghapus akun siswa ini?')">
+                                    <input type="hidden" name="action" value="student-user-delete">
+                                    <input type="hidden" name="csrf_token" value="<?= $escape($csrfToken) ?>">
+                                    <input type="hidden" name="user_id" value="<?= (int) $user['id'] ?>">
+                                    <button type="submit" class="a-hapus">Hapus</button>
+                                </form>
                             </td>
                         </tr>
                     <?php endforeach; ?>
                 </tbody>
             </table>
         </div>
+        <?php if ($users === []): ?>
+            <div class="alert alert-light border mt-3 mb-0">Belum ada data akun siswa.</div>
+        <?php endif; ?>
+        <?php if ($lastPage > 1): ?>
+            <nav class="mt-3" aria-label="Pagination siswa">
+                <?php for ($page = 1; $page <= $lastPage; $page++): ?>
+                    <a class="btn btn-sm <?= $page === $currentPage ? 'btn-primary' : 'btn-outline-primary' ?>" href="<?= $escape($pageUrl($page)) ?>"><?= $page ?></a>
+                <?php endfor; ?>
+            </nav>
+        <?php endif; ?>
     </div>
 </div>
-
-<script>
-function deleteUser(nama) {
-    if (confirm('Apakah kamu yakin ingin menghapus akun "' + nama + '"?')) {
-        alert('Akun ' + nama + ' berhasil dihapus.');
-    }
-}
-
-document.getElementById('searchUser').addEventListener('keyup', function() {
-    const keyword = this.value.toLowerCase();
-    document.querySelectorAll('#userTable tbody tr').forEach(function(row) {
-        const nama = row.getAttribute('data-nama');
-        const username = row.getAttribute('data-username');
-        row.style.display = (nama.includes(keyword) || username.includes(keyword)) ? '' : 'none';
-    });
-});
-
-document.getElementById('filterStatus').addEventListener('change', function() {
-    const status = this.value;
-    document.querySelectorAll('#userTable tbody tr').forEach(function(row) {
-        const rowStatus = row.getAttribute('data-status');
-        row.style.display = (status === '' || rowStatus === status) ? '' : 'none';
-    });
-});
-</script>
 
 <?php
 $content = ob_get_clean();

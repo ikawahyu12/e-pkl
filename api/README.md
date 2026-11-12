@@ -7,6 +7,47 @@
 <a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
 </p>
 
+## Admin User Management API
+
+All endpoints below require an active Admin bearer token:
+
+```http
+Authorization: Bearer <token>
+Accept: application/json
+```
+
+Base path: `/api/v1/admin/users`
+
+| Method | Path | Purpose |
+|---|---|---|
+| `GET` | `/api/v1/admin/users` | List Admin accounts. Optional query parameters: `search`, `status`, `per_page` (1-100). |
+| `POST` | `/api/v1/admin/users` | Create an Admin account. |
+| `GET` | `/api/v1/admin/users/{id}` | Get one Admin account. |
+| `PUT` / `PATCH` | `/api/v1/admin/users/{id}` | Update an Admin account. Omitted fields are left unchanged. |
+| `DELETE` | `/api/v1/admin/users/{id}` | Delete an Admin account. |
+
+Create requests require `nama` (or `nama_tampilan`), `username`, and a `password` of at least 8 characters. `email` is optional, and `status` defaults to `aktif`. Update requests accept any of these fields; leave `password` out to keep the current password. Status values are `aktif`, `nonaktif`, or `ditangguhkan`. The API never returns a password or password hash, hashes passwords before storage, and prevents disabling or deleting the last active Admin.
+
+## Admin Student and Teacher Management API
+
+These endpoints also require an active Admin bearer token:
+
+| Method | Path | Purpose |
+|---|---|---|
+| `GET` | `/api/v1/admin/students` | List/search/filter student accounts. |
+| `GET` | `/api/v1/admin/students/classes` | Get classes for the student form. |
+| `POST` | `/api/v1/admin/students` | Create a student login and profile in one transaction. |
+| `GET` | `/api/v1/admin/students/{userId}` | Get one student account. |
+| `PATCH` | `/api/v1/admin/students/{userId}` | Update a student account and profile. |
+| `DELETE` | `/api/v1/admin/students/{userId}` | Delete a student profile and account. |
+| `GET` | `/api/v1/admin/teachers` | List/search/filter teacher accounts. |
+| `POST` | `/api/v1/admin/teachers` | Create a teacher login and profile in one transaction. |
+| `GET` | `/api/v1/admin/teachers/{userId}` | Get one teacher account. |
+| `PATCH` | `/api/v1/admin/teachers/{userId}` | Update a teacher account and profile. |
+| `DELETE` | `/api/v1/admin/teachers/{userId}` | Delete a teacher profile and account. |
+
+Both create endpoints require `nama`, `username`, `password`, and `status`. Student creation accepts a valid `kelas_id` when classes exist; if no classes are configured, `kelas_id` may be omitted. Student passwords must be at least 12 characters and teacher passwords at least 8. Updates leave omitted fields unchanged, and an omitted or empty password does not change the existing password. Passwords are hashed and never returned.
+
 ## About Laravel
 
 Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
