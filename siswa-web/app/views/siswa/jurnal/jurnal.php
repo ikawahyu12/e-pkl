@@ -1,37 +1,4 @@
-<!DOCTYPE html>
-<html lang="id">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Jurnal Harian Magang - EPKL</title>
-    <style>
-        body { font-family: Arial, sans-serif; background: #f4f6f9; padding: 20px; color: #333; }
-        .activity-layout { display: flex; gap: 20px; max-width: 800px; margin: auto; }
-        .activity-card { background: #fff; padding: 25px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); width: 100%; }
-        .activity-heading h2 { margin-top: 0; color: #2c3e50; }
-        .activity-heading p { color: #7f8c8d; font-size: 14px; }
-        .activity-fields { display: flex; flex-wrap: wrap; gap: 15px; margin-top: 20px; }
-        .activity-field { display: flex; flex-direction: column; width: 100%; }
-        .activity-field:not(.activity-field-wide) { width: calc(50% - 10px); }
-        label { font-weight: bold; margin-bottom: 5px; font-size: 14px; }
-        input[type="date"], input[type="text"], textarea { padding: 10px; border: 1px solid #ccc; border-radius: 4px; font-family: inherit; }
-        textarea { resize: vertical; }
-        .activity-upload { border: 2px dashed #ccc; padding: 15px; text-align: center; border-radius: 8px; background: #fafafa; }
-        .activity-file-input { display: none; }
-        .activity-file-picker { display: inline-block; background: #3498db; color: white; padding: 8px 15px; border-radius: 4px; cursor: pointer; margin: 10px 0; }
-        .activity-file-picker:hover { background: #2980b9; }
-        .activity-file-name { display: block; font-size: 13px; color: #666; margin-top: 5px; }
-        .btn-primary { background: #2ecc71; color: white; border: none; padding: 12px; border-radius: 4px; cursor: pointer; font-size: 16px; font-weight: bold; width: 100%; }
-        .btn-primary:hover { background: #27ae60; }
-        .btn-primary:disabled { background: #95a5a6; cursor: not-allowed; }
-        .alert { padding: 10px; border-radius: 4px; margin-bottom: 15px; display: none; }
-        .alert-success { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
-        .alert-danger { background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
-    </style>
-</head>
-<body>
-
-<section class="activity-layout">
+<section class="activity-layout journal-page">
     <div class="activity-card">
         <div class="activity-heading">
             <h2>Jurnal Harian Magang</h2>
@@ -144,6 +111,3 @@
         }
     });
 </script>
-
-</body>
-</html>
