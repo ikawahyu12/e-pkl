@@ -743,7 +743,7 @@ switch ($routePage) {
         require $adminRoot . '/app/Views/admin/instansi/detail.php';
         break;
 
-    case 'hapus-mitra':
+    case 'delete-mitra':
         require $adminRoot . '/app/Views/admin/instansi/delete.php';
         break;
 

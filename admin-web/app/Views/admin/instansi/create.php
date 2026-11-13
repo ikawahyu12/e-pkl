@@ -34,49 +34,91 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $kuota        = filter_var($_POST['kuota'] ?? null, FILTER_VALIDATE_INT);
     $alamat       = trim($_POST['alamat'] ?? '');
 
-    if (
-        $namaInstansi === ''
-        || !in_array($jenis, ['internal', 'eksternal'], true)
-        || $pembimbing === ''
-        || $telepon === ''
-        || $alamat === ''
-        || $kuota === false
-        || $kuota <= 0
-    ) {
-        $pesanError = 'Harap isi seluruh kolom formulir dengan benar.';
-    } elseif (
-        mb_strlen($namaInstansi, 'UTF-8') > 160
-        || mb_strlen($jenis, 'UTF-8') > 80
-        || mb_strlen($pembimbing, 'UTF-8') > 120
-        || mb_strlen($telepon, 'UTF-8') > 25
-        || $kuota > 4294967295
-    ) {
-        $pesanError = 'Panjang salah satu isian melebihi batas kolom database.';
+$latitude  = filter_var($_POST['latitude'] ?? null, FILTER_VALIDATE_FLOAT);
+$longitude = filter_var($_POST['longitude'] ?? null, FILTER_VALIDATE_FLOAT);
+$radius    = filter_var($_POST['radius_geofence_meter'] ?? null, FILTER_VALIDATE_INT);
+
+if (
+    $namaInstansi === ''
+    || !in_array($jenis, ['internal', 'eksternal'], true)
+    || $pembimbing === ''
+    || $telepon === ''
+    || $alamat === ''
+    || $kuota === false
+    || $kuota === null
+    || $kuota <= 0
+    || $latitude === false
+    || $latitude === null
+    || $latitude < -90
+    || $latitude > 90
+    || $longitude === false
+    || $longitude === null
+    || $longitude < -180
+    || $longitude > 180
+    || $radius === false
+    || $radius === null
+    || $radius <= 0
+) {
+    $pesanError = 'Harap isi seluruh kolom formulir dengan benar.';
+} elseif (
+    mb_strlen($namaInstansi, 'UTF-8') > 160
+    || mb_strlen($jenis, 'UTF-8') > 80
+    || mb_strlen($pembimbing, 'UTF-8') > 120
+    || mb_strlen($telepon, 'UTF-8') > 25
+    || $kuota > 4294967295
+    || $radius > 4294967295
+) {
+    $pesanError = 'Panjang atau nilai salah satu isian melebihi batas database.';
+} else {
+    $status = 'aktif';
+
+    $stmt = mysqli_prepare(
+        $koneksi,
+        'INSERT INTO instansi (
+            nama,
+            jenis,
+            nama_penanggung_jawab,
+            telepon,
+            kuota_siswa,
+            alamat,
+            status,
+            latitude,
+            longitude,
+            radius_geofence_meter
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
+    );
+
+    if ($stmt === false) {
+        error_log('Gagal menyiapkan penyimpanan instansi: ' . mysqli_error($koneksi));
+        $pesanError = 'Data instansi belum dapat disimpan. Silakan coba kembali.';
     } else {
-        $status = 'aktif';
-        $stmt = mysqli_prepare(
-            $koneksi,
-            'INSERT INTO instansi (nama, jenis, nama_penanggung_jawab, telepon, kuota_siswa, alamat, status)
-             VALUES (?, ?, ?, ?, ?, ?, ?)'
+        mysqli_stmt_bind_param(
+            $stmt,
+            'ssssissddi',
+            $namaInstansi,
+            $jenis,
+            $pembimbing,
+            $telepon,
+            $kuota,
+            $alamat,
+            $status,
+            $latitude,
+            $longitude,
+            $radius
         );
 
-        if ($stmt === false) {
-            error_log('Gagal menyiapkan penyimpanan instansi: ' . mysqli_error($koneksi));
-            $pesanError = 'Data instansi belum dapat disimpan. Silakan coba kembali.';
-        } else {
-            mysqli_stmt_bind_param($stmt, 'ssssiss', $namaInstansi, $jenis, $pembimbing, $telepon, $kuota, $alamat, $status);
-            $saved = mysqli_stmt_execute($stmt);
-            mysqli_stmt_close($stmt);
+        $saved = mysqli_stmt_execute($stmt);
+        mysqli_stmt_close($stmt);
 
-            if ($saved) {
-                $pesanSukses = 'Data instansi <strong>' . $e($namaInstansi) . '</strong> berhasil ditambahkan ke database!';
-                $_POST = [];
-            } else {
-                error_log('Gagal menyimpan instansi: ' . mysqli_error($koneksi));
-                $pesanError = 'Data instansi belum dapat disimpan. Silakan coba kembali.';
-            }
+        if ($saved) {
+            $pesanSukses = 'Data instansi <strong>' . $e($namaInstansi) . '</strong> berhasil ditambahkan ke database!';
+            $_POST = [];
+        } else {
+            error_log('Gagal menyimpan instansi: ' . mysqli_error($koneksi));
+            $pesanError = 'Data instansi belum dapat disimpan. Silakan coba kembali.';
         }
     }
+}
     }
 }
 
@@ -287,26 +329,86 @@ ob_start();
                 </div>
             </div>
 
-            <!-- Baris 3: Kuota PKL -->
             <div class="row">
-                <div class="col-md-6 mb-3">
-                    <label class="sl-form-label">Kuota Tempat (Siswa) <span class="text-danger">*</span></label>
+                <div class="col-12 mb-3">
+                    <label class="sl-form-label">Alamat Instansi <span class="text-danger">*</span></label>
                     <div class="sl-input-group">
-                        <i class="fas fa-users"></i>
-                        <input type="number" name="kuota" class="sl-form-control" min="1" placeholder="Contoh: 5" value="<?= $e($_POST['kuota'] ?? '') ?>" required>
+                        <i class="fas fa-map-marker-alt"></i>
+                        <textarea name="alamat" class="sl-form-control" rows="3" placeholder="Masukkan alamat lengkap instansi" required><?= $e($_POST['alamat'] ?? '') ?></textarea>
                     </div>
                 </div>
             </div>
 
-            <!-- Baris 4: Alamat -->
-            <div class="mb-4">
-                <label class="sl-form-label">Alamat Lengkap Instansi <span class="text-danger">*</span></label>
-                <div class="sl-input-group">
-                    <i class="fas fa-map-marker-alt" style="top: 14px;"></i>
-                    <textarea name="alamat" class="sl-form-control" rows="3" placeholder="Jalan, RT/RW, kelurahan, kecamatan, kota..." required><?= $e($_POST['alamat'] ?? '') ?></textarea>
-                </div>
-            </div>
+            <!-- Baris: Radius dan Kuota PKL -->
+<div class="row">
+    <!-- Radius -->
+    <!-- Baris: Latitude dan Longitude -->
+<div class="row">
+    <div class="col-md-6 mb-3">
+        <label class="sl-form-label">
+            Latitude <span class="text-danger">*</span>
+        </label>
+        <div class="sl-input-group">
+            <i class="fas fa-map-marker-alt"></i>
+            <input type="number" name="latitude"
+                class="sl-form-control"
+                step="0.0000001"
+                placeholder="Contoh: -7.7543000"
+                value="<?= $e($_POST['latitude'] ?? '') ?>"
+                required>
+        </div>
+    </div>
 
+    <div class="col-md-6 mb-3">
+        <label class="sl-form-label">
+            Longitude <span class="text-danger">*</span>
+        </label>
+        <div class="sl-input-group">
+            <i class="fas fa-map-marker-alt"></i>
+            <input type="number" name="longitude"
+                class="sl-form-control"
+                step="0.0000001"
+                placeholder="Contoh: 111.9025000"
+                value="<?= $e($_POST['longitude'] ?? '') ?>"
+                required>
+        </div>
+    </div>
+</div>
+
+<!-- Baris: Radius dan Kuota -->
+<div class="row">
+    <div class="col-md-6 mb-3">
+        <label class="sl-form-label">
+            Radius Geofence (Meter) <span class="text-danger">*</span>
+        </label>
+        <div class="sl-input-group">
+            <i class="fas fa-location-crosshairs"></i>
+            <input type="number" name="radius_geofence_meter"
+                class="sl-form-control"
+                min="1"
+                step="1"
+                placeholder="Contoh: 100"
+                value="<?= $e($_POST['radius_geofence_meter'] ?? '') ?>"
+                required>
+        </div>
+    </div>
+
+    <div class="col-md-6 mb-3">
+        <label class="sl-form-label">
+            Kuota Tempat (Siswa) <span class="text-danger">*</span>
+        </label>
+        <div class="sl-input-group">
+            <i class="fas fa-users"></i>
+            <input type="number" name="kuota"
+                class="sl-form-control"
+                min="1"
+                step="1"
+                placeholder="Contoh: 5"
+                value="<?= $e($_POST['kuota'] ?? '') ?>"
+                required>
+        </div>
+    </div>
+</div>
             <!-- Tombol Aksi -->
             <div class="d-flex justify-content-end" style="gap: .6rem;">
                 <a href="?page=data-mitra" class="sl-btn-cancel">Batal</a>
