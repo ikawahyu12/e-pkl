@@ -756,7 +756,15 @@ switch ($routePage) {
         break;
 
     case 'dashboard':
-        require $adminRoot . '/app/Views/admin/dashboard.php';
+        require_once $adminRoot . '/app/Models/GeofenceData.php';
+        require_once $adminRoot . '/app/Controllers/DashboardController.php';
+        (new App\Controllers\DashboardController())->index($routerUrl . '?page=dashboard-instansi');
+        break;
+
+    case 'dashboard-instansi':
+        require_once $adminRoot . '/app/Models/GeofenceData.php';
+        require_once $adminRoot . '/app/Controllers/DashboardController.php';
+        (new App\Controllers\DashboardController())->instanceDetails();
         break;
 
     default:
