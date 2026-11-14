@@ -1,4 +1,6 @@
 <?php
+ini_set('display_errors', '1');
+error_reporting(E_ALL);
 // ===== 1. BLOK PHP ATAS =====
 $activePage   = 'data-guru';
 $pageTitle    = 'Data Guru Pembimbing';
@@ -13,46 +15,121 @@ $assetBaseUrl = $scriptDir . '/assets';
 
 $e = static fn ($v): string => htmlspecialchars((string) $v, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
 
-// ---------------------------------------------------------------------------
-// 2. Data Master Dummy Guru Pembimbing (10 Data untuk 2 Halaman)
-// ---------------------------------------------------------------------------
-$guruDataMaster = [
-    // Halaman 1 (Data 1 - 5)
-    ['id' => 1, 'nip' => '198203152008011003', 'nama' => 'Budi Santoso, S.Kom.', 'jurusan' => 'RPL', 'jurusan_lengkap' => 'Rekayasa Perangkat Lunak', 'kontak' => '0812-3456-7890', 'email' => 'budi.santoso@smk.sch.id', 'kuota' => 15, 'terisi' => 12, 'status' => 'Aktif'],
-    ['id' => 2, 'nip' => '198504122010012005', 'nama' => 'Dewi Sartika, M.Sn.',  'jurusan' => 'DKV', 'jurusan_lengkap' => 'Desain Komunikasi Visual', 'kontak' => '0813-9876-5432', 'email' => 'dewi.sartika@smk.sch.id', 'kuota' => 12, 'terisi' => 10, 'status' => 'Aktif'],
-    ['id' => 3, 'nip' => '197911202005011002', 'nama' => 'Eko Prasetyo, S.T.',   'jurusan' => 'TKJ', 'jurusan_lengkap' => 'Teknik Komputer & Jaringan', 'kontak' => '0811-2233-4455', 'email' => 'eko.prasetyo@smk.sch.id', 'kuota' => 15, 'terisi' => 15, 'status' => 'Aktif'],
-    ['id' => 4, 'nip' => '199001082015042001', 'nama' => 'Rina Astuti, S.Pd.',    'jurusan' => 'RPL', 'jurusan_lengkap' => 'Rekayasa Perangkat Lunak', 'kontak' => '0857-1122-3344', 'email' => 'rina.astuti@smk.sch.id', 'kuota' => 10, 'terisi' => 0,  'status' => 'Non-Aktif'],
-    ['id' => 5, 'nip' => '198807142012011004', 'nama' => 'Hendra Wijaya, M.T.',  'jurusan' => 'TKJ', 'jurusan_lengkap' => 'Teknik Komputer & Jaringan', 'kontak' => '0821-4455-6677', 'email' => 'hendra.w@smk.sch.id',      'kuota' => 15, 'terisi' => 8,  'status' => 'Aktif'],
-    
-    // Halaman 2 (Data 6 - 10)
-    ['id' => 6, 'nip' => '199105222018021001', 'nama' => 'Ahmad Dahlan, M.Kom.', 'jurusan' => 'RPL', 'jurusan_lengkap' => 'Rekayasa Perangkat Lunak', 'kontak' => '0812-9988-7766', 'email' => 'ahmad.d@smk.sch.id',     'kuota' => 12, 'terisi' => 5,  'status' => 'Aktif'],
-    ['id' => 7, 'nip' => '198703112011012003', 'nama' => 'Siti Nurhaliza, S.T.', 'jurusan' => 'TKJ', 'jurusan_lengkap' => 'Teknik Komputer & Jaringan', 'kontak' => '0856-4433-2211', 'email' => 'siti.n@smk.sch.id',      'kuota' => 15, 'terisi' => 14, 'status' => 'Aktif'],
-    ['id' => 8, 'nip' => '199308192019032002', 'nama' => 'Maya Indah, M.Pd.',    'jurusan' => 'DKV', 'jurusan_lengkap' => 'Desain Komunikasi Visual', 'kontak' => '0878-1122-4455', 'email' => 'maya.i@smk.sch.id',      'kuota' => 10, 'terisi' => 9,  'status' => 'Aktif'],
-    ['id' => 9, 'nip' => '198001012006041005', 'nama' => 'Bambang Pamungkas, S.Pd.', 'jurusan' => 'RPL', 'jurusan_lengkap' => 'Rekayasa Perangkat Lunak', 'kontak' => '0813-5566-7788', 'email' => 'bambang.p@smk.sch.id', 'kuota' => 15, 'terisi' => 0,  'status' => 'Non-Aktif'],
-    ['id' => 10,'nip' => '198609122014022004', 'nama' => 'Fitriani, S.Kom.',     'jurusan' => 'TKJ', 'jurusan_lengkap' => 'Teknik Komputer & Jaringan', 'kontak' => '0822-3344-5566', 'email' => 'fitriani@smk.sch.id',    'kuota' => 12, 'terisi' => 11, 'status' => 'Aktif'],
+require_once dirname(__DIR__, 3) . '/Support/AdminHttp.php';
+
+// Proses hapus (POST)
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['aksi'] ?? '') === 'hapus-guru') {
+    if (!guru_csrf_ok()) {
+        admin_flash_set('error', 'Sesi formulir tidak valid. Coba lagi.');
+    } else {
+        $r = admin_api('DELETE', '/admin/guru/' . (int) ($_POST['id'] ?? 0));
+        $r['status'] === 200
+            ? admin_flash_set('success', 'Guru berhasil dihapus.')
+            : admin_flash_set('error', admin_errors($r));
+    }
+    header('Location: ?page=data-guru');
+    exit;
+}
+
+$flash = admin_flash_get();
+// ===== 2. AMBIL DATA DARI API LARAVEL =====
+if (session_status() !== PHP_SESSION_ACTIVE) {
+    session_start();
+}
+
+$apiBase = 'http://127.0.0.1:8000/api/v1';
+$token   = $_SESSION['admin_token'] ?? '';
+
+$apiGet = static function (string $path, array $query = []) use ($apiBase, $token): array {
+    $url = $apiBase . $path . ($query ? '?' . http_build_query($query) : '');
+    $ch  = curl_init($url);
+
+    curl_setopt_array($ch, [
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_TIMEOUT        => 10,
+        CURLOPT_HTTPHEADER     => [
+            'Accept: application/json',
+            'Authorization: Bearer ' . $token
+        ],
+    ]);
+
+    $body = curl_exec($ch);
+    $code = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    $err  = curl_error($ch);
+    curl_close($ch);
+
+    $json = is_string($body) ? json_decode($body, true) : null;
+
+    return [
+        'ok'    => $code === 200 && is_array($json),
+        'code'  => $code,
+        'json'  => $json ?? [],
+        'error' => $err
+    ];
+};
+
+$currentPage = max(1, (int) ($_GET['p'] ?? 1));
+$perPage     = 5;
+
+$resGuru = $apiGet('/admin/guru', [
+    'page'       => $currentPage,
+    'per_page'   => $perPage,
+    'search'     => $_GET['q'] ?? '',
+    'jurusan_id' => $_GET['jurusan'] ?? '',
+    'status'     => $_GET['status'] ?? '',
+]);
+
+$resJurusan = $apiGet('/admin/jurusan');
+
+$apiError = $resGuru['ok']
+    ? null
+    : ('Gagal mengambil data dari API (kode ' . $resGuru['code'] . ') ' . $resGuru['error']);
+
+$jurusanList = $resJurusan['json']['data'] ?? [];
+
+$meta = $resGuru['json']['meta'] ?? [
+    'page'      => 1,
+    'per_page'  => $perPage,
+    'total'     => 0,
+    'last_page' => 1
 ];
 
-// Logika Paginasi
-$totalGuru   = count($guruDataMaster);
-$guruAktif   = 21;
-$totalKuota  = 350;
+$stats = $resGuru['json']['stats'] ?? [
+    'total_guru'       => 0,
+    'pembimbing_aktif' => 0,
+    'total_kuota'      => 0
+];
 
-$perPage     = 5; // Tampilkan 5 data per halaman
-$totalPages  = 2; // Cukup 2 halaman saja
-$currentPage = (int)($_GET['p'] ?? 1);
-if ($currentPage < 1) { $currentPage = 1; }
-if ($currentPage > $totalPages) { $currentPage = $totalPages; }
+// Petakan field API ke field yang dipakai tampilan
+$guruList = array_map(static fn ($g) => [
+    'id'              => $g['id'] ?? 0,
+    'nip'             => $g['nip'] ?? '-',
+    'nama'            => $g['nama_lengkap'] ?? '-',
+    'jurusan'         => $g['jurusan_kode'] ?? '-',
+    'jurusan_lengkap' => $g['jurusan_nama'] ?? '-',
+    'kontak'          => $g['no_hp'] ?? '-',
+    'email'           => $g['email'] ?? '',
+    'kuota'           => $g['kuota_bimbingan'] ?? 0,
+    'terisi'          => $g['kuota_terpakai'] ?? 0,
+    'status'          => ($g['status_bimbingan'] ?? '') === 'aktif'
+        ? 'Aktif'
+        : 'Non-Aktif',
+], $resGuru['json']['data'] ?? []);
 
-// Potong array master sesuai halaman aktif
-$offset   = ($currentPage - 1) * $perPage;
-$guruList = array_slice($guruDataMaster, $offset, $perPage);
+$totalGuru   = (int) ($meta['total'] ?? 0);
+$totalPages  = max(1, (int) ($meta['last_page'] ?? 1));
+$currentPage = (int) ($meta['page'] ?? 1);
+$offset      = ($currentPage - 1) * (int) ($meta['per_page'] ?? $perPage);
+$guruAktif   = (int) ($stats['pembimbing_aktif'] ?? 0);
+$totalKuota  = (int) ($stats['total_kuota'] ?? 0);
 
-// Helper untuk URL pagination
 function getPageUrl(int $p): string {
     $params = $_GET;
     $params['p'] = $p;
     return '?' . http_build_query($params);
 }
+
+
 
 // ---------------------------------------------------------------------------
 // 3. Isi halaman
@@ -142,7 +219,7 @@ ob_start();
                 <span class="sl-stat-icon"><i class="fas fa-user-tie"></i></span>
                 <div>
                     <div class="sl-stat-label">Total Guru Pembimbing</div>
-                    <div class="sl-stat-value" style="color:#0f1d3a;"><?= $e($guruAktif + 3) ?></div>
+                    <div class="sl-stat-value" style="color:#0f1d3a;"><?= $e($stats['total_guru']) ?></div>
                 </div>
             </div>
         </div>
@@ -151,7 +228,7 @@ ob_start();
                 <span class="sl-stat-icon"><i class="fas fa-user-check"></i></span>
                 <div>
                     <div class="sl-stat-label">Pembimbing Aktif</div>
-                    <div class="sl-stat-value" style="color:#0c6aa6;"><?= $e($guruAktif) ?></div>
+                    <div class="sl-stat-value" style="color:#0c6aa6;"><?= $e($stats['pembimbing_aktif']) ?></div>
                 </div>
             </div>
         </div>
@@ -160,32 +237,56 @@ ob_start();
                 <span class="sl-stat-icon"><i class="fas fa-users-cog"></i></span>
                 <div>
                     <div class="sl-stat-label">Total Kapasitas Kuota</div>
-                    <div class="sl-stat-value" style="color:#0a5d7a;"><?= $e($totalKuota) ?> Siswa</div>
+                    <div class="sl-stat-value" style="color:#0a5d7a;"><?= $e($stats['total_kuota']) ?> Siswa</div>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- Pencarian & filter -->
+        <!-- Pencarian & filter -->
     <div class="sl-toolbar mb-3">
         <div class="sl-search">
             <i class="fas fa-search"></i>
-            <input type="search" id="slCari" class="sl-field" placeholder="Cari nama atau NIP..." aria-label="Cari nama atau NIP">
+            <input type="search"
+                   id="slCari"
+                   class="sl-field"
+                   placeholder="Cari nama atau NIP..."
+                   value="<?= $e($_GET['q'] ?? '') ?>"
+                   aria-label="Cari nama atau NIP">
         </div>
+
         <div class="sl-filters">
             <select id="slJurusan" class="sl-field sl-jurusan" aria-label="Filter jurusan">
                 <option value="">Semua Jurusan</option>
-                <option value="RPL">RPL</option>
-                <option value="TKJ">TKJ</option>
-                <option value="DKV">DKV</option>
+
+                <?php foreach ($jurusanList as $j): ?>
+                    <option value="<?= (int) $j['id'] ?>"
+                        <?= ($_GET['jurusan'] ?? '') == $j['id'] ? 'selected' : '' ?>>
+                        <?= $e($j['kode']) ?>
+                    </option>
+                <?php endforeach; ?>
             </select>
+
             <select id="slStatus" class="sl-field sl-status" aria-label="Filter status">
                 <option value="">Status: Semua</option>
-                <option value="Aktif">Aktif</option>
-                <option value="Non-Aktif">Non-Aktif</option>
+                <option value="aktif" <?= ($_GET['status'] ?? '') === 'aktif' ? 'selected' : '' ?>>
+                    Aktif
+                </option>
+                <option value="nonaktif" <?= ($_GET['status'] ?? '') === 'nonaktif' ? 'selected' : '' ?>>
+                    Non-Aktif
+                </option>
             </select>
         </div>
     </div>
+
+    <!-- Pesan error API -->
+            <?php if ($flash): ?>
+        <div class="alert alert-<?= $flash['type'] === 'success' ? 'success' : 'danger' ?>"><?= $e($flash['message']) ?></div>
+    <?php endif; ?>
+
+    <?php if ($apiError): ?>
+        <div class="alert alert-danger"><?= $e($apiError) ?></div>
+    <?php endif; ?>
 
     <!-- Tabel -->
     <div class="sl-card mb-4">
@@ -203,162 +304,184 @@ ob_start();
                         <th style="width:14%;">Aksi</th>
                     </tr>
                 </thead>
+
                 <tbody>
-                    <?php foreach ($guruList as $i => $g): ?>
-                        <tr data-jurusan="<?= $e($g['jurusan']) ?>" data-status="<?= $e($g['status']) ?>">
-                            <td class="c-no"><?= $offset + $i + 1 ?></td>
-                            <td class="sl-nip"><?= $e($g['nip']) ?></td>
-                            <td class="sl-nama"><?= $e($g['nama']) ?></td>
-                            <td><?= $e($g['jurusan']) ?></td>
-                            <td>
-                                <div><?= $e($g['kontak']) ?></div>
-                                <small class="text-muted"><?= $e($g['email']) ?></small>
-                            </td>
-                            <td>
-                                <strong><?= $e($g['terisi']) ?></strong> / <?= $e($g['kuota']) ?> Siswa
-                            </td>
-                            <td>
-                                <span class="sl-badge <?= $g['status'] === 'Aktif' ? 'sl-badge-aktif' : 'sl-badge-nonaktif' ?>"><?= $e($g['status']) ?></span>
-                            </td>
-                            <td class="sl-aksi">
-                                <a class="a-detail" href="?page=detail-guru&id=<?= (int) $g['id'] ?>">Detail</a>
-                                <a class="a-edit" href="?page=edit-guru&id=<?= (int) $g['id'] ?>">Edit</a>
-                                <button type="button" class="a-hapus sl-hapus"
-                                        data-id="<?= (int) $g['id'] ?>"
-                                        data-nama="<?= $e($g['nama']) ?>"
-                                        data-nip="<?= $e($g['nip']) ?>"
-                                        data-jurusan="<?= $e($g['jurusan_lengkap']) ?>"
-                                        data-kontak="<?= $e($g['kontak']) ?>"
-                                        data-terisi="<?= $e($g['terisi']) ?>">Hapus</button>
+                    <?php if (empty($guruList)): ?>
+                        <tr>
+                            <td colspan="8" class="text-center py-4 text-muted">
+                                Tidak ada data guru pembimbing.
                             </td>
                         </tr>
-                    <?php endforeach; ?>
-                    <tr id="slKosong" style="display:none;">
-                        <td colspan="8" class="text-center py-4 text-muted">Tidak ada data guru pembimbing yang sesuai.</td>
-                    </tr>
+                    <?php else: ?>
+
+                        <?php foreach ($guruList as $i => $g): ?>
+                            <tr data-jurusan="<?= $e($g['jurusan']) ?>"
+                                data-status="<?= $e($g['status']) ?>">
+
+                                <td class="c-no">
+                                    <?= $offset + $i + 1 ?>
+                                </td>
+
+                                <td class="sl-nip">
+                                    <?= $e($g['nip']) ?>
+                                </td>
+
+                                <td class="sl-nama">
+                                    <?= $e($g['nama']) ?>
+                                </td>
+
+                                <td>
+                                    <?= $e($g['jurusan']) ?>
+                                </td>
+
+                                <td>
+                                    <div><?= $e($g['kontak']) ?></div>
+                                    <small class="text-muted">
+                                        <?= $e($g['email']) ?>
+                                    </small>
+                                </td>
+
+                                <td>
+                                    <strong><?= $e($g['terisi']) ?></strong>
+                                    / <?= $e($g['kuota']) ?> Siswa
+                                </td>
+
+                                <td>
+                                    <span class="sl-badge <?= $g['status'] === 'Aktif' ? 'sl-badge-aktif' : 'sl-badge-nonaktif' ?>">
+                                        <?= $e($g['status']) ?>
+                                    </span>
+                                </td>
+
+                                <td class="sl-aksi">
+                                    <a class="a-detail"
+                                       href="?page=detail-guru&id=<?= (int) $g['id'] ?>">Detail</a>
+
+                                    <a class="a-edit"
+                                       href="?page=edit-guru&id=<?= (int) $g['id'] ?>">Edit</a>
+
+                                    <button type="button"
+                                            class="a-hapus sl-hapus"
+                                            data-id="<?= (int) $g['id'] ?>"
+                                            data-nama="<?= $e($g['nama']) ?>"
+                                            data-nip="<?= $e($g['nip']) ?>"
+                                            data-jurusan="<?= $e($g['jurusan_lengkap']) ?>"
+                                            data-kontak="<?= $e($g['kontak']) ?>"
+                                            data-terisi="<?= $e($g['terisi']) ?>">
+                                        Hapus
+                                    </button>
+                                </td>
+                            </tr>
+                        <?php endforeach; ?>
+
+                    <?php endif; ?>
                 </tbody>
             </table>
         </div>
 
-        <!-- Footer tabel + Pagination Dinamis (Cukup 2 Halaman) -->
+        <!-- Footer tabel + Pagination -->
         <div class="sl-foot">
-            <?php 
-                $startItem = $offset + 1;
+            <?php
+                $startItem = $totalGuru > 0 ? $offset + 1 : 0;
                 $endItem   = $offset + count($guruList);
             ?>
-            <div class="sl-info" id="slInfo">Menampilkan <?= $startItem ?>-<?= $endItem ?> dari <?= $totalGuru ?> guru</div>
-            
+
+            <div class="sl-info" id="slInfo">
+                Menampilkan <?= $startItem ?>-<?= $endItem ?>
+                dari <?= $totalGuru ?> guru
+            </div>
+
             <ul class="sl-pager" aria-label="Navigasi halaman">
-                <!-- Tombol Sebelumnya -->
+
                 <?php if ($currentPage > 1): ?>
-                    <li><a href="<?= getPageUrl($currentPage - 1) ?>">Sebelumnya</a></li>
+                    <li>
+                        <a href="<?= getPageUrl($currentPage - 1) ?>">Sebelumnya</a>
+                    </li>
                 <?php else: ?>
                     <li class="disabled"><span>Sebelumnya</span></li>
                 <?php endif; ?>
 
-                <!-- Angka Halaman (1 dan 2) -->
                 <?php for ($p = 1; $p <= $totalPages; $p++): ?>
                     <?php if ($p === $currentPage): ?>
                         <li class="active"><span><?= $p ?></span></li>
                     <?php else: ?>
-                        <li><a href="<?= getPageUrl($p) ?>"><?= $p ?></a></li>
+                        <li>
+                            <a href="<?= getPageUrl($p) ?>"><?= $p ?></a>
+                        </li>
                     <?php endif; ?>
                 <?php endfor; ?>
 
-                <!-- Tombol Selanjutnya -->
                 <?php if ($currentPage < $totalPages): ?>
-                    <li><a href="<?= getPageUrl($currentPage + 1) ?>">Selanjutnya</a></li>
+                    <li>
+                        <a href="<?= getPageUrl($currentPage + 1) ?>">Selanjutnya</a>
+                    </li>
                 <?php else: ?>
                     <li class="disabled"><span>Selanjutnya</span></li>
                 <?php endif; ?>
+
             </ul>
         </div>
     </div>
 </div>
 
-<!-- Dialog konfirmasi hapus -->
-<div class="modal fade sl-modal" id="slModalHapus" tabindex="-1" role="dialog" aria-labelledby="slModalHapusJudul" aria-hidden="true">
+<div class="modal fade sl-modal" id="slModalHapus" tabindex="-1" role="dialog" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered" role="document">
         <div class="modal-content p-2">
-            <div class="modal-body">
+            <form method="POST" action="?page=data-guru" class="modal-body">
+                <input type="hidden" name="aksi" value="hapus-guru">
+                <input type="hidden" name="csrf" value="<?= $e(guru_csrf()) ?>">
+                <input type="hidden" name="id" id="slHId">
+
                 <div class="d-flex mb-3" style="gap:1rem;">
                     <div class="sl-trash"><i class="fas fa-trash-alt"></i></div>
                     <div>
-                        <h5 class="font-weight-bold mb-1" id="slModalHapusJudul">Hapus Data Guru Pembimbing?</h5>
-                        <p class="small text-muted mb-0">
-                            Apakah Anda yakin ingin menghapus data guru pembimbing
-                            <strong id="slHNama">-</strong> (NIP: <span id="slHNip">-</span>)?
-                            Tindakan ini akan membatalkan alokasi bimbingan pada siswa yang terhubung.
-                        </p>
+                        <h5 class="font-weight-bold mb-1">Hapus Data Guru?</h5>
+                        <p class="small text-muted mb-0">Yakin menghapus <strong id="slHNama"></strong>? Akun login guru ini juga ikut terhapus.</p>
                     </div>
                 </div>
-
                 <div class="sl-ringkas mb-3">
-                    <div><span>Nama Guru:</span><span id="slHNama2">-</span></div>
-                    <div><span>Program Keahlian:</span><span id="slHJurusan">-</span></div>
-                    <div><span>No. Kontak:</span><span id="slHKontak" class="text-primary">-</span></div>
-                    <div><span>Siswa Bimbingan Aktif:</span><span id="slHTerisi" class="text-danger">-</span></div>
+                    <div><span>Nama</span><span id="slHNama2"></span></div>
+                    <div><span>NIP</span><span id="slHNip"></span></div>
+                    <div><span>Jurusan</span><span id="slHJurusan"></span></div>
+                    <div><span>Kontak</span><span id="slHKontak"></span></div>
+                    <div><span>Siswa dibimbing</span><span id="slHTerisi"></span></div>
                 </div>
-
-                <div class="sl-warn d-flex mb-3" style="gap:.5rem;">
-                    <i class="fas fa-exclamation-triangle mt-1"></i>
-                    <span>Pastikan telah memindahkan alokasi siswa bimbingan ke guru lain sebelum menghapus.</span>
-                </div>
-
+                <div class="sl-warn mb-3">Guru yang masih tercatat di penempatan PKL tidak bisa dihapus. Ubah statusnya menjadi Non-Aktif sebagai gantinya.</div>
                 <div class="d-flex justify-content-end" style="gap:.5rem;">
                     <button type="button" class="btn btn-light border btn-sm px-4" data-dismiss="modal">Batal</button>
-                    <button type="button" class="btn btn-danger btn-sm px-3" id="slKonfirmasiHapus">
-                        <i class="fas fa-trash-alt mr-1"></i> Ya, Hapus Data
-                    </button>
+                    <button type="submit" class="btn btn-danger btn-sm px-3">Ya, Hapus</button>
                 </div>
-            </div>
+            </form>
         </div>
     </div>
 </div>
-
 <script>
     window.addEventListener('load', function () {
         var $ = window.jQuery;
-        var selectedGuruId = null;
 
-        function terapkan() {
-            var q = $('#slCari').val().toLowerCase().trim();
-            var j = $('#slJurusan').val();
-            var st = $('#slStatus').val();
-            var tampil = 0;
-            $('#slTabel tbody tr[data-status]').each(function () {
-                var $r = $(this);
-                var cocok = (!q || $r.text().toLowerCase().indexOf(q) > -1)
-                    && (!j || String($r.data('jurusan')).indexOf(j) > -1)
-                    && (!st || $r.data('status') === st);
-                $r.toggle(cocok);
-                if (cocok) { tampil++; }
+        function cari() {
+            var p = new URLSearchParams(window.location.search);
+            p.set('page', 'data-guru');
+            p.delete('p');
+            ['q:#slCari', 'jurusan:#slJurusan', 'status:#slStatus'].forEach(function (x) {
+                var k = x.split(':')[0];
+                var v = $(x.split(':')[1]).val();
+                v ? p.set(k, v) : p.delete(k);
             });
-            $('#slKosong').toggle(tampil === 0);
-            $('#slInfo').text(tampil === $('#slTabel tbody tr[data-status]').length
-                ? 'Menampilkan <?= $startItem ?>-<?= $endItem ?> dari <?= $totalGuru ?> guru'
-                : 'Menampilkan ' + tampil + ' guru');
+            window.location.search = p.toString();
         }
-        $('#slCari').on('input', terapkan);
-        $('#slJurusan, #slStatus').on('change', terapkan);
 
-        // Dialog hapus
+        $('#slCari').on('keydown', function (e) { if (e.key === 'Enter') { cari(); } });
+        $('#slJurusan, #slStatus').on('change', cari);
+
         $(document).on('click', '.sl-hapus', function () {
             var d = $(this).data();
-            selectedGuruId = d.id;
+            $('#slHId').val(d.id);
             $('#slHNama, #slHNama2').text(d.nama);
             $('#slHNip').text(d.nip);
             $('#slHJurusan').text(d.jurusan);
             $('#slHKontak').text(d.kontak);
             $('#slHTerisi').text(d.terisi + ' Siswa');
             $('#slModalHapus').modal('show');
-        });
-
-        // Redirect hapus
-        $('#slKonfirmasiHapus').on('click', function () {
-            if (selectedGuruId) {
-                window.location.href = '?page=delete-guru&id=' + selectedGuruId;
-            }
         });
     });
 </script>

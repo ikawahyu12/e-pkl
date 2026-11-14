@@ -1,13 +1,6 @@
 <?php
-/**
- * Admin > Data Guru > Detail (UI saja, data dummy)
- *
- * File ini berdiri sendiri. Satu-satunya yang dibutuhkan: app/Views/layouts/admin.php
- * Letak file: app/Views/admin/guru/detail.php
- * Data guru diambil dari array dummy berdasarkan ?id= (contoh: ?page=detail-guru&id=1)
- */
+require_once dirname(__DIR__, 3) . '/Support/AdminHttp.php';
 
-// 1. Alamat asset (dipakai hanya jika halaman dibuka langsung dari folder app/Views)
 if (!isset($assetBaseUrl)) {
     $scriptDir = str_replace('\\', '/', dirname($_SERVER['SCRIPT_NAME'] ?? '/'));
     if (preg_match('#^(.*?)/app/Views(?:/.*)?$#', $scriptDir, $m)) {
@@ -15,70 +8,38 @@ if (!isset($assetBaseUrl)) {
     }
 }
 
-// 2. Alamat tombol (DIPERBAIKI)
-$urlDaftar = '?page=data-guru';
-$urlEdit   = '?page=edit-guru&id=';
-$urlDelete = '?page=delete-guru&id=';
-
-// 3. Data dummy Guru Pembimbing
-$guruList = [
-    1 => [
-        'nip'     => '198203152008011003',
-        'nama'    => 'Budi Santoso, S.Kom.',
-        'jurusan' => 'RPL (Rekayasa Perangkat Lunak)',
-        'email'   => 'budi.santoso@smk.sch.id',
-        'kontak'  => '0812-3456-7890',
-        'alamat'  => 'Jl. Merdeka No. 45, Kertosono, Nganjuk',
-        'kuota'   => 15,
-        'terisi'  => 12,
-        'status'  => 'Aktif'
-    ],
-    2 => [
-        'nip'     => '197911042005012001',
-        'nama'    => 'Dewi Sartika, M.Sn.',
-        'jurusan' => 'DKV (Desain Komunikasi Visual)',
-        'email'   => 'dewi.sartika@smk.sch.id',
-        'kontak'  => '0813-9876-5432',
-        'alamat'  => 'Jl. Pahlawan No. 12, Nganjuk',
-        'kuota'   => 12,
-        'terisi'  => 12,
-        'status'  => 'Aktif'
-    ],
-    3 => [
-        'nip'     => '198506222010011002',
-        'nama'    => 'Eko Prasetyo, S.T.',
-        'jurusan' => 'TKJ (Teknik Komputer & Jaringan)',
-        'email'   => 'eko.prasetyo@smk.sch.id',
-        'kontak'  => '0857-1122-3344',
-        'alamat'  => 'Jl. Raya Baron No. 88, Nganjuk',
-        'kuota'   => 15,
-        'terisi'  => 10,
-        'status'  => 'Aktif'
-    ]
-];
-
-$id = (int) ($_GET['id'] ?? 1);
-$g  = $guruList[$id] ?? $guruList[1];
-$id = isset($guruList[$id]) ? $id : 1;
-
-// Data Siswa Bimbingan Guru Terkait
-$siswaBimbingan = [
-    ['id' => 1, 'nisn' => '0061829102', 'nama' => 'Ahmad Rizky Pratama', 'kelas' => 'XII RPL 1', 'instansi' => 'PT Telkom Indonesia', 'status' => 'Aktif'],
-    ['id' => 4, 'nisn' => '0069382012', 'nama' => 'Nabila Putri',         'kelas' => 'XII RPL 2', 'instansi' => 'CV Digital Optima',    'status' => 'Selesai'],
-    ['id' => 7, 'nisn' => '0063920194', 'nama' => 'Yoga Pratama',         'kelas' => 'XII RPL 1', 'instansi' => 'PT Finnet Indonesia',   'status' => 'Aktif'],
-];
-
 $e   = static fn ($v): string => htmlspecialchars((string) $v, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
 $val = static fn ($v): string => trim((string) $v) === '' ? '-' : htmlspecialchars((string) $v, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
 
-$inisial = '';
-foreach (array_slice(preg_split('/\s+/', trim($g['nama'])), 0, 2) as $kata) { 
-    $inisial .= mb_strtoupper(mb_substr($kata, 0, 1)); 
+$pageTitle  = 'Detail Data Guru';
+$activePage = 'data-guru';
+$urlDaftar  = '?page=data-guru';
+$urlEdit    = '?page=edit-guru&id=';
+
+$id  = (int) ($_GET['id'] ?? 0);
+$res = admin_api('GET', '/admin/guru/' . $id);
+
+if ($res['status'] !== 200) {
+    admin_flash_set('error', admin_errors($res));
+    header('Location: ' . $urlDaftar);
+    exit;
 }
 
-// 4. Variabel layouts/admin.php
-$pageTitle  = 'Detail Data Guru';
-$activePage = 'guru-pembimbing'; // DIPERBAIKI: Disamakan dengan kunci menu "Data Guru"
+$g              = $res['body']['data'] ?? [];
+$siswaBimbingan = $res['body']['siswa_bimbingan'] ?? [];
+
+$nama   = $g['nama_lengkap'] ?? '-';
+$aktif  = ($g['status_bimbingan'] ?? '') === 'aktif';
+$kuota  = (int) ($g['kuota_bimbingan'] ?? 0);
+$terisi = (int) ($g['kuota_terpakai'] ?? 0);
+$persen = $kuota > 0 ? min(100, (int) round($terisi / $kuota * 100)) : 0;
+$sisa   = max(0, $kuota - $terisi);
+$jurusan = trim(($g['jurusan_kode'] ?? '') . ' ' . ($g['jurusan_nama'] ?? '')) ?: '-';
+
+$inisial = '';
+foreach (array_slice(preg_split('/\s+/', trim($nama)), 0, 2) as $kata) {
+    $inisial .= mb_strtoupper(mb_substr($kata, 0, 1));
+}
 
 ob_start();
 ?>
@@ -152,10 +113,10 @@ ob_start();
     <div class="dt-top">
         <div>
             <div class="dt-crumb">
-                <a href="<?= $e($urlDaftar) ?>">Data Guru</a><span class="sep">/</span>Detail<span class="sep">/</span><span class="now"><?= $e($g['nama']) ?></span>
+                <a href="<?= $e($urlDaftar) ?>">Data Guru</a><span class="sep">/</span>Detail<span class="sep">/</span><span class="now"><?= $e($nama) ?></span>
             </div>
             <h1 class="dt-title">Detail Data Guru</h1>
-            <p class="dt-sub">Informasi profil guru, beban kuota bimbingan, dan daftar siswa magang yang didampingi</p>
+            <p class="dt-sub">Profil guru, beban kuota bimbingan, dan siswa yang didampingi</p>
         </div>
         <div class="dt-actions">
             <a href="<?= $e($urlDaftar) ?>" class="dt-btn dt-btn-back"><i class="fas fa-arrow-left mr-2"></i>Kembali</a>
@@ -168,10 +129,10 @@ ob_start();
         <div class="dt-profile">
             <div class="dt-avatar"><?= $e($inisial) ?></div>
             <div>
-                <h2 class="dt-name"><?= $e($g['nama']) ?></h2>
-                <div class="dt-meta">NIP: <?= $e($g['nip']) ?> &middot; <?= $e($g['jurusan']) ?></div>
+                <h2 class="dt-name"><?= $e($nama) ?></h2>
+                <div class="dt-meta">NIP: <?= $val($g['nip'] ?? '') ?> &middot; <?= $e($jurusan) ?></div>
             </div>
-            <span class="dt-pill<?= $g['status'] !== 'Aktif' ? ' nonaktif' : '' ?>"><?= $e($g['status']) ?></span>
+            <span class="dt-pill<?= $aktif ? '' : ' nonaktif' ?>"><?= $aktif ? 'Aktif' : 'Non-Aktif' ?></span>
         </div>
     </div>
 
@@ -179,29 +140,24 @@ ob_start();
         <div class="col-lg-5 mb-4">
             <div class="dt-card mb-4">
                 <div class="dt-sec">1. Profil &amp; Kontak Guru</div>
-                <div class="dt-row"><div class="k">Nama Lengkap</div><div class="v"><?= $val($g['nama']) ?></div></div>
-                <div class="dt-row"><div class="k">NIP / NUPTK</div><div class="v"><?= $val($g['nip']) ?></div></div>
-                <div class="dt-row"><div class="k">Program Keahlian</div><div class="v"><?= $val($g['jurusan']) ?></div></div>
-                <div class="dt-row"><div class="k">WhatsApp / No. HP</div><div class="v"><?= $val($g['kontak']) ?></div></div>
-                <div class="dt-row"><div class="k">Email</div><div class="v"><?= $val($g['email']) ?></div></div>
-                <div class="dt-row"><div class="k">Alamat</div><div class="v"><?= $val($g['alamat']) ?></div></div>
+                <div class="dt-row"><div class="k">Nama Lengkap</div><div class="v"><?= $val($nama) ?></div></div>
+                <div class="dt-row"><div class="k">NIP / NUPTK</div><div class="v"><?= $val($g['nip'] ?? '') ?></div></div>
+                <div class="dt-row"><div class="k">Username</div><div class="v"><?= $val($g['username'] ?? '') ?></div></div>
+                <div class="dt-row"><div class="k">Mata Pelajaran</div><div class="v"><?= $val($g['mata_pelajaran'] ?? '') ?></div></div>
+                <div class="dt-row"><div class="k">Jurusan</div><div class="v"><?= $val($jurusan) ?></div></div>
+                <div class="dt-row"><div class="k">No. HP</div><div class="v"><?= $val($g['no_hp'] ?? '') ?></div></div>
+                <div class="dt-row"><div class="k">Email</div><div class="v"><?= $val($g['email'] ?? '') ?></div></div>
+                <div class="dt-row"><div class="k">Alamat</div><div class="v"><?= $val($g['alamat'] ?? '') ?></div></div>
             </div>
 
             <div class="dt-card">
                 <div class="dt-sec">2. Kapasitas &amp; Beban Bimbingan</div>
                 <div class="d-flex justify-content-between align-items-center my-2">
-                    <span class="text-muted" style="font-size: .78rem;">Kuota Terpakai</span>
-                    <span class="font-weight-bold text-dark" style="font-size: .85rem;">
-                        <?= $e($g['terisi']) ?> / <?= $e($g['kuota']) ?> Siswa
-                    </span>
+                    <span class="text-muted" style="font-size:.78rem;">Kuota Terpakai</span>
+                    <span class="font-weight-bold text-dark" style="font-size:.85rem;"><?= $terisi ?> / <?= $kuota ?> Siswa</span>
                 </div>
-                <?php $persen = round(($g['terisi'] / $g['kuota']) * 100); ?>
-                <div class="dt-progress-bg mb-2">
-                    <div class="dt-progress-fill" style="width: <?= $persen ?>%;"></div>
-                </div>
-                <div class="text-muted" style="font-size: .72rem;">
-                    Tersisa kuota untuk <strong><?= $g['kuota'] - $g['terisi'] ?></strong> siswa bimbingan lagi.
-                </div>
+                <div class="dt-progress-bg mb-2"><div class="dt-progress-fill" style="width:<?= $persen ?>%;"></div></div>
+                <div class="text-muted" style="font-size:.72rem;">Sisa kuota untuk <strong><?= $sisa ?></strong> siswa lagi.</div>
             </div>
         </div>
 
@@ -209,29 +165,32 @@ ob_start();
             <div class="dt-card">
                 <div class="d-flex justify-content-between align-items-center mb-3">
                     <div class="dt-sec mb-0">3. Daftar Siswa Bimbingan</div>
-                    <span class="badge badge-light border px-2 py-1" style="font-size: .7rem; font-weight:600;"><?= count($siswaBimbingan) ?> Siswa</span>
+                    <span class="badge badge-light border px-2 py-1" style="font-size:.7rem;font-weight:600;"><?= count($siswaBimbingan) ?> Siswa</span>
                 </div>
                 <div class="table-responsive">
                     <table class="dt-table">
                         <thead>
                             <tr>
-                                <th style="width: 6%;">No</th>
-                                <th style="width: 22%;">NISN</th>
-                                <th style="width: 32%;">Nama Siswa</th>
-                                <th style="width: 20%;">Kelas</th>
-                                <th style="width: 20%;">Status</th>
+                                <th style="width:6%;">No</th>
+                                <th style="width:22%;">NISN</th>
+                                <th style="width:30%;">Nama Siswa</th>
+                                <th style="width:26%;">Instansi</th>
+                                <th style="width:16%;">Status</th>
                             </tr>
                         </thead>
                         <tbody>
+                            <?php if (empty($siswaBimbingan)): ?>
+                                <tr><td colspan="5" class="text-center text-muted py-3">Belum ada siswa bimbingan.</td></tr>
+                            <?php endif; ?>
                             <?php foreach ($siswaBimbingan as $idx => $sb): ?>
                                 <tr>
                                     <td><?= $idx + 1 ?></td>
-                                    <td class="font-weight-bold"><?= $e($sb['nisn']) ?></td>
-                                    <td class="font-weight-bold"><?= $e($sb['nama']) ?></td>
-                                    <td><?= $e($sb['kelas']) ?></td>
+                                    <td class="font-weight-bold"><?= $val($sb['nisn'] ?? '') ?></td>
+                                    <td class="font-weight-bold"><?= $val($sb['nama_lengkap'] ?? '') ?></td>
+                                    <td><?= $val($sb['instansi'] ?? '') ?></td>
                                     <td>
-                                        <span class="dt-status-tag <?= $sb['status'] === 'Selesai' ? 'selesai' : 'aktif' ?>">
-                                            <?= $e($sb['status']) ?>
+                                        <span class="dt-status-tag <?= ($sb['status'] ?? '') === 'aktif' ? 'aktif' : 'selesai' ?>">
+                                            <?= ($sb['status'] ?? '') === 'aktif' ? 'Aktif' : 'Belum Mulai' ?>
                                         </span>
                                     </td>
                                 </tr>
@@ -245,47 +204,39 @@ ob_start();
 </div>
 
 <!-- Dialog konfirmasi hapus -->
-<div class="modal fade dt-modal" id="dtModalHapus" tabindex="-1" role="dialog" aria-labelledby="dtModalJudul" aria-hidden="true">
+<div class="modal fade dt-modal" id="dtModalHapus" tabindex="-1" role="dialog" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered" role="document">
         <div class="modal-content p-2">
-            <div class="modal-body">
+            <form method="POST" action="?page=data-guru" class="modal-body">
+                <input type="hidden" name="aksi" value="hapus-guru">
+                <input type="hidden" name="csrf" value="<?= $e(guru_csrf()) ?>">
+                <input type="hidden" name="id" value="<?= $id ?>">
+
                 <div class="d-flex mb-3" style="gap:1rem;">
                     <div class="dt-trash"><i class="fas fa-trash-alt"></i></div>
                     <div>
-                        <h5 class="font-weight-bold mb-1" id="dtModalJudul">Hapus Data Guru?</h5>
+                        <h5 class="font-weight-bold mb-1">Hapus Data Guru?</h5>
                         <p class="small text-muted mb-0">
-                            Apakah Anda yakin ingin menghapus data guru <strong><?= $e($g['nama']) ?></strong> (NIP: <?= $e($g['nip']) ?>)?
-                            Tindakan ini dapat berpengaruh pada data penempatan siswa bimbingan terkait.
+                            Yakin menghapus <strong><?= $e($nama) ?></strong>? Akun login guru ini juga ikut terhapus.
                         </p>
                     </div>
                 </div>
-                <div class="dt-ringkas mb-3">
-                    <div><span>Nama Guru:</span><span><?= $e($g['nama']) ?></span></div>
-                    <div><span>Program Keahlian:</span><span><?= $e($g['jurusan']) ?></span></div>
-                    <div><span>Siswa Dibimbing:</span><span class="text-primary"><?= $e($g['terisi']) ?> Siswa</span></div>
-                </div>
                 <div class="dt-warn d-flex mb-3" style="gap:.5rem;">
                     <i class="fas fa-exclamation-triangle mt-1"></i>
-                    <span>Pastikan Anda telah memindahkan plot siswa bimbingan ke guru lain sebelum menghapus.</span>
+                    <span>Guru yang masih tercatat di penempatan PKL tidak bisa dihapus. Ubah statusnya menjadi Non-Aktif sebagai gantinya.</span>
                 </div>
                 <div class="d-flex justify-content-end" style="gap:.5rem;">
                     <button type="button" class="btn btn-light border btn-sm px-4" data-dismiss="modal">Batal</button>
-                    <button type="button" class="btn btn-danger btn-sm px-3" id="dtKonfirmasi"><i class="fas fa-trash-alt mr-1"></i> Ya, Hapus Data</button>
+                    <button type="submit" class="btn btn-danger btn-sm px-3"><i class="fas fa-trash-alt mr-1"></i> Ya, Hapus</button>
                 </div>
-            </div>
+            </form>
         </div>
     </div>
 </div>
 
 <script>
     window.addEventListener('load', function () {
-        var $ = window.jQuery;
-        $('#dtHapus').on('click', function () { $('#dtModalHapus').modal('show'); });
-        
-        // DIPERBAIKI: Mengarahkan eksekusi hapus ke modul guru
-        $('#dtKonfirmasi').on('click', function () {
-            window.location.href = '<?= $urlDelete . $id ?>';
-        });
+        window.jQuery('#dtHapus').on('click', function () { window.jQuery('#dtModalHapus').modal('show'); });
     });
 </script>
 <?php

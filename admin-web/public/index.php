@@ -247,16 +247,16 @@ switch ($routePage) {
         require $adminRoot . '/app/Views/admin/manajemen_user/guru/index.php';
         break;
 
-    case 'create-guru':
-        require $adminRoot . '/app/Views/admin/manajemen_user/guru/create.php';
+        case 'create-guru':
+        require $adminRoot . '/app/Views/admin/guru/create.php';
         break;
 
     case 'edit-guru':
-        require $adminRoot . '/app/Views/admin/manajemen_user/guru/edit.php';
+        require $adminRoot . '/app/Views/admin/guru/edit.php';
         break;
 
     case 'detail-guru':
-        require $adminRoot . '/app/Views/admin/manajemen_user/guru/detail.php';
+        require $adminRoot . '/app/Views/admin/guru/detail.php';
         break;
 
     case 'manajemen-siswa':
