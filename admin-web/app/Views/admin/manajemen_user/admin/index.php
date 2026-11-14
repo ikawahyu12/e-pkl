@@ -1,33 +1,20 @@
 <?php
 $pageTitle = 'Manajemen Admin';
 $activePage = 'user-admin';
-
-$users = [
-    [
-        'id'       => 1,
-        'nama'     => 'Admin Utama',
-        'username' => 'admin',
-        'password' => 'Admin@123',
-        'status'   => 'Aktif',
-        'login'    => '04 Okt 2026, 08:00'
-    ],
-    [
-        'id'       => 2,
-        'nama'     => 'Admin Akademik',
-        'username' => 'admin.akademik',
-        'password' => 'Akademik@123',
-        'status'   => 'Aktif',
-        'login'    => '03 Okt 2026, 09:15'
-    ],
-    [
-        'id'       => 3,
-        'nama'     => 'Admin Sekolah',
-        'username' => 'admin.sekolah',
-        'password' => 'Sekolah@123',
-        'status'   => 'Nonaktif',
-        'login'    => '28 Sep 2026, 10:30'
-    ]
-];
+$users = is_array($adminUsers ?? null) ? $adminUsers : [];
+$search = is_string($_GET['search'] ?? null) ? $_GET['search'] : '';
+$statusFilter = is_string($_GET['status'] ?? null) ? $_GET['status'] : '';
+$currentPage = (int) ($adminPagination['current_page'] ?? 1);
+$lastPage = (int) ($adminPagination['last_page'] ?? 1);
+$escape = static fn ($value): string => htmlspecialchars((string) $value, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+$pageUrl = static function (int $page) use ($search, $statusFilter): string {
+    return '?' . http_build_query([
+        'page' => 'manajemen-admin',
+        'search' => $search,
+        'status' => $statusFilter,
+        'list_page' => $page,
+    ]);
+};
 
 ob_start();
 ?>
@@ -37,10 +24,10 @@ ob_start();
     .table-user thead th { background: #f8f9fc; color: #5a6573; font-size: .78rem; font-weight: 700; border-top: 0; white-space: nowrap; }
     .table-user tbody td { vertical-align: middle; color: #344054; font-size: .85rem; }
     .username-text { color: #176b8b; font-weight: 600; }
-    .password-text { font-family: monospace; font-size: .82rem; color: #344054; background: #f5f7fa; padding: .3rem .5rem; border-radius: .3rem; }
     .status-badge { font-size: .72rem; padding: .35rem .6rem; border-radius: 20px; }
     .status-active { color: #198754; background: #e8f7ef; }
     .status-inactive { color: #dc3545; background: #fdebec; }
+    .status-suspended { color: #8a5a00; background: #fff3cd; }
     .search-box { max-width: 320px; }
 
     /* Style Aksi Teks / Tombol */
@@ -72,21 +59,36 @@ ob_start();
             Admin dapat membuat, melihat detail, dan mengedit akun administrator melalui halaman ini.
         </div>
 
-        <div class="row mb-3">
+        <?php if (is_string($adminPageSuccess ?? null)): ?>
+            <div class="alert alert-success"><?= $escape($adminPageSuccess) ?></div>
+        <?php endif; ?>
+        <?php if (is_string($adminPageError ?? null)): ?>
+            <div class="alert alert-danger"><?= $escape($adminPageError) ?></div>
+        <?php endif; ?>
+        <?php if (is_array($adminFlash ?? null) && ($adminFlash['type'] ?? '') === 'danger'): ?>
+            <div class="alert alert-danger"><?= $escape($adminFlash['message'] ?? 'Permintaan gagal.') ?></div>
+        <?php endif; ?>
+
+        <form class="row mb-3" method="get" action="">
+            <input type="hidden" name="page" value="manajemen-admin">
             <div class="col-md-6 mb-2 mb-md-0">
                 <div class="input-group search-box">
                     <div class="input-group-prepend"><span class="input-group-text bg-white"><i class="fas fa-search text-muted"></i></span></div>
-                    <input type="text" id="searchAdmin" class="form-control" placeholder="Cari nama atau username...">
+                    <input type="text" name="search" class="form-control" value="<?= $escape($search) ?>" placeholder="Cari nama, username, atau email...">
                 </div>
             </div>
             <div class="col-md-3 ml-auto">
-                <select id="filterStatusAdmin" class="custom-select">
+                <select name="status" class="custom-select">
                     <option value="">Semua Status</option>
-                    <option value="Aktif">Aktif</option>
-                    <option value="Nonaktif">Nonaktif</option>
+                    <option value="aktif" <?= $statusFilter === 'aktif' ? 'selected' : '' ?>>Aktif</option>
+                    <option value="nonaktif" <?= $statusFilter === 'nonaktif' ? 'selected' : '' ?>>Nonaktif</option>
+                    <option value="ditangguhkan" <?= $statusFilter === 'ditangguhkan' ? 'selected' : '' ?>>Ditangguhkan</option>
                 </select>
             </div>
-        </div>
+            <div class="col-md-auto mt-2 mt-md-0">
+                <button class="btn btn-primary" type="submit">Cari</button>
+            </div>
+        </form>
 
         <div class="table-responsive">
             <table class="table table-hover table-user mb-0" id="adminTable">
@@ -95,6 +97,7 @@ ob_start();
                         <th width="50">No</th>
                         <th>Nama Admin</th>
                         <th>Username</th>
+                        <th>Email</th>
                         <th>Password</th>
                         <th>Status</th>
                         <th>Terakhir Login</th>
@@ -103,58 +106,67 @@ ob_start();
                 </thead>
                 <tbody>
                     <?php foreach ($users as $index => $user): ?>
-                        <tr data-nama="<?= htmlspecialchars(strtolower($user['nama'])) ?>" data-username="<?= htmlspecialchars(strtolower($user['username'])) ?>" data-status="<?= htmlspecialchars($user['status']) ?>">
-                            <td><?= $index + 1 ?></td>
-                            <td><span class="font-weight-bold"><?= htmlspecialchars($user['nama']) ?></span></td>
-                            <td><span class="username-text"><?= htmlspecialchars($user['username']) ?></span></td>
-                            <td><span class="password-text"><?= htmlspecialchars($user['password']) ?></span></td>
+                        <?php
+                        $status = (string) ($user['status'] ?? '');
+                        $statusLabel = match ($status) {
+                            'aktif' => 'Aktif',
+                            'nonaktif' => 'Nonaktif',
+                            'ditangguhkan' => 'Ditangguhkan',
+                            default => $status,
+                        };
+                        $statusClass = match ($status) {
+                            'aktif' => 'status-active',
+                            'ditangguhkan' => 'status-suspended',
+                            default => 'status-inactive',
+                        };
+                        $lastLogin = $user['terakhir_login_at'] ?? null;
+                        ?>
+                        <tr>
+                            <td><?= (($currentPage - 1) * (int) ($adminPagination['per_page'] ?? 15)) + $index + 1 ?></td>
+                            <td><span class="font-weight-bold"><?= $escape($user['nama'] ?? $user['nama_tampilan'] ?? '') ?></span></td>
+                            <td><span class="username-text"><?= $escape($user['username'] ?? '') ?></span></td>
+                            <td><?= $escape($user['email'] ?? '-') ?></td>
+                            <td><span class="text-muted" title="Password disimpan sebagai hash dan tidak dapat ditampilkan.">••••••••</span></td>
                             <td>
-                                <?php if ($user['status'] === 'Aktif'): ?>
-                                    <span class="status-badge status-active"><i class="fas fa-check-circle mr-1"></i>Aktif</span>
-                                <?php else: ?>
-                                    <span class="status-badge status-inactive"><i class="fas fa-times-circle mr-1"></i>Nonaktif</span>
-                                <?php endif; ?>
+                                <span class="status-badge <?= $statusClass ?>"><?= $escape($statusLabel) ?></span>
                             </td>
-                            <td><span class="small text-muted"><?= htmlspecialchars($user['login']) ?></span></td>
-                            
-                            <!-- AKSI: Disesuaikan dengan routing ?page=... -->
+                            <td><span class="small text-muted"><?= $escape($lastLogin ? date('d M Y, H:i', strtotime((string) $lastLogin)) : '-') ?></span></td>
                             <td class="sl-aksi">
-                                <a class="a-detail" href="?page=detail-admin&id=<?= $user['id'] ?>">Detail</a>
-                                <a class="a-edit" href="?page=edit-admin&id=<?= $user['id'] ?>">Edit</a>
-                                <button type="button" class="a-hapus" onclick="deleteAdmin('<?= htmlspecialchars($user['nama'], ENT_QUOTES) ?>')">Hapus</button>
+                                <a class="a-detail" href="?page=detail-admin&amp;id=<?= (int) $user['id'] ?>">Detail</a>
+                                <a class="a-edit" href="?page=edit-admin&amp;id=<?= (int) $user['id'] ?>">Edit</a>
+                                <form method="post" action="?page=manajemen-admin" class="d-inline" onsubmit="return confirm('Yakin ingin menghapus akun ini?')">
+                                    <input type="hidden" name="action" value="admin-user-delete">
+                                    <input type="hidden" name="csrf_token" value="<?= $escape($csrfToken) ?>">
+                                    <input type="hidden" name="user_id" value="<?= (int) $user['id'] ?>">
+                                    <button type="submit" class="a-hapus">Hapus</button>
+                                </form>
                             </td>
                         </tr>
                     <?php endforeach; ?>
+                    <?php if ($users === []): ?>
+                        <tr><td colspan="7" class="text-center text-muted py-4">Belum ada akun Admin yang cocok.</td></tr>
+                    <?php endif; ?>
                 </tbody>
             </table>
         </div>
+
+        <?php if ($lastPage > 1): ?>
+            <nav class="mt-3" aria-label="Halaman daftar Admin">
+                <div class="d-flex justify-content-between align-items-center">
+                    <span class="small text-muted">Halaman <?= $currentPage ?> dari <?= $lastPage ?> (<?= (int) ($adminPagination['total'] ?? 0) ?> akun)</span>
+                    <div>
+                        <?php if ($currentPage > 1): ?>
+                            <a class="btn btn-sm btn-outline-primary" href="<?= $escape($pageUrl($currentPage - 1)) ?>">Sebelumnya</a>
+                        <?php endif; ?>
+                        <?php if ($currentPage < $lastPage): ?>
+                            <a class="btn btn-sm btn-outline-primary" href="<?= $escape($pageUrl($currentPage + 1)) ?>">Berikutnya</a>
+                        <?php endif; ?>
+                    </div>
+                </div>
+            </nav>
+        <?php endif; ?>
     </div>
 </div>
-
-<script>
-function deleteAdmin(nama) {
-    if (confirm('Apakah kamu yakin ingin menghapus akun "' + nama + '"?')) {
-        alert('Akun ' + nama + ' berhasil dihapus.');
-    }
-}
-
-document.getElementById('searchAdmin').addEventListener('keyup', function() {
-    const keyword = this.value.toLowerCase();
-    document.querySelectorAll('#adminTable tbody tr').forEach(function(row) {
-        const nama = row.getAttribute('data-nama');
-        const username = row.getAttribute('data-username');
-        row.style.display = (nama.includes(keyword) || username.includes(keyword)) ? '' : 'none';
-    });
-});
-
-document.getElementById('filterStatusAdmin').addEventListener('change', function() {
-    const status = this.value;
-    document.querySelectorAll('#adminTable tbody tr').forEach(function(row) {
-        const rowStatus = row.getAttribute('data-status');
-        row.style.display = (status === '' || rowStatus === status) ? '' : 'none';
-    });
-});
-</script>
 
 <?php
 $content = ob_get_clean();

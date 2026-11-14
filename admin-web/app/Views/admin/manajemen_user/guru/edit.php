@@ -2,12 +2,8 @@
 $pageTitle  = 'Edit Akun Guru';
 $activePage = 'user-guru';
 
-$guru = [
-    'nama'     => 'Budi Santoso, S.Kom.',
-    'username' => '1987654321',
-    'password' => 'Budi@123',
-    'status'   => 'Aktif',
-];
+$isEditing = true;
+$guru = is_array($guru ?? null) ? $guru : [];
 
 ob_start();
 ?>
@@ -50,7 +46,16 @@ ob_start();
     <h1 class="sf-title">Edit Akun Guru</h1>
     <p class="sf-sub">Perbarui nama, username, password, dan status akun guru</p>
 
-    <form id="sfForm" action="?page=manajemen-guru" method="post">
+    <?php if (is_string($adminPageError ?? null)): ?>
+        <div class="alert alert-danger"><?= htmlspecialchars($adminPageError, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') ?></div>
+    <?php endif; ?>
+    <?php if (is_array($adminFlash ?? null) && ($adminFlash['type'] ?? '') === 'danger'): ?>
+        <div class="alert alert-danger"><?= htmlspecialchars($adminFlash['message'] ?? 'Permintaan gagal.', ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') ?></div>
+    <?php endif; ?>
+    <form id="sfForm" action="?page=edit-guru&amp;id=<?= (int) ($guru['id'] ?? 0) ?>" method="post">
+        <input type="hidden" name="action" value="teacher-user-update">
+        <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrfToken, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') ?>">
+        <input type="hidden" name="user_id" value="<?= (int) ($guru['id'] ?? 0) ?>">
         <div class="sf-card">
             <?php include __DIR__ . '/_form.php'; ?>
 

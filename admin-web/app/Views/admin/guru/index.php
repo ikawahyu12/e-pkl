@@ -8,7 +8,7 @@ $pageSubtitle = 'Kelola data guru pembimbing dan alokasi kuota bimbingan PKL.';
 
 $pageHeaderActions = '
     <button type="button" class="btn btn-sm sl-btn-export mr-2"><i class="fas fa-download mr-2"></i>Export Data</button>
-    <a href="?page=create-guru" class="btn btn-sm sl-btn-add"><i class="fas fa-plus mr-2"></i>Tambah Guru</a>';
+    <a href="?page=create-data-guru" class="btn btn-sm sl-btn-add"><i class="fas fa-plus mr-2"></i>Tambah Guru</a>';
 
 $scriptDir    = rtrim(str_replace('\\', '/', dirname($_SERVER['SCRIPT_NAME'] ?? '/')), '/');
 $assetBaseUrl = $scriptDir . '/assets';
@@ -354,10 +354,10 @@ ob_start();
 
                                 <td class="sl-aksi">
                                     <a class="a-detail"
-                                       href="?page=detail-guru&id=<?= (int) $g['id'] ?>">Detail</a>
+                                       href="?page=detail-data-guru&id=<?= (int) $g['id'] ?>">Detail</a>
 
                                     <a class="a-edit"
-                                       href="?page=edit-guru&id=<?= (int) $g['id'] ?>">Edit</a>
+                                       href="?page=edit-data-guru&id=<?= (int) $g['id'] ?>">Edit</a>
 
                                     <button type="button"
                                             class="a-hapus sl-hapus"

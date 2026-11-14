@@ -2,13 +2,15 @@
 $s = $siswa ?? [
     'nama'     => '',
     'username' => '',
-    'password' => '',
-    'kelas'    => '',
-    'status'   => 'Aktif',
+    'kelas_id' => '',
+    'status'   => 'aktif',
 ];
 
-$opsiKelas = ['XII RPL 1', 'XII RPL 2', 'XI RPL 1', 'XI RPL 2', 'X RPL 1', 'X RPL 2'];
+$kelasOptions = is_array($studentClasses ?? null) ? $studentClasses : [];
+$hasClasses = $kelasOptions !== [];
 $e = static fn ($v): string => htmlspecialchars((string) $v, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+$isEditing = $isEditing ?? false;
+$status = strtolower((string) ($s['status'] ?? 'aktif'));
 ?>
 
 <div class="row">
@@ -26,7 +28,7 @@ $e = static fn ($v): string => htmlspecialchars((string) $v, ENT_QUOTES | ENT_SU
         <label class="sf-label" for="username">Username / NISN <span class="req">*</span></label>
         <div class="sf-ic">
             <i class="fas fa-id-card"></i>
-            <input class="sf-input" type="text" id="username" name="username" value="<?= $e($s['username']) ?>" placeholder="Masukkan NISN siswa" required>
+            <input class="sf-input" type="text" id="username" name="username" value="<?= $e($s['username']) ?>" placeholder="Masukkan NISN siswa" maxlength="20" required>
         </div>
     </div>
 
@@ -41,7 +43,7 @@ $e = static fn ($v): string => htmlspecialchars((string) $v, ENT_QUOTES | ENT_SU
         </div>
         <div class="sf-ic" style="position: relative;">
             <i class="fas fa-key"></i>
-            <input class="sf-input" type="password" id="password" name="password" value="<?= $e($s['password']) ?>" placeholder="Masukkan password" required style="padding-right: 45px;">
+            <input class="sf-input" type="password" id="password" name="password" value="" placeholder="<?= $isEditing ? 'Kosongkan jika tidak diganti' : 'Minimal 12 karakter' ?>" <?= $isEditing ? '' : 'required' ?> minlength="12" maxlength="255" style="padding-right: 45px;">
             <!-- Tombol Lihat Password -->
             <button type="button" id="togglePassword" style="position: absolute; right: 12px; top: 50%; transform: translateY(-50%); border: none; background: none; cursor: pointer; color: #64748b; padding: 0; outline: none;" title="Tampilkan/Sembunyikan Password">
                 <i class="fas fa-eye" id="eyeIcon"></i>
@@ -54,25 +56,28 @@ $e = static fn ($v): string => htmlspecialchars((string) $v, ENT_QUOTES | ENT_SU
         <label class="sf-label" for="kelas">Kelas <span class="req">*</span></label>
         <div class="sf-ic">
             <i class="fas fa-graduation-cap"></i>
-            <select class="sf-input" id="kelas" name="kelas" required>
-                <option value="" disabled hidden <?= empty($s['kelas']) ? 'selected' : '' ?>>Pilih Kelas</option>
-                <?php foreach ($opsiKelas as $k): ?>
-                    <option value="<?= $e($k) ?>" <?= ($s['kelas'] === $k) ? 'selected' : '' ?>><?= $e($k) ?></option>
+            <select class="sf-input" id="kelas_id" name="kelas_id" <?= $hasClasses ? 'required' : '' ?>>
+                <option value="" <?= $hasClasses ? 'disabled hidden' : '' ?> <?= empty($s['kelas_id']) ? 'selected' : '' ?>><?= $hasClasses ? 'Pilih Kelas' : 'Belum ada data kelas (opsional)' ?></option>
+                <?php foreach ($kelasOptions as $kelas): ?>
+                    <option value="<?= (int) $kelas['id'] ?>" <?= (string) ($s['kelas_id'] ?? '') === (string) $kelas['id'] ? 'selected' : '' ?>><?= $e($kelas['nama']) ?></option>
                 <?php endforeach; ?>
             </select>
         </div>
+        <?php if (!$hasClasses): ?>
+            <small class="form-text text-muted">Akun tetap dapat dibuat tanpa kelas. Tambahkan data kelas untuk mengisi kelas siswa.</small>
+        <?php endif; ?>
     </div>
 
     <!-- Status Akun Siswa -->
     <div class="col-md-6 form-group mb-3">
         <span class="sf-label">Status Akun Siswa <span class="req">*</span></span>
         <div class="sf-radios">
-            <label class="sf-radio <?= ($s['status'] === 'Aktif') ? 'on' : '' ?>">
-                <span class="txt"><input type="radio" name="status" value="Aktif" <?= ($s['status'] === 'Aktif') ? 'checked' : '' ?>> Aktif</span>
+            <label class="sf-radio <?= $status === 'aktif' ? 'on' : '' ?>">
+                <span class="txt"><input type="radio" name="status" value="aktif" <?= $status === 'aktif' ? 'checked' : '' ?>> Aktif</span>
                 <span class="sf-tag sf-tag-aktif">Aktif</span>
             </label>
-            <label class="sf-radio <?= ($s['status'] !== 'Aktif') ? 'on' : '' ?>">
-                <span class="txt"><input type="radio" name="status" value="Nonaktif" <?= ($s['status'] !== 'Aktif') ? 'checked' : '' ?>> Nonaktif</span>
+            <label class="sf-radio <?= $status !== 'aktif' ? 'on' : '' ?>">
+                <span class="txt"><input type="radio" name="status" value="nonaktif" <?= $status !== 'aktif' ? 'checked' : '' ?>> Nonaktif</span>
                 <span class="sf-tag sf-tag-pending">Nonaktif</span>
             </label>
         </div>

@@ -133,7 +133,7 @@ ob_start();
         <div class="alert alert-danger"><?= $e($error) ?></div>
     <?php endif; ?>
 
-    <form method="post" action="?page=edit-guru&id=<?= $id ?>">
+    <form method="post" action="?page=edit-data-guru&id=<?= $id ?>">
         <input type="hidden" name="csrf" value="<?= $e(guru_csrf()) ?>">
         <div class="ed-card">
 

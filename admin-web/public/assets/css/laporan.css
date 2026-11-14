@@ -27,13 +27,13 @@
     --lp-danger-soft: #ffdad6;
     --lp-ok: #1f8f5f;
     --lp-ease: cubic-bezier(.2, .7, .2, 1);
-    font-family: 'Plus Jakarta Sans', 'Nunito', sans-serif;
+    font-family: 'Montserrat', sans-serif;
     color: var(--lp-ink);
     padding-bottom: 2rem;
 }
 .lp-page button, .lp-page select, .lp-page input { font-family: inherit; }
 body, #content-wrapper { background-color: #f8f9ff !important; }
-.sidebar-epkl, .topbar { font-family: 'Plus Jakarta Sans', 'Nunito', sans-serif; }
+.sidebar-epkl, .topbar { font-family: 'Montserrat', sans-serif; }
 
 /* --------------------------------------------------------------------------
    2. Topbar disamakan dengan Figma (khusus halaman ini)

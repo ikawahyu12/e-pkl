@@ -14,7 +14,7 @@ $val = static fn ($v): string => trim((string) $v) === '' ? '-' : htmlspecialcha
 $pageTitle  = 'Detail Data Guru';
 $activePage = 'data-guru';
 $urlDaftar  = '?page=data-guru';
-$urlEdit    = '?page=edit-guru&id=';
+$urlEdit    = '?page=edit-data-guru&id=';
 
 $id  = (int) ($_GET['id'] ?? 0);
 $res = admin_api('GET', '/admin/guru/' . $id);

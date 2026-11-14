@@ -2,40 +2,18 @@
 $pageTitle = 'Manajemen Guru';
 $activePage = 'user-guru';
 
-$users = [
-    [
-        'id'       => 1,
-        'nama'     => 'Budi Santoso, S.Kom.',
-        'username' => '1987654321',
-        'password' => 'Budi@123',
-        'status'   => 'Aktif',
-        'login'    => '04 Okt 2026, 07:45'
-    ],
-    [
-        'id'       => 2,
-        'nama'     => 'Siti Aminah, S.Pd.',
-        'username' => '1987654322',
-        'password' => 'Siti@123',
-        'status'   => 'Aktif',
-        'login'    => '03 Okt 2026, 10:20'
-    ],
-    [
-        'id'       => 3,
-        'nama'     => 'Andi Pratama, S.Kom.',
-        'username' => '1987654323',
-        'password' => 'Andi@123',
-        'status'   => 'Aktif',
-        'login'    => '01 Okt 2026, 08:30'
-    ],
-    [
-        'id'       => 4,
-        'nama'     => 'Dewi Lestari, S.Pd.',
-        'username' => '1987654324',
-        'password' => 'Dewi@123',
-        'status'   => 'Nonaktif',
-        'login'    => '25 Sep 2026, 11:15'
-    ]
-];
+$users = is_array($teacherUsers ?? null) ? $teacherUsers : [];
+$search = is_string($_GET['search'] ?? null) ? $_GET['search'] : '';
+$statusFilter = is_string($_GET['status'] ?? null) ? $_GET['status'] : '';
+$currentPage = (int) ($teacherPagination['current_page'] ?? 1);
+$lastPage = (int) ($teacherPagination['last_page'] ?? 1);
+$escape = static fn ($value): string => htmlspecialchars((string) $value, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+$pageUrl = static fn (int $page): string => '?' . http_build_query([
+    'page' => 'manajemen-guru',
+    'search' => $search,
+    'status' => $statusFilter,
+    'list_page' => $page,
+]);
 
 ob_start();
 ?>
@@ -45,7 +23,6 @@ ob_start();
     .table-user thead th { background: #f8f9fc; color: #5a6573; font-size: .78rem; font-weight: 700; border-top: 0; white-space: nowrap; }
     .table-user tbody td { vertical-align: middle; color: #344054; font-size: .85rem; }
     .username-text { color: #176b8b; font-weight: 600; }
-    .password-text { font-family: monospace; font-size: .82rem; color: #344054; background: #f5f7fa; padding: .3rem .5rem; border-radius: .3rem; }
     .status-badge { font-size: .72rem; padding: .35rem .6rem; border-radius: 20px; }
     .status-active { color: #198754; background: #e8f7ef; }
     .status-inactive { color: #dc3545; background: #fdebec; }
@@ -80,21 +57,33 @@ ob_start();
             Admin dapat membuat, melihat detail, dan mengedit akun guru melalui halaman ini.
         </div>
 
-        <div class="row mb-3">
+        <?php if (is_string($adminPageError ?? null)): ?>
+            <div class="alert alert-danger"><?= $escape($adminPageError) ?></div>
+        <?php endif; ?>
+        <?php if (is_array($adminFlash ?? null) && ($adminFlash['type'] ?? '') === 'danger'): ?>
+            <div class="alert alert-danger"><?= $escape($adminFlash['message'] ?? 'Permintaan gagal.') ?></div>
+        <?php endif; ?>
+        <?php if (is_string($adminPageSuccess ?? null)): ?>
+            <div class="alert alert-success"><?= $escape($adminPageSuccess) ?></div>
+        <?php endif; ?>
+
+        <form class="row mb-3" method="get" action="">
+            <input type="hidden" name="page" value="manajemen-guru">
             <div class="col-md-6 mb-2 mb-md-0">
                 <div class="input-group search-box">
                     <div class="input-group-prepend"><span class="input-group-text bg-white"><i class="fas fa-search text-muted"></i></span></div>
-                    <input type="text" id="searchGuru" class="form-control" placeholder="Cari nama atau NIP...">
+                    <input type="text" name="search" class="form-control" value="<?= $escape($search) ?>" placeholder="Cari nama atau NIP...">
                 </div>
             </div>
             <div class="col-md-3 ml-auto">
-                <select id="filterStatusGuru" class="custom-select">
+                <select name="status" class="custom-select">
                     <option value="">Semua Status</option>
-                    <option value="Aktif">Aktif</option>
-                    <option value="Nonaktif">Nonaktif</option>
+                    <option value="aktif" <?= $statusFilter === 'aktif' ? 'selected' : '' ?>>Aktif</option>
+                    <option value="nonaktif" <?= $statusFilter === 'nonaktif' ? 'selected' : '' ?>>Nonaktif</option>
                 </select>
             </div>
-        </div>
+            <div class="col-md-auto mt-2 mt-md-0"><button class="btn btn-primary" type="submit">Cari</button></div>
+        </form>
 
         <div class="table-responsive">
             <table class="table table-hover table-user mb-0" id="guruTable">
@@ -111,58 +100,48 @@ ob_start();
                 </thead>
                 <tbody>
                     <?php foreach ($users as $index => $user): ?>
-                        <tr data-nama="<?= htmlspecialchars(strtolower($user['nama'])) ?>" data-username="<?= htmlspecialchars(strtolower($user['username'])) ?>" data-status="<?= htmlspecialchars($user['status']) ?>">
-                            <td><?= $index + 1 ?></td>
-                            <td><span class="font-weight-bold"><?= htmlspecialchars($user['nama']) ?></span></td>
-                            <td><span class="username-text"><?= htmlspecialchars($user['username']) ?></span></td>
-                            <td><span class="password-text"><?= htmlspecialchars($user['password']) ?></span></td>
+                        <tr>
+                            <td><?= (($currentPage - 1) * (int) ($teacherPagination['per_page'] ?? 15)) + $index + 1 ?></td>
+                            <td><span class="font-weight-bold"><?= $escape($user['nama'] ?? '') ?></span></td>
+                            <td><span class="username-text"><?= $escape($user['username'] ?? '') ?></span></td>
+                            <td><span class="text-muted" title="Password disimpan sebagai hash dan tidak dapat ditampilkan.">••••••••</span></td>
                             <td>
-                                <?php if ($user['status'] === 'Aktif'): ?>
+                                <?php if (strtolower((string) ($user['status'] ?? '')) === 'aktif'): ?>
                                     <span class="status-badge status-active"><i class="fas fa-check-circle mr-1"></i>Aktif</span>
                                 <?php else: ?>
                                     <span class="status-badge status-inactive"><i class="fas fa-times-circle mr-1"></i>Nonaktif</span>
                                 <?php endif; ?>
                             </td>
-                            <td><span class="small text-muted"><?= htmlspecialchars($user['login']) ?></span></td>
+                            <td><span class="small text-muted"><?= $escape(!empty($user['terakhir_login_at']) ? date('d M Y, H:i', strtotime((string) $user['terakhir_login_at'])) : '-') ?></span></td>
                             
                             <!-- AKSI: Disesuaikan dengan routing ?page=... -->
                             <td class="sl-aksi">
-                                <a class="a-detail" href="?page=detail-guru&id=<?= $user['id'] ?>">Detail</a>
-                                <a class="a-edit" href="?page=edit-guru&id=<?= $user['id'] ?>">Edit</a>
-                                <button type="button" class="a-hapus" onclick="deleteGuru('<?= htmlspecialchars($user['nama'], ENT_QUOTES) ?>')">Hapus</button>
+                                <a class="a-detail" href="?page=detail-guru&amp;id=<?= (int) $user['id'] ?>">Detail</a>
+                                <a class="a-edit" href="?page=edit-guru&amp;id=<?= (int) $user['id'] ?>">Edit</a>
+                                <form method="post" action="?page=manajemen-guru" class="d-inline" onsubmit="return confirm('Yakin ingin menghapus akun guru ini?')">
+                                    <input type="hidden" name="action" value="teacher-user-delete">
+                                    <input type="hidden" name="csrf_token" value="<?= $escape($csrfToken) ?>">
+                                    <input type="hidden" name="user_id" value="<?= (int) $user['id'] ?>">
+                                    <button type="submit" class="a-hapus">Hapus</button>
+                                </form>
                             </td>
                         </tr>
                     <?php endforeach; ?>
                 </tbody>
             </table>
         </div>
+        <?php if ($users === []): ?>
+            <div class="alert alert-light border mt-3 mb-0">Belum ada data akun guru.</div>
+        <?php endif; ?>
+        <?php if ($lastPage > 1): ?>
+            <nav class="mt-3" aria-label="Pagination guru">
+                <?php for ($page = 1; $page <= $lastPage; $page++): ?>
+                    <a class="btn btn-sm <?= $page === $currentPage ? 'btn-primary' : 'btn-outline-primary' ?>" href="<?= $escape($pageUrl($page)) ?>"><?= $page ?></a>
+                <?php endfor; ?>
+            </nav>
+        <?php endif; ?>
     </div>
 </div>
-
-<script>
-function deleteGuru(nama) {
-    if (confirm('Apakah kamu yakin ingin menghapus akun "' + nama + '"?')) {
-        alert('Akun ' + nama + ' berhasil dihapus.');
-    }
-}
-
-document.getElementById('searchGuru').addEventListener('keyup', function() {
-    const keyword = this.value.toLowerCase();
-    document.querySelectorAll('#guruTable tbody tr').forEach(function(row) {
-        const nama = row.getAttribute('data-nama');
-        const username = row.getAttribute('data-username');
-        row.style.display = (nama.includes(keyword) || username.includes(keyword)) ? '' : 'none';
-    });
-});
-
-document.getElementById('filterStatusGuru').addEventListener('change', function() {
-    const status = this.value;
-    document.querySelectorAll('#guruTable tbody tr').forEach(function(row) {
-        const rowStatus = row.getAttribute('data-status');
-        row.style.display = (status === '' || rowStatus === status) ? '' : 'none';
-    });
-});
-</script>
 
 <?php
 $content = ob_get_clean();

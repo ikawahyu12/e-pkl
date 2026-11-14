@@ -96,7 +96,7 @@ ob_start();
         <div class="alert alert-danger"><?= $e($error) ?></div>
     <?php endif; ?>
 
-    <form method="post" action="?page=create-guru" autocomplete="off">
+    <form method="post" action="?page=create-data-guru" autocomplete="off">
         <input type="hidden" name="csrf" value="<?= $e(guru_csrf()) ?>">
         <div class="sf-card">
             <div class="row">

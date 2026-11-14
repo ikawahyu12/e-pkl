@@ -1,14 +1,9 @@
 <?php
 $pageTitle  = 'Edit Admin';
 $activePage = 'user-admin';
-
-$admin = [
-    'id'       => 1,
-    'nama'     => 'Admin Utama',
-    'username' => 'admin',
-    'password' => 'Admin@123',
-    'status'   => 'Aktif',
-];
+$isEditing = true;
+$admin = is_array($admin ?? null) ? $admin : [];
+$escape = static fn ($value): string => htmlspecialchars((string) $value, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
 
 ob_start();
 ?>
@@ -51,7 +46,25 @@ ob_start();
     <h1 class="sf-title">Edit Data Admin</h1>
     <p class="sf-sub">Perbarui informasi akun administrator sistem</p>
 
-    <form id="sfForm" action="?page=manajemen-admin" method="post">
+    <?php if (is_string($adminPageError ?? null)): ?>
+        <div class="alert alert-danger"><?= $escape($adminPageError) ?></div>
+    <?php endif; ?>
+    <?php if (is_array($adminFlash ?? null) && ($adminFlash['type'] ?? '') === 'danger'): ?>
+        <div class="alert alert-danger">
+            <?= $escape($adminFlash['message'] ?? 'Akun Admin gagal diperbarui.') ?>
+            <?php foreach (($adminFlash['errors'] ?? []) as $fieldErrors): ?>
+                <?php foreach ((array) $fieldErrors as $fieldError): ?>
+                    <div><?= $escape($fieldError) ?></div>
+                <?php endforeach; ?>
+            <?php endforeach; ?>
+        </div>
+    <?php endif; ?>
+
+    <?php if ($admin !== []): ?>
+    <form id="sfForm" action="?page=edit-admin&amp;id=<?= (int) $admin['id'] ?>" method="post">
+        <input type="hidden" name="action" value="admin-user-update">
+        <input type="hidden" name="csrf_token" value="<?= $escape($csrfToken) ?>">
+        <input type="hidden" name="user_id" value="<?= (int) $admin['id'] ?>">
         <div class="sf-card">
             <?php include __DIR__ . '/_form.php'; ?>
 
@@ -61,6 +74,7 @@ ob_start();
             </div>
         </div>
     </form>
+    <?php endif; ?>
 </div>
 
 <?php

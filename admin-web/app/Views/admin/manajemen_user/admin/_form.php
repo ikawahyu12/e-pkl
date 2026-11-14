@@ -2,11 +2,14 @@
 $adm = $admin ?? [
     'nama'     => '',
     'username' => '',
-    'password' => '',
-    'status'   => 'Aktif',
+    'email'    => '',
+    'status'   => 'aktif',
 ];
 
 $e = static fn ($v): string => htmlspecialchars((string) $v, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+$isEditing = $isEditing ?? false;
+$status = strtolower((string) ($adm['status'] ?? 'aktif'));
+$passwordRequired = $isEditing ? '' : 'required';
 ?>
 
 <div class="row">
@@ -28,10 +31,18 @@ $e = static fn ($v): string => htmlspecialchars((string) $v, ENT_QUOTES | ENT_SU
         </div>
     </div>
 
+    <div class="col-md-6 form-group mb-3">
+        <label class="sf-label" for="email">Email</label>
+        <div class="sf-ic">
+            <i class="far fa-envelope"></i>
+            <input class="sf-input" type="email" id="email" name="email" value="<?= $e($adm['email'] ?? '') ?>" placeholder="Masukkan email (opsional)" maxlength="150">
+        </div>
+    </div>
+
     <!-- Password + Show/Hide + Generate Auto -->
     <div class="col-md-6 form-group mb-3">
         <div class="d-flex justify-content-between align-items-center mb-1">
-            <label class="sf-label mb-0" for="password">Password <span class="req">*</span></label>
+            <label class="sf-label mb-0" for="password">Password <?= $isEditing ? '(opsional)' : '<span class="req">*</span>' ?></label>
             <!-- Tombol Generate Password -->
             <button type="button" class="btn btn-link p-0 text-decoration-none small font-weight-bold" id="btnGeneratePass" style="font-size: .72rem; color: #2563eb;">
                 <i class="fas fa-random mr-1"></i> Generate Password
@@ -39,7 +50,7 @@ $e = static fn ($v): string => htmlspecialchars((string) $v, ENT_QUOTES | ENT_SU
         </div>
         <div class="sf-ic" style="position: relative;">
             <i class="fas fa-key"></i>
-            <input class="sf-input" type="password" id="password" name="password" value="<?= $e($adm['password']) ?>" placeholder="Masukkan password" required style="padding-right: 45px;">
+            <input class="sf-input" type="password" id="password" name="password" value="" placeholder="<?= $isEditing ? 'Kosongkan jika tidak diganti' : 'Minimal 8 karakter' ?>" <?= $passwordRequired ?> minlength="8" maxlength="255" style="padding-right: 45px;">
             <!-- Tombol Lihat Password -->
             <button type="button" id="togglePassword" style="position: absolute; right: 12px; top: 50%; transform: translateY(-50%); border: none; background: none; cursor: pointer; color: #64748b; padding: 0; outline: none;" title="Tampilkan/Sembunyikan Password">
                 <i class="fas fa-eye" id="eyeIcon"></i>
@@ -51,13 +62,16 @@ $e = static fn ($v): string => htmlspecialchars((string) $v, ENT_QUOTES | ENT_SU
     <div class="col-md-6 form-group mb-3">
         <span class="sf-label">Status Akun Admin <span class="req">*</span></span>
         <div class="sf-radios">
-            <label class="sf-radio <?= ($adm['status'] === 'Aktif') ? 'on' : '' ?>">
-                <span class="txt"><input type="radio" name="status" value="Aktif" <?= ($adm['status'] === 'Aktif') ? 'checked' : '' ?>> Aktif</span>
+            <label class="sf-radio <?= $status === 'aktif' ? 'on' : '' ?>">
+                <span class="txt"><input type="radio" name="status" value="aktif" <?= $status === 'aktif' ? 'checked' : '' ?>> Aktif</span>
                 <span class="sf-tag sf-tag-aktif">Aktif</span>
             </label>
-            <label class="sf-radio <?= ($adm['status'] !== 'Aktif') ? 'on' : '' ?>">
-                <span class="txt"><input type="radio" name="status" value="Nonaktif" <?= ($adm['status'] !== 'Aktif') ? 'checked' : '' ?>> Nonaktif</span>
+            <label class="sf-radio <?= $status === 'nonaktif' ? 'on' : '' ?>">
+                <span class="txt"><input type="radio" name="status" value="nonaktif" <?= $status === 'nonaktif' ? 'checked' : '' ?>> Nonaktif</span>
                 <span class="sf-tag sf-tag-pending">Nonaktif</span>
+            </label>
+            <label class="sf-radio <?= $status === 'ditangguhkan' ? 'on' : '' ?>">
+                <span class="txt"><input type="radio" name="status" value="ditangguhkan" <?= $status === 'ditangguhkan' ? 'checked' : '' ?>> Ditangguhkan</span>
             </label>
         </div>
     </div>
