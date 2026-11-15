@@ -20,6 +20,7 @@ use App\Http\Middleware\EnsureSiswaRole;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Storage;
+use App\Http\Controllers\Api\V1\Siswa\RiwayatController;
 
 Route::get('v1/foto/{path}', function (string $path) {
     abort_if(str_contains($path, '..'), 404);
@@ -89,6 +90,7 @@ Route::prefix('v1/siswa')->middleware([
     Route::post('/presensi', [PresensiController::class, 'store']);
     Route::post('/jurnal', [JurnalController::class, 'store']);
     Route::post('/izin', [IzinController::class, 'store']);
+    Route::get('/riwayat', [RiwayatController::class, 'index']);
 });
 
 // Autentikasi Admin

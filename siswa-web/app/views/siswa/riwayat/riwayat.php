@@ -1,9 +1,12 @@
-
 <section class="activity-card history-page" data-pkl-start-date="<?= e($tanggalMulaiPkl ?? '') ?>">
     <div class="activity-heading">
         <h2>Riwayat PKL Siswa</h2>
         <p>Rekap aktivitas dan status kehadiran Anda.</p>
     </div>
+
+    <?php if (!empty($apiError)): ?>
+        <p class="history-empty" role="alert"><?= e($apiError) ?></p>
+    <?php endif; ?>
 
     <div class="history-toolbar">
         <div class="history-tabs" role="group" aria-label="Filter jenis riwayat">
@@ -38,52 +41,23 @@
     </div>
 
     <div class="history-list" id="history-list">
-        <article class="history-item" data-history-item data-type="attendance" data-date="2026-03-12">
-            <div>
-                <strong>Kamis, 12 Mar 2026</strong>
-                <p>Presensi: Masuk</p>
-            </div>
-            <div class="history-meta">
-                <span class="pill pill-ok">Masuk</span>
-                <small>07:42 WIB</small>
-            </div>
-        </article>
-
-        <article class="history-item" data-history-item data-type="journal" data-date="2026-03-11">
-            <div>
-                <strong>Rabu, 11 Mar 2026</strong>
-                <p>Laporan Jurnal Harian</p>
-            </div>
-            <div class="history-meta">
-                <span class="pill pill-info">Terverifikasi</span>
-                <small>11:21 WIB</small>
-            </div>
-        </article>
-
-        <article class="history-item" data-history-item data-type="attendance" data-date="2026-03-11">
-            <div>
-                <strong>Rabu, 11 Mar 2026</strong>
-                <p>Presensi: Pulang</p>
-            </div>
-            <div class="history-meta">
-                <span class="pill pill-ok">Pulang</span>
-                <small>17:02 WIB</small>
-            </div>
-        </article>
-
-        <article class="history-item" data-history-item data-type="attendance" data-date="2026-03-09">
-            <div>
-                <strong>Senin, 09 Mar 2026</strong>
-                <p>Presensi: Masuk</p>
-            </div>
-            <div class="history-meta">
-                <span class="pill pill-ok">Masuk</span>
-                <small>08:12 WIB</small>
-            </div>
-        </article>
+        <?php foreach (($riwayat ?? []) as $item): ?>
+            <article class="history-item" data-history-item data-type="<?= e($item['type']) ?>" data-date="<?= e($item['date']) ?>">
+                <div>
+                    <strong><?= e($item['label']) ?></strong>
+                    <p><?= e($item['title']) ?></p>
+                </div>
+                <div class="history-meta">
+                    <span class="pill <?= e($item['pill']) ?>"><?= e($item['badge']) ?></span>
+                    <?php if ($item['jam'] !== ''): ?>
+                        <small><?= e($item['jam']) ?></small>
+                    <?php endif; ?>
+                </div>
+            </article>
+        <?php endforeach; ?>
     </div>
 
-    <p class="history-empty" id="history-empty" role="status" hidden>
+    <p class="history-empty" id="history-empty" role="status" <?= empty($riwayat) ? '' : 'hidden' ?>>
         Tidak ada riwayat untuk filter yang dipilih.
     </p>
 </section>
