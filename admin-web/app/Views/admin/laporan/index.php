@@ -1,7 +1,7 @@
 <?php
 // ==========================================================================
 // Halaman: Laporan & Rekapitulasi  (route: ?page=laporan)
-// TAHAP FRONTEND: data sementara dari app/Models/LaporanData.php
+// TERSAMBUNG KE API: data dari app/Models/LaporanData.php (endpoint v1/admin/laporan)
 // Gaya  : public/assets/css/laporan.css
 // Skrip : public/assets/js/laporan.js
 // ==========================================================================
@@ -35,6 +35,7 @@ $periodeOptions = LaporanData::periodeOptions();
 $jurusanOptions = LaporanData::jurusanOptions();
 $selPeriode     = LaporanData::normalizePeriode($_GET['periode'] ?? '');
 $selJurusan     = LaporanData::normalizeJurusan($_GET['jurusan'] ?? '');
+$ringkasan      = LaporanData::ringkasan($selPeriode, $selJurusan);
 
 // ---------------------------------------------------------------------------
 // Kartu laporan. 'num' = angka yang dihitung naik oleh JS.
@@ -47,9 +48,9 @@ $reportCards = [
         'title' => 'Rekap Presensi Siswa',
         'desc'  => 'Data rekapitulasi kehadiran harian siswa PKL, persentase kehadiran per jurusan dan instansi, serta rekapan izin atau sakit lengkap dengan time-stamp presensi geolokasi.',
         'chips' => [
-            ['icon' => 'fas fa-user-friends',   'pre' => 'Total ', 'num' => 348,  'dec' => 0, 'sep' => false, 'post' => ' Siswa',         'variant' => ''],
-            ['icon' => 'fas fa-chart-line',     'pre' => '',       'num' => 96.4, 'dec' => 1, 'sep' => false, 'post' => '% Kehadiran',    'variant' => 'lp-chip--accent'],
-            ['icon' => 'far fa-calendar-check', 'text' => 'Update 10m lalu',                                                               'variant' => 'lp-chip--soft'],
+            ['icon' => 'fas fa-user-friends',   'pre' => 'Total ', 'num' => (int) $ringkasan['presensi']['total_siswa'],  'dec' => 0, 'sep' => false, 'post' => ' Siswa',         'variant' => ''],
+            ['icon' => 'fas fa-chart-line',     'pre' => '',       'num' => (float) ($ringkasan['presensi']['persentase_kehadiran'] ?? 0), 'dec' => 1, 'sep' => false, 'post' => '% Kehadiran',    'variant' => 'lp-chip--accent'],
+            ['icon' => 'far fa-calendar-check', 'text' => $ringkasan['presensi']['presensi_terakhir'] ? 'Presensi terakhir ' . LaporanData::formatTanggalSingkat((string) $ringkasan['presensi']['presensi_terakhir']) : 'Belum ada presensi',                                                               'variant' => 'lp-chip--soft'],
         ],
     ],
     [
@@ -59,20 +60,20 @@ $reportCards = [
         'title' => 'Rekap Jurnal Kegiatan',
         'desc'  => 'Kumpulan logbook kegiatan dan pekerjaan harian siswa di industri, status verifikasi pembimbing lapangan, catatan evaluasi, serta dokumentasi visual pekerjaan praktik.',
         'chips' => [
-            ['icon' => 'fas fa-clipboard-list', 'pre' => '', 'num' => 1420, 'dec' => 0, 'sep' => true,  'post' => ' Jurnal Masuk',    'variant' => ''],
-            ['icon' => 'far fa-check-circle',   'pre' => '', 'num' => 98,   'dec' => 0, 'sep' => false, 'post' => '% Terverifikasi', 'variant' => 'lp-chip--accent'],
-            ['icon' => 'far fa-calendar-alt',   'pre' => '', 'num' => 28,   'dec' => 0, 'sep' => false, 'post' => ' Perlu Review',   'variant' => 'lp-chip--soft'],
+            ['icon' => 'fas fa-clipboard-list', 'pre' => '', 'num' => (int) $ringkasan['jurnal']['jurnal_masuk'], 'dec' => 0, 'sep' => true,  'post' => ' Jurnal Masuk',    'variant' => ''],
+            ['icon' => 'far fa-check-circle',   'pre' => '', 'num' => (float) ($ringkasan['jurnal']['persentase_terverifikasi'] ?? 0),   'dec' => 1, 'sep' => false, 'post' => '% Terverifikasi', 'variant' => 'lp-chip--accent'],
+            ['icon' => 'far fa-calendar-alt',   'pre' => '', 'num' => (int) $ringkasan['jurnal']['perlu_review'],   'dec' => 0, 'sep' => false, 'post' => ' Perlu Review',   'variant' => 'lp-chip--soft'],
         ],
     ],
 ];
 
 // ---------------------------------------------------------------------------
-// Riwayat = arsip nyata (hasil klik Unduh) + data contoh tiap periode & jurusan
+// Riwayat = arsip dari API (tabel laporan_arsip) untuk periode terpilih
 // ---------------------------------------------------------------------------
 $maxRows = 12; // harus sama dengan MAX_ROWS di laporan.js
 $riwayat = [];
 
-foreach (LaporanData::archiveList() as $a) {
+foreach (LaporanData::archiveList($selPeriode, $selJurusan) as $a) {
     $riwayat[] = [
         'id'      => $a['id'],
         'file'    => $a['name'],
@@ -84,9 +85,6 @@ foreach (LaporanData::archiveList() as $a) {
         'periode' => $a['periode'],
         'type'    => $a['type'] ?? 'presensi',
     ];
-}
-foreach (LaporanData::sampleArchive() as $s) {
-    $riwayat[] = $s;
 }
 
 // Tentukan baris yang tampil untuk filter awal (JS menghitung ulang saat filter diganti)
@@ -104,6 +102,12 @@ foreach ($riwayat as $i => $r) {
 ob_start();
 ?>
 <div class="lp-page">
+
+    <?php if (LaporanData::lastError() !== ''): ?>
+        <div role="alert" style="margin:0 0 16px;padding:14px 18px;border-radius:12px;background:#fff1f2;border:1px solid #fecdd3;color:#9f1239;font-size:.85rem">
+            <strong>Data laporan belum bisa dimuat.</strong> <?= $e(LaporanData::lastError()) ?>
+        </div>
+    <?php endif; ?>
 
     <!-- ============================ HEADER ============================ -->
     <header class="lp-head lp-rise">

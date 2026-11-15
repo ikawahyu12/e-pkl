@@ -1,334 +1,296 @@
 <?php
-class LaporanData
+// ==========================================================================
+// LaporanData.php - penghubung halaman Laporan dengan API Laravel
+// Menggantikan data sementara (dummy) pada tahap frontend.
+//
+// Semua data (periode, jurusan, ringkasan, riwayat arsip) diambil dari
+// endpoint /api/v1/admin/laporan/* memakai token login admin di sesi.
+//
+// Catatan kunci filter di URL (supaya <select> dan JS tetap jalan):
+//   periode : "p" + id periode   (contoh: p3)
+//   jurusan : kode jurusan huruf kecil (contoh: rpl), kosong = semua jurusan
+// ==========================================================================
+
+require_once dirname(__DIR__) . '/Support/AdminApiClient.php';
+
+final class LaporanData
 {
-    // ------------------------------------------------------------------
-    // Pilihan filter
-    // ------------------------------------------------------------------
-    public static function periodeOptions(): array
+    private const BULAN = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
+
+    private static ?AdminApiClient $client = null;
+
+    /** @var array<string, mixed>|null */
+    private static ?array $filter = null;
+
+    private static string $error = '';
+
+    // ----------------------------------------------------------------------
+    // Akses API
+    // ----------------------------------------------------------------------
+
+    public static function api(): AdminApiClient
     {
-        return [
-            'ganjil-2024-2025' => 'Semester Ganjil 2024/2025',
-            'genap-2024-2025'  => 'Semester Genap 2024/2025',
-            'ganjil-2025-2026' => 'Semester Ganjil 2025/2026',
-            'genap-2025-2026'  => 'Semester Genap 2025/2026',
-        ];
-    }
-
-    public static function jurusanOptions(): array
-    {
-        return [
-            ''    => 'Semua Jurusan',
-            'rpl' => 'RPL',
-            'tkj' => 'TKJ',
-            'dkv' => 'DKV',
-        ];
-    }
-
-    public static function normalizePeriode($value): string
-    {
-        $options = self::periodeOptions();
-        $value   = (string) $value;
-        if (isset($options[$value])) {
-            return $value;
-        }
-        $keys = array_keys($options);
-        return $keys[0];
-    }
-
-    public static function normalizeJurusan($value): string
-    {
-        $value = (string) $value;
-        return array_key_exists($value, self::jurusanOptions()) ? $value : '';
-    }
-
-    public static function periodeLabel(string $periode): string
-    {
-        $options = self::periodeOptions();
-        return $options[$periode] ?? $periode;
-    }
-
-    public static function jurusanLabel(string $jurusan): string
-    {
-        $options = self::jurusanOptions();
-        return $options[$jurusan] ?? 'Semua Jurusan';
-    }
-
-    // ------------------------------------------------------------------
-    // Data siswa dasar (CONTOH)
-    // ------------------------------------------------------------------
-    private static function siswa(): array
-    {
-        return [
-            ['nis' => '22231001', 'nama' => 'Ahmad Rizky',     'kelas' => 'XII RPL 1', 'jurusan' => 'rpl', 'mitra' => 'PT Telkom Indonesia'],
-            ['nis' => '22231002', 'nama' => 'Budi Santoso',    'kelas' => 'XII RPL 1', 'jurusan' => 'rpl', 'mitra' => 'PT Telkom Indonesia'],
-            ['nis' => '22231005', 'nama' => 'Citra Dewi',      'kelas' => 'XII RPL 2', 'jurusan' => 'rpl', 'mitra' => 'CV Digital Creative'],
-            ['nis' => '22231007', 'nama' => 'Fajar Nugroho',   'kelas' => 'XII RPL 2', 'jurusan' => 'rpl', 'mitra' => 'PT Informatika Solusi Nusantara'],
-
-            ['nis' => '22231012', 'nama' => 'Dwi Prasetyo',    'kelas' => 'XII TKJ 1', 'jurusan' => 'tkj', 'mitra' => 'PT Network Solution'],
-            ['nis' => '22231013', 'nama' => 'Muhammad Faisal', 'kelas' => 'XII TKJ 1', 'jurusan' => 'tkj', 'mitra' => 'Lintasarta Datacenter'],
-            ['nis' => '22231015', 'nama' => 'Dimas Wicaksono', 'kelas' => 'XII TKJ 2', 'jurusan' => 'tkj', 'mitra' => 'Biznet Networks'],
-            ['nis' => '22231016', 'nama' => 'Rani Oktaviani',  'kelas' => 'XII TKJ 2', 'jurusan' => 'tkj', 'mitra' => 'PT Network Solution'],
-
-            ['nis' => '22231018', 'nama' => 'Eka Putri',       'kelas' => 'XII DKV 1', 'jurusan' => 'dkv', 'mitra' => 'Studio Animasi 3D'],
-            ['nis' => '22231019', 'nama' => 'Siti Nurhaliza',  'kelas' => 'XII DKV 2', 'jurusan' => 'dkv', 'mitra' => 'Studio Animasi Semesta'],
-            ['nis' => '22231021', 'nama' => 'Sarah Safitri',   'kelas' => 'XII DKV 1', 'jurusan' => 'dkv', 'mitra' => 'PT Kreatif Media Kreasi'],
-            ['nis' => '22231023', 'nama' => 'Alya Maharani',   'kelas' => 'XII DKV 2', 'jurusan' => 'dkv', 'mitra' => 'Studio Animasi 3D'],
-        ];
-    }
-
-    // ------------------------------------------------------------------
-    // Laporan: hasil berbeda untuk tiap periode & jurusan (CONTOH)
-    // ------------------------------------------------------------------
-    public static function report(string $type, string $periode, string $jurusan): array
-    {
-        $type      = $type === 'jurnal' ? 'jurnal' : 'presensi';
-        $rows      = [];
-        $sumPct    = 0.0;
-        $sumMasuk  = 0;
-        $sumVerif  = 0;
-        $sumReview = 0;
-
-        foreach (self::siswa() as $s) {
-            if ($jurusan !== '' && $s['jurusan'] !== $jurusan) {
-                continue;
-            }
-
-            // Angka contoh yang konsisten untuk kombinasi siswa + periode
-            $seed  = crc32($s['nis'] . '|' . $periode) & 0x7fffffff;
-            $total = 40 + ($seed % 6);
-            $izin  = ($seed >> 3) % 3;
-            $sakit = ($seed >> 6) % 3;
-            $alpa  = (($seed >> 9) % 5) === 0 ? 1 + (($seed >> 12) % 2) : 0;
-            $hadir = $total - $izin - $sakit - $alpa;
-            $pct   = round($hadir / $total * 100, 1);
-
-            if ($type === 'presensi') {
-                $sumPct += $pct;
-                $rows[] = [
-                    $s['nis'], $s['nama'], $s['kelas'], $s['mitra'],
-                    $hadir, $izin, $sakit, $alpa,
-                    number_format($pct, 1, '.', '') . '%',
-                ];
-            } else {
-                $masuk  = $hadir;
-                $review = ($seed >> 15) % 4;
-                $verif  = $masuk - $review;
-                $sumMasuk  += $masuk;
-                $sumVerif  += $verif;
-                $sumReview += $review;
-                $rows[] = [
-                    $s['nis'], $s['nama'], $s['kelas'], $s['mitra'],
-                    $masuk, $verif, $review,
-                ];
-            }
+        if (self::$client === null) {
+            self::$client = new AdminApiClient();
         }
 
-        $count = count($rows);
-
-        if ($type === 'presensi') {
-            $avg = $count > 0 ? $sumPct / $count : 0;
-            return [
-                'type'          => 'presensi',
-                'title'         => 'Rekap Presensi Siswa PKL',
-                'periode_label' => self::periodeLabel($periode),
-                'jurusan_label' => self::jurusanLabel($jurusan),
-                'columns'       => ['NIS', 'Nama Siswa', 'Kelas', 'Instansi Mitra', 'Hadir', 'Izin', 'Sakit', 'Alpa', 'Persentase'],
-                'rows'          => $rows,
-                'summary'       => [
-                    ['Total Siswa', $count],
-                    ['Rata-rata Kehadiran', number_format($avg, 1, '.', '') . '%'],
-                ],
-            ];
-        }
-
-        $pctVerif = $sumMasuk > 0 ? $sumVerif / $sumMasuk * 100 : 0;
-        return [
-            'type'          => 'jurnal',
-            'title'         => 'Rekap Jurnal Kegiatan Siswa PKL',
-            'periode_label' => self::periodeLabel($periode),
-            'jurusan_label' => self::jurusanLabel($jurusan),
-            'columns'       => ['NIS', 'Nama Siswa', 'Kelas', 'Instansi Mitra', 'Jurnal Masuk', 'Terverifikasi', 'Perlu Review'],
-            'rows'          => $rows,
-            'summary'       => [
-                ['Total Siswa', $count],
-                ['Total Jurnal Masuk', $sumMasuk],
-                ['Terverifikasi', number_format($pctVerif, 1, '.', '') . '%'],
-                ['Perlu Review', $sumReview],
-            ],
-        ];
+        return self::$client;
     }
 
-    // ------------------------------------------------------------------
-    // Nama berkas & keterangan
-    // ------------------------------------------------------------------
-    public static function fileName(string $type, string $periode, string $jurusan, string $ext): string
+    public static function token(): string
     {
-        $parts = explode('-', $periode); // [ganjil, 2024, 2025]
-        $smt   = ucfirst($parts[0] ?? 'Semester') . '_' . ($parts[1] ?? '') . '-' . ($parts[2] ?? '');
-        $jur   = $jurusan === '' ? 'SemuaJurusan' : strtoupper($jurusan);
-        $kind  = $type === 'jurnal' ? 'Jurnal' : 'Presensi';
-        return 'Rekap_' . $kind . '_' . $jur . '_' . $smt . '.' . $ext;
+        return (string) ($_SESSION['admin_token'] ?? '');
     }
 
-    public static function metaText(string $type, string $jurusan): string
+    /** Pesan kesalahan terakhir dari API (kosong bila semua lancar). */
+    public static function lastError(): string
     {
-        $kind = $type === 'jurnal' ? 'Logbook Harian' : 'Presensi Siswa';
-        $jur  = $jurusan === '' ? 'Semua Jurusan' : 'Jurusan ' . strtoupper($jurusan);
-        return $kind . ' • ' . $jur;
-    }
-
-    public static function formatTanggal(int $ts): string
-    {
-        $bulan = [1 => 'Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
-        $d = new DateTime('@' . $ts);
-        $d->setTimezone(new DateTimeZone('Asia/Jakarta'));
-        return $d->format('j') . ' ' . $bulan[(int) $d->format('n')] . ' ' . $d->format('Y, H:i');
-    }
-
-    public static function formatUkuran(int $bytes): string
-    {
-        if ($bytes < 1024) {
-            return $bytes . ' B';
-        }
-        if ($bytes < 1048576) {
-            return round($bytes / 1024) . ' KB';
-        }
-        return number_format($bytes / 1048576, 1, '.', '') . ' MB';
-    }
-
-    // ------------------------------------------------------------------
-    // Arsip berkas (disimpan di storage/laporan + index.json)
-    // ------------------------------------------------------------------
-        // ------------------------------------------------------------------
-    // Riwayat CONTOH untuk setiap periode & jurusan (TAHAP FRONTEND).
-    // Hapus method ini saat data resmi SMK sudah masuk database.
-    // ------------------------------------------------------------------
-    public static function sampleArchive(): array
-    {
-        // Tanggal generate terakhir tiap periode (contoh)
-        $akhir = [
-            'ganjil-2024-2025' => '2024-12-20 14:30:00',
-            'genap-2024-2025'  => '2025-06-20 10:15:00',
-            'ganjil-2025-2026' => '2025-12-19 13:40:00',
-            'genap-2025-2026'  => '2026-06-19 09:50:00',
-        ];
-
-        $zone = new DateTimeZone('Asia/Jakarta');
-        $out  = [];
-
-        foreach (self::periodeOptions() as $periode => $label) {
-            $base = (new DateTime($akhir[$periode] ?? '2025-01-01 08:00:00', $zone))->getTimestamp();
-
-            // Per periode: Semua Jurusan + masing-masing jurusan, presensi (xls) & jurnal (pdf)
-            $set = [['all', 'presensi', 'xls'], ['all', 'jurnal', 'pdf']];
-            foreach (['rpl', 'tkj', 'dkv'] as $j) {
-                $set[] = [$j, 'presensi', 'xls'];
-                $set[] = [$j, 'jurnal', 'pdf'];
-            }
-
-            foreach ($set as $n => $item) {
-                list($jur, $type, $fmt) = $item;
-
-                $seed   = crc32($periode . '|' . $jur . '|' . $type) & 0x7fffffff;
-                $jurKey = $jur === 'all' ? '' : $jur;
-
-                $out[] = [
-                    'id'      => null,
-                    'file'    => self::fileName($type, $periode, $jurKey, $fmt),
-                    'meta'    => self::metaText($type, $jurKey),
-                    'ts'      => $base - ($n * 86400) - ($seed % 7200),
-                    'format'  => $fmt,
-                    'size'    => ($fmt === 'pdf' ? 1200000 : 400000) + ($seed % 1400000),
-                    'jurusan' => $jur,
-                    'periode' => $periode,
-                    'type'    => $type,
-                ];
-            }
-        }
-
-        usort($out, static fn ($a, $b) => $b['ts'] <=> $a['ts']);
-        return $out;
-    }
-    public static function archiveDir(): string
-    {
-        $dir = dirname(__DIR__, 2) . '/storage/laporan';
-        if (!is_dir($dir)) {
-            @mkdir($dir, 0775, true);
-        }
-        // Cegah akses langsung lewat URL (berkas hanya lewat handler PHP)
-        $guard = $dir . '/.htaccess';
-        if (is_dir($dir) && !is_file($guard)) {
-            @file_put_contents($guard, "Require all denied\nDeny from all\n");
-        }
-        return $dir;
-    }
-
-    private static function indexPath(): string
-    {
-        return self::archiveDir() . '/index.json';
-    }
-
-    /** Daftar arsip, terbaru dulu. */
-    public static function archiveList(): array
-    {
-        $path = self::indexPath();
-        if (!is_file($path)) {
-            return [];
-        }
-        $data = json_decode((string) file_get_contents($path), true);
-        if (!is_array($data)) {
-            return [];
-        }
-        usort($data, static fn ($a, $b) => ($b['ts'] ?? 0) <=> ($a['ts'] ?? 0));
-        return $data;
-    }
-
-    public static function archiveFind(string $id): ?array
-    {
-        if (!preg_match('/^[a-f0-9]{12}$/', $id)) {
-            return null;
-        }
-        foreach (self::archiveList() as $entry) {
-            if (($entry['id'] ?? '') === $id) {
-                return $entry;
-            }
-        }
-        return null;
-    }
-
-    public static function archivePath(array $entry): string
-    {
-        return self::archiveDir() . '/' . basename((string) $entry['stored']);
+        return self::$error;
     }
 
     /**
-     * Simpan berkas ke arsip dan catat di index.
-     * @return array entri arsip yang baru dibuat
+     * Jalankan satu panggilan API lalu ambil isi "data"-nya.
+     * Mengembalikan null (dan mengisi lastError) bila gagal.
+     *
+     * @return array<string, mixed>|null
      */
-    public static function archiveAdd(string $content, string $displayName, string $storedExt, array $meta): array
+    private static function ambilData(callable $panggil): ?array
     {
-        $id     = bin2hex(random_bytes(6));
-        $stored = $id . '_' . preg_replace('/\.[^.]+$/', '', $displayName) . '.' . $storedExt;
+        try {
+            $res = $panggil();
+        } catch (Throwable $ex) {
+            self::$error = 'Tidak dapat terhubung ke server API.';
 
-        file_put_contents(self::archiveDir() . '/' . $stored, $content, LOCK_EX);
+            return null;
+        }
 
-        $entry = [
-            'id'      => $id,
-            'name'    => $displayName,
-            'stored'  => $stored,
-            'type'    => $meta['type'],
-            'format'  => $meta['format'],   // xls | pdf
-            'periode' => $meta['periode'],
-            'jurusan' => $meta['jurusan'] === '' ? 'all' : $meta['jurusan'],
-            'meta'    => $meta['meta'],
-            'ts'      => time(),
-            'size'    => strlen($content),
+        $status = (int) ($res['status'] ?? 0);
+        $body = is_array($res['body'] ?? null) ? $res['body'] : [];
+
+        if ($status === 200 && is_array($body['data'] ?? null)) {
+            return $body['data'];
+        }
+
+        if ($status === 401 || $status === 403) {
+            self::$error = 'Sesi login berakhir atau tidak memiliki akses. Silakan login ulang.';
+        } else {
+            self::$error = (string) ($body['message'] ?? ('Server API mengembalikan status ' . $status . '.'));
+        }
+
+        return null;
+    }
+
+    // ----------------------------------------------------------------------
+    // Filter (periode & jurusan)
+    // ----------------------------------------------------------------------
+
+    /**
+     * @return array{periode: array<int, array<string, mixed>>, jurusan: array<int, array<string, mixed>>, periode_default_id: int|null}
+     */
+    public static function filter(): array
+    {
+        if (self::$filter !== null) {
+            return self::$filter;
+        }
+
+        self::$filter = ['periode' => [], 'jurusan' => [], 'periode_default_id' => null];
+
+        $data = self::ambilData(fn () => self::api()->laporanFilter(self::token()));
+
+        if ($data !== null) {
+            self::$filter = [
+                'periode' => is_array($data['periode'] ?? null) ? $data['periode'] : [],
+                'jurusan' => is_array($data['jurusan'] ?? null) ? $data['jurusan'] : [],
+                'periode_default_id' => isset($data['periode_default_id']) ? (int) $data['periode_default_id'] : null,
+            ];
+        }
+
+        return self::$filter;
+    }
+
+    /** @return array<string, string> kunci "pN" => nama periode */
+    public static function periodeOptions(): array
+    {
+        $opsi = [];
+
+        foreach (self::filter()['periode'] as $periode) {
+            $opsi['p' . (int) $periode['id']] = (string) $periode['nama'];
+        }
+
+        return $opsi !== [] ? $opsi : ['' => 'Belum ada periode PKL'];
+    }
+
+    /** @return array<string, string> kunci jurusan (huruf kecil) => label; '' = semua */
+    public static function jurusanOptions(): array
+    {
+        $opsi = ['' => 'Semua Jurusan'];
+
+        foreach (self::filter()['jurusan'] as $jurusan) {
+            $opsi[self::jurusanKey((string) $jurusan['kode'])] = $jurusan['nama'] . ' (' . $jurusan['kode'] . ')';
+        }
+
+        return $opsi;
+    }
+
+    public static function normalizePeriode($mentah): string
+    {
+        $mentah = is_string($mentah) ? trim($mentah) : '';
+
+        $opsi = self::periodeOptions();
+
+        if ($mentah !== '' && isset($opsi[$mentah])) {
+            return $mentah;
+        }
+
+        $bawaan = self::filter()['periode_default_id'];
+
+        return $bawaan !== null ? 'p' . $bawaan : '';
+    }
+
+    public static function normalizeJurusan($mentah): string
+    {
+        $mentah = is_string($mentah) ? strtolower(trim($mentah)) : '';
+
+        $opsi = self::jurusanOptions();
+
+        return ($mentah !== '' && isset($opsi[$mentah])) ? $mentah : '';
+    }
+
+    /** "p3" -> 3 (null bila tidak valid) */
+    public static function periodeId(string $kunci): ?int
+    {
+        return preg_match('/^p(\d+)$/', $kunci, $cocok) === 1 ? (int) $cocok[1] : null;
+    }
+
+    /** "rpl" -> "RPL" (kode asli untuk API); null bila semua jurusan */
+    public static function jurusanKode(string $kunci): ?string
+    {
+        if ($kunci === '') {
+            return null;
+        }
+
+        foreach (self::filter()['jurusan'] as $jurusan) {
+            if (self::jurusanKey((string) $jurusan['kode']) === $kunci) {
+                return (string) $jurusan['kode'];
+            }
+        }
+
+        return null;
+    }
+
+    private static function jurusanKey(string $kode): string
+    {
+        $kunci = preg_replace('/[^a-z0-9_-]/', '-', strtolower($kode)) ?? '';
+
+        // Kunci angka murni akan diubah PHP menjadi integer; beri awalan agar tetap string
+        return ctype_digit($kunci) ? 'j' . $kunci : $kunci;
+    }
+
+    // ----------------------------------------------------------------------
+    // Ringkasan kartu & riwayat arsip
+    // ----------------------------------------------------------------------
+
+    /**
+     * Angka ringkas untuk dua kartu laporan.
+     *
+     * @return array{presensi: array<string, mixed>, jurnal: array<string, mixed>}
+     */
+    public static function ringkasan(string $periodeKey, string $jurusanKey): array
+    {
+        $hasil = [
+            'presensi' => ['total_siswa' => 0, 'persentase_kehadiran' => null, 'presensi_terakhir' => null],
+            'jurnal' => ['jurnal_masuk' => 0, 'persentase_terverifikasi' => null, 'perlu_review' => 0],
         ];
 
-        $list   = self::archiveList();
-        $list[] = $entry;
-        file_put_contents(self::indexPath(), json_encode($list, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE), LOCK_EX);
+        $periodeId = self::periodeId($periodeKey);
 
-        return $entry;
+        if ($periodeId === null) {
+            return $hasil;
+        }
+
+        $query = ['periode_id' => $periodeId, 'jurusan' => self::jurusanKode($jurusanKey)];
+        $data = self::ambilData(fn () => self::api()->laporanRingkasan(self::token(), $query));
+
+        if ($data === null) {
+            return $hasil;
+        }
+
+        foreach (['presensi', 'jurnal'] as $jenis) {
+            if (is_array($data[$jenis] ?? null)) {
+                $hasil[$jenis] = array_merge($hasil[$jenis], $data[$jenis]);
+            }
+        }
+
+        return $hasil;
+    }
+
+    /**
+     * Riwayat unduhan untuk periode terpilih, dalam bentuk yang dipakai view.
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    public static function archiveList(string $periodeKey, string $jurusanKey = ''): array
+    {
+        $periodeId = self::periodeId($periodeKey);
+
+        if ($periodeId === null) {
+            return [];
+        }
+
+        $data = self::ambilData(fn () => self::api()->laporanArsip(self::token(), ['periode_id' => $periodeId]));
+        $baris = [];
+
+        foreach ($data['arsip'] ?? [] as $arsip) {
+            $baris[] = [
+                'id' => (string) $arsip['id'],
+                'name' => (string) $arsip['nama_berkas'],
+                'meta' => (string) ($arsip['keterangan'] ?? ''),
+                'ts' => (int) strtotime((string) $arsip['dibuat_pada']),
+                'format' => (string) $arsip['format'],
+                'size' => (int) $arsip['ukuran'],
+                'jurusan' => $arsip['jurusan'] === null ? 'all' : self::jurusanKey((string) $arsip['jurusan']),
+                'periode' => 'p' . (int) $arsip['periode_id'],
+                'type' => (string) $arsip['jenis'],
+            ];
+        }
+
+        return $baris;
+    }
+
+    // ----------------------------------------------------------------------
+    // Format tampilan
+    // ----------------------------------------------------------------------
+
+    /** 1793842530 -> "5 Nov 2026, 09:15" (WIB) */
+    public static function formatTanggal(int $ts): string
+    {
+        $waktu = (new DateTimeImmutable('@' . $ts))->setTimezone(new DateTimeZone('Asia/Jakarta'));
+
+        return $waktu->format('j') . ' ' . self::BULAN[(int) $waktu->format('n') - 1] . ' ' . $waktu->format('Y, H:i');
+    }
+
+    /** "2026-11-05" -> "5 Nov 2026" */
+    public static function formatTanggalSingkat(string $tanggal): string
+    {
+        $ts = strtotime($tanggal);
+
+        if ($ts === false) {
+            return $tanggal;
+        }
+
+        return date('j', $ts) . ' ' . self::BULAN[(int) date('n', $ts) - 1] . ' ' . date('Y', $ts);
+    }
+
+    public static function formatUkuran(int $byte): string
+    {
+        if ($byte < 1024) {
+            return $byte . ' B';
+        }
+
+        if ($byte < 1048576) {
+            return number_format($byte / 1024, 1, ',', '.') . ' KB';
+        }
+
+        return number_format($byte / 1048576, 1, ',', '.') . ' MB';
     }
 }

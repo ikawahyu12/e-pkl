@@ -209,8 +209,12 @@
     }
 
     function onFilterChange() {
-        syncExport();
-        applyFilter(true);
+        // Angka ringkasan & riwayat berasal dari API, jadi muat ulang halaman
+        // dengan filter baru agar datanya selalu sesuai periode & jurusan.
+        window.location.href = '?page=laporan'
+            + '&periode=' + encodeURIComponent(periode.value)
+            + '&jurusan=' + encodeURIComponent(jurusan.value)
+            + '#lpHistory';
     }
 
     /** Ambil ulang daftar riwayat dari server tanpa memuat ulang halaman. */

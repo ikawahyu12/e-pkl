@@ -369,6 +369,187 @@ final class AdminApiClient
         );
     }
 
+    // ------------------------------------------------------------------
+    // Laporan & Rekapitulasi (v1/admin/laporan)
+    // ------------------------------------------------------------------
+
+    public function laporanFilter(string $token): array
+    {
+        return $this->request('GET', '/api/v1/admin/laporan/filter', null, $token);
+    }
+
+    public function laporanRingkasan(string $token, array $filters = []): array
+    {
+        return $this->request('GET', '/api/v1/admin/laporan/ringkasan' . $this->laporanQuery($filters), null, $token);
+    }
+
+    public function laporanPresensi(string $token, array $filters = []): array
+    {
+        return $this->request('GET', '/api/v1/admin/laporan/presensi' . $this->laporanQuery($filters), null, $token);
+    }
+
+    public function laporanJurnal(string $token, array $filters = []): array
+    {
+        return $this->request('GET', '/api/v1/admin/laporan/jurnal' . $this->laporanQuery($filters), null, $token);
+    }
+
+    public function laporanArsip(string $token, array $filters = []): array
+    {
+        return $this->request('GET', '/api/v1/admin/laporan/arsip' . $this->laporanQuery($filters), null, $token);
+    }
+
+    /**
+     * Buat + arsipkan laporan. Balasan berupa berkas (bukan JSON), jadi memakai requestRaw().
+     *
+     * @param array{jenis: string, format: string, periode_id?: int, jurusan?: string} $payload
+     * @return array{status: int, body: string, headers: array<string, string>}
+     */
+    public function laporanEkspor(string $token, array $payload): array
+    {
+        return $this->requestRaw('POST', '/api/v1/admin/laporan/arsip', $payload, $token);
+    }
+
+    /**
+     * Unduh ulang berkas dari arsip.
+     *
+     * @return array{status: int, body: string, headers: array<string, string>}
+     */
+    public function laporanUnduh(string $token, int $id): array
+    {
+        return $this->requestRaw('GET', '/api/v1/admin/laporan/arsip/' . $id . '/unduh', null, $token);
+    }
+
+    private function laporanQuery(array $filters): string
+    {
+        $query = http_build_query(array_filter(
+            $filters,
+            static fn ($value): bool => $value !== null && $value !== ''
+        ));
+
+        return $query !== '' ? '?' . $query : '';
+    }
+
+    /**
+     * Seperti request(), tetapi mengembalikan isi mentah (berkas) beserta header
+     * balasan. Dipakai untuk unduhan laporan.
+     *
+     * @return array{status: int, body: string, headers: array<string, string>}
+     */
+    private function requestRaw(
+        string $method,
+        string $path,
+        ?array $payload = null,
+        ?string $token = null
+    ): array {
+        // Accept JSON agar kesalahan (401/422) dibalas JSON, bukan redirect
+        $headers = ['Accept: application/json'];
+        $jsonPayload = null;
+
+        if ($payload !== null) {
+            $jsonPayload = json_encode($payload);
+
+            if ($jsonPayload === false) {
+                throw new RuntimeException('Gagal menyiapkan data permintaan API.');
+            }
+            $headers[] = 'Content-Type: application/json';
+        }
+
+        if ($token !== null && $token !== '') {
+            $headers[] = 'Authorization: Bearer ' . $token;
+        }
+
+        $url = $this->baseUrl . $path;
+        $responseHeaders = [];
+        $httpStatus = 0;
+
+        if (function_exists('curl_init')) {
+            $curl = curl_init($url);
+
+            if ($curl === false) {
+                throw new RuntimeException('Tidak dapat memulai koneksi API.');
+            }
+
+            $options = [
+                CURLOPT_RETURNTRANSFER => true,
+                CURLOPT_CUSTOMREQUEST => $method,
+                CURLOPT_CONNECTTIMEOUT => 5,
+                CURLOPT_TIMEOUT => 60,
+                CURLOPT_HTTPHEADER => $headers,
+                CURLOPT_HEADERFUNCTION => static function ($handle, string $line) use (&$responseHeaders): int {
+                    $parts = explode(':', $line, 2);
+
+                    if (count($parts) === 2) {
+                        $responseHeaders[strtolower(trim($parts[0]))] = trim($parts[1]);
+                    }
+
+                    return strlen($line);
+                },
+            ];
+
+            if ($jsonPayload !== null) {
+                $options[CURLOPT_POSTFIELDS] = $jsonPayload;
+            }
+
+            curl_setopt_array($curl, $options);
+
+            $responseBody = curl_exec($curl);
+            $curlError = curl_error($curl);
+            $httpStatus = (int) curl_getinfo($curl, CURLINFO_HTTP_CODE);
+
+            curl_close($curl);
+
+            if ($responseBody === false) {
+                throw new RuntimeException(
+                    $curlError !== '' ? $curlError : 'Koneksi ke API gagal.'
+                );
+            }
+        } else {
+            $streamOptions = [
+                'method' => $method,
+                'header' => implode("\r\n", $headers),
+                'ignore_errors' => true,
+                'timeout' => 60,
+            ];
+
+            if ($jsonPayload !== null) {
+                $streamOptions['content'] = $jsonPayload;
+            }
+
+            $context = stream_context_create(['http' => $streamOptions]);
+            $streamError = null;
+
+            set_error_handler(static function (int $severity, string $message) use (&$streamError): bool {
+                $streamError = $message;
+                return true;
+            });
+
+            try {
+                $responseBody = file_get_contents($url, false, $context);
+            } finally {
+                restore_error_handler();
+            }
+
+            if ($responseBody === false) {
+                throw new RuntimeException($streamError ?? 'Koneksi ke API gagal.');
+            }
+
+            foreach ($http_response_header ?? [] as $responseHeader) {
+                if (preg_match('/^HTTP\/\S+\s+(\d+)/', $responseHeader, $matches)) {
+                    $httpStatus = (int) $matches[1];
+                } elseif (strpos($responseHeader, ':') !== false) {
+                    [$name, $value] = explode(':', $responseHeader, 2);
+                    $responseHeaders[strtolower(trim($name))] = trim($value);
+                }
+            }
+        }
+
+        return [
+            'status' => $httpStatus,
+            'body' => (string) $responseBody,
+            'headers' => $responseHeaders,
+        ];
+    }
+
     private function detectApiUrl(): string
     {
         $scriptPath = str_replace('\\', '/', $_SERVER['SCRIPT_NAME'] ?? '');

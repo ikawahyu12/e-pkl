@@ -7,19 +7,21 @@ use App\Http\Controllers\AdminStudentController;
 use App\Http\Controllers\AdminTeacherController;
 use App\Http\Controllers\AdminUserController;
 use App\Http\Controllers\Api\V1\Admin\GuruController as AdminGuruController;
+use App\Http\Controllers\Api\V1\Admin\LaporanController;
 use App\Http\Controllers\Api\V1\Guru\AgendaController;
 use App\Http\Controllers\Api\V1\Guru\EmailChangeController;
 use App\Http\Controllers\Api\V1\Guru\JurnalController as GuruJurnalController;
 use App\Http\Controllers\Api\V1\Guru\ProfilController as GuruProfilController;
+use App\Http\Controllers\Api\V1\NotifikasiController;
 use App\Http\Controllers\Api\V1\Siswa\IzinController;
 use App\Http\Controllers\Api\V1\Siswa\JurnalController;
 use App\Http\Controllers\Api\V1\Siswa\PresensiController;
 use App\Http\Controllers\Api\V1\Siswa\ProfilController;
 use App\Http\Controllers\Api\V1\Siswa\RiwayatController;
+use App\Http\Controllers\GuruAuthController;
 use App\Http\Controllers\PasswordController;
 use App\Http\Controllers\PasswordResetController;
 use App\Http\Controllers\SelfRegistrationController;
-use App\Http\Controllers\GuruAuthController;
 use App\Http\Controllers\SiswaAuthController;
 use App\Http\Middleware\EnsureAdminRole;
 use App\Http\Middleware\EnsureGuruRole;
@@ -265,4 +267,33 @@ Route::prefix('v1/admin/master-data')->middleware([
     Route::put('/kuota/{instansi}/{periode}', [AdminMasterDataController::class, 'kuotaUpsert'])
         ->whereNumber('instansi')
         ->whereNumber('periode');
+});
+
+// Laporan & Rekapitulasi Admin
+Route::prefix('v1/admin/laporan')->middleware([
+    EnsureSanctumTokenStorage::class,
+    'auth:sanctum',
+    EnsureAdminRole::class,
+    'throttle:60,1',
+])->group(function (): void {
+    Route::get('/filter', [LaporanController::class, 'filter']);
+    Route::get('/ringkasan', [LaporanController::class, 'ringkasan']);
+    Route::get('/presensi', [LaporanController::class, 'presensi']);
+    Route::get('/jurnal', [LaporanController::class, 'jurnal']);
+
+    // Riwayat unduhan: buat + arsipkan berkas, daftar, dan unduh ulang
+    Route::get('/arsip', [LaporanController::class, 'arsip']);
+    Route::post('/arsip', [LaporanController::class, 'ekspor']);
+    Route::get('/arsip/{id}/unduh', [LaporanController::class, 'unduh'])->whereNumber('id');
+});
+
+// Notifikasi
+Route::prefix('v1')->middleware([
+    EnsureSanctumTokenStorage::class,
+    'auth:sanctum',
+])->group(function (): void {
+    Route::get('/notifikasi', [NotifikasiController::class, 'index']);
+    Route::get('/notifikasi/jumlah-belum-dibaca', [NotifikasiController::class, 'jumlahBelumDibaca']);
+    Route::patch('/notifikasi/dibaca-semua', [NotifikasiController::class, 'tandaiSemuaDibaca']);
+    Route::patch('/notifikasi/{id}/dibaca', [NotifikasiController::class, 'tandaiDibaca']);
 });
