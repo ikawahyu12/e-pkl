@@ -1760,8 +1760,28 @@ switch ($routePage) {
         require $adminRoot . '/app/Views/admin/siswa/edit.php';
         break;
 
-    case 'detail':
+        case 'detail':
         require $adminRoot . '/app/Views/admin/siswa/detail.php';
+        break;
+
+    // Rute Instansi milik tim (dari main). create/edit/detail-mitra sudah
+    // ditangani lebih dulu oleh blok master_data di atas, jadi tiga case ini
+    // tidak akan tercapai selama blok di atas ada. Pastikan dengan tim
+    // versi mana yang dipakai.
+    case 'create-mitra':
+        require $adminRoot . '/app/Views/admin/instansi/create.php';
+        break;
+
+    case 'edit-mitra':
+        require $adminRoot . '/app/Views/admin/instansi/edit.php';
+        break;
+
+    case 'detail-mitra':
+        require $adminRoot . '/app/Views/admin/instansi/detail.php';
+        break;
+
+    case 'delete-mitra':
+        require $adminRoot . '/app/Views/admin/instansi/delete.php';
         break;
 
     case 'laporan':
@@ -1773,7 +1793,15 @@ switch ($routePage) {
         break;
 
     case 'dashboard':
-        require $adminRoot . '/app/Views/admin/dashboard.php';
+        require_once $adminRoot . '/app/Models/GeofenceData.php';
+        require_once $adminRoot . '/app/Controllers/DashboardController.php';
+        (new App\Controllers\DashboardController())->index($routerUrl . '?page=dashboard-instansi');
+        break;
+
+    case 'dashboard-instansi':
+        require_once $adminRoot . '/app/Models/GeofenceData.php';
+        require_once $adminRoot . '/app/Controllers/DashboardController.php';
+        (new App\Controllers\DashboardController())->instanceDetails();
         break;
 
     default:

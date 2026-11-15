@@ -12,10 +12,25 @@ class PresensiController extends Controller
     /** Halaman utama presensi: url('presensi') */
     public function index()
     {
+        $api = new ApiClient();
+        $response = $api->get('siswa/presensi', $_SESSION['api_token'] ?? null);
+        $statusCode = (int) ($response['status'] ?? 502);
+
+        if ($statusCode === 401) {
+            unset($_SESSION['api_token'], $_SESSION['user']);
+        }
+
         $this->render('siswa/presensi/index', [
             'title'    => 'Presensi Harian',
             'showBack' => true,
             'wide'     => true,
+            'presensiData' => ($response['success'] ?? false) === true
+                && is_array($response['data'] ?? null)
+                    ? $response['data']
+                    : [],
+            'presensiError' => ($response['success'] ?? false) === true
+                ? null
+                : ($response['message'] ?? 'Jadwal presensi gagal dimuat dari server.'),
         ]);
     }
 
@@ -49,8 +64,14 @@ class PresensiController extends Controller
         $type = $input['type'] ?? null;
         $latitude = $input['latitude'] ?? null;
         $longitude = $input['longitude'] ?? null;
+        $sessionId = filter_var(
+            $input['session_id'] ?? null,
+            FILTER_VALIDATE_INT,
+            ['options' => ['min_range' => 1]]
+        );
         if (
             !in_array($type, ['datang', 'pulang'], true)
+            || $sessionId === false
             || !is_numeric($latitude)
             || !is_numeric($longitude)
             || !is_finite((float) $latitude)
@@ -60,12 +81,13 @@ class PresensiController extends Controller
             || (float) $longitude < -180
             || (float) $longitude > 180
         ) {
-            $this->respond('error', 'Data lokasi atau jenis presensi tidak valid.', 422);
+            $this->respond('error', 'Data sesi, lokasi, atau jenis presensi tidak valid.', 422);
             return;
         }
 
         $api = new ApiClient();
         $response = $api->post('siswa/presensi', [
+            'session_id' => $sessionId,
             'type' => $type,
             'latitude' => (float) $latitude,
             'longitude' => (float) $longitude,

@@ -6,6 +6,8 @@ use App\Models\Role;
 use App\Models\Siswa;
 use App\Models\Guru;
 use App\Models\User;
+use App\Services\GuruAuthService;
+use App\Services\SiswaAuthService;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Schema;
@@ -890,6 +892,33 @@ class AdminStudentTeacherManagementTest extends TestCase
             'kelas_id' => null,
         ])->assertOk()
             ->assertJsonPath('data.kelas_id', null);
+    }
+
+    public function test_successful_student_and_teacher_logins_record_last_login(): void
+    {
+        $student = $this->createUser('siswa', 'student-user');
+        \DB::table('siswa')->insert([
+            'user_id' => $student->id,
+            'nisn' => '1234567890',
+            'nis' => '12345',
+            'nama_lengkap' => 'Siswa Uji',
+            'kelas_id' => null,
+            'status_siswa' => 'aktif',
+        ]);
+
+        $teacher = $this->createUser('guru', 'teacher-user');
+        \DB::table('guru')->insert([
+            'user_id' => $teacher->id,
+            'nip' => '19870001',
+            'nama_lengkap' => 'Guru Uji',
+            'status_bimbingan' => 'aktif',
+        ]);
+
+        $this->assertNotNull(app(SiswaAuthService::class)->login('student-user', 'password-aman'));
+        $this->assertNotNull(app(GuruAuthService::class)->login('teacher-user', 'password-aman'));
+
+        $this->assertNotNull($student->fresh()->terakhir_login_at);
+        $this->assertNotNull($teacher->fresh()->terakhir_login_at);
     }
 
     public function test_student_and_teacher_management_requires_admin_authentication(): void

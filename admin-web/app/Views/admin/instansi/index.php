@@ -26,6 +26,7 @@ $offset = ($page - 1) * $limit;
 
 // ==========================================
 // 2. Hitung total data dan statistik dengan skema database epkl.
+// ==========================================
 $totalQuery = mysqli_query($koneksi, "SELECT COUNT(*) AS total FROM instansi");
 if (!$totalQuery) {
     error_log('Gagal menghitung data instansi: ' . mysqli_error($koneksi));
@@ -287,6 +288,7 @@ ob_start();
                                 <td class="sl-aksi">
                                     <a class="a-detail" href="?page=detail-mitra&id=<?= (int)$m['id_instansi'] ?>">Detail</a>
                                     <a class="a-edit" href="?page=edit-mitra&id=<?= (int)$m['id_instansi'] ?>">Edit</a>
+                                    <!-- TOMBOL DIUBAH MENJADI HAPUS -->
                                     <button type="button" class="a-hapus sl-hapus"
                                             data-id="<?= (int)$m['id_instansi'] ?>"
                                             data-nama="<?= $e($m['nama_instansi']) ?>"
@@ -345,7 +347,7 @@ ob_start();
 <div class="modal fade sl-modal" id="slModalHapus" tabindex="-1" role="dialog" aria-labelledby="slModalHapusJudul" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered" role="document">
         <div class="modal-content p-2">
-            <form method="POST" action="?page=hapus-mitra">
+            <form method="POST" action="?page=delete-mitra">
                 <div class="modal-body">
                     <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrfToken, ENT_QUOTES, 'UTF-8') ?>">
                     <input type="hidden" name="delete_id" id="slHId">
@@ -354,11 +356,11 @@ ob_start();
                     <div class="d-flex mb-3" style="gap:1rem;">
                         <div class="sl-trash"><i class="fas fa-trash-alt"></i></div>
                         <div>
-                            <h5 class="font-weight-bold mb-1" id="slModalHapusJudul">Hapus Instansi Mitra?</h5>
+                            <h5 class="font-weight-bold mb-1 text-danger" id="slModalHapusJudul">Hapus Permanen Instansi?</h5>
                             <p class="small text-muted mb-0">
-                                Apakah Anda yakin ingin menonaktifkan instansi
+                                Apakah Anda yakin ingin menghapus permanen instansi
                                 <strong id="slHNama">-</strong>? 
-                                Riwayat penempatan PKL akan tetap disimpan.
+                                <span class="text-danger font-weight-bold">Data yang dihapus tidak dapat dikembalikan.</span>
                             </p>
                         </div>
                     </div>
@@ -374,14 +376,14 @@ ob_start();
                     <!-- Alert Peringatan -->
                     <div class="sl-warn d-flex mb-3" style="gap:.5rem;">
                         <i class="fas fa-exclamation-triangle mt-1"></i>
-                        <span>Pastikan koordinasi dengan pihak sekolah dan instansi sebelum menghapus data mitra aktif.</span>
+                        <span>Menghapus instansi akan menghapus seluruh data terkait secara permanen. Pastikan tidak ada siswa PKL aktif di instansi ini.</span>
                     </div>
 
                     <!-- Tombol Aksi -->
                     <div class="d-flex justify-content-end" style="gap:.5rem;">
                         <button type="button" class="btn btn-light border btn-sm px-4" data-dismiss="modal">Batal</button>
-                        <button type="submit" class="btn btn-warning btn-sm px-3" id="slKonfirmasiHapus">
-                            <i class="fas fa-ban mr-1"></i> Ya, Nonaktifkan
+                        <button type="submit" class="btn btn-danger btn-sm px-3" id="slKonfirmasiHapus">
+                            <i class="fas fa-trash-alt mr-1"></i> Ya, Hapus Permanen
                         </button>
                     </div>
                 </div>

@@ -1,4 +1,23 @@
 <?php
+/** @var list<array{id: int|string, nama: string}> $instansiList Disediakan oleh DashboardController. */
+/**
+ * @var array{
+ *     id: int|string,
+ *     nama: string,
+ *     jenis: string|null,
+ *     alamat: string,
+ *     kota: string|null,
+ *     provinsi: string|null,
+ *     latitude: string|null,
+ *     longitude: string|null,
+ *     radius_geofence_meter: int|string|null,
+ *     alamat_lengkap: string,
+ *     student_location_available: bool,
+ *     inside_count: int|null,
+ *     outside_count: int|null
+ * }|null $selectedInstansi Disediakan oleh DashboardController.
+ */
+/** @var string $geofenceEndpoint Disediakan oleh DashboardController. */
 $pageTitle = 'Dashboard Monitoring PKL';
 $pageSubtitle = 'Pantau aktivitas PKL secara realtime';
 $pageStatusLabel = 'Realtime';
@@ -234,11 +253,47 @@ ob_start();
         overflow: hidden;
     }
 
-    .geofence-grid-bg {
-        background-image: linear-gradient(to right, #e2e8f0 1px, transparent 1px), linear-gradient(to bottom, #e2e8f0 1px, transparent 1px);
-        background-size: 40px 40px;
+    #geofenceMap {
         width: 100%;
         height: 100%;
+    }
+
+    .geofence-map-message {
+        position: absolute;
+        inset: 0;
+        z-index: 500;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 1rem;
+        background: rgba(248, 250, 252, .92);
+        color: #677588;
+        text-align: center;
+    }
+
+    .geofence-info-card {
+        position: absolute;
+        top: 16px;
+        left: 16px;
+        z-index: 500;
+        max-width: min(360px, calc(100% - 32px));
+    }
+
+    .geofence-info-card .geofence-address {
+        overflow-wrap: anywhere;
+    }
+
+    .geofence-instance-select {
+        min-width: 220px;
+        max-width: 100%;
+    }
+
+    .geofence-instance-details {
+        font-size: .78rem;
+    }
+
+    .geofence-popup {
+        line-height: 1.5;
     }
 
     @media (max-width: 575.98px) {
@@ -289,42 +344,90 @@ ob_start();
             <h2 class="dashboard-table-title mb-1" id="geofenceTitle">Pemetaan Geofencing & Koordinat</h2>
             <div class="dashboard-date-label">Visualisasi radius absensi otomatis instansi mitra</div>
         </div>
-        <div class="d-flex align-items-center mt-2 mt-md-0">
-            <span class="btn btn-sm btn-light border mr-2 font-weight-bold text-secondary">
-                <i class="fas fa-map-marker-alt text-danger mr-1"></i> PT. Informatika Solusi Nusantara (50m)
+        <div class="d-flex align-items-center flex-wrap mt-2 mt-md-0">
+            <label class="sr-only" for="geofenceInstanceSelect">Pilih instansi</label>
+            <select class="custom-select custom-select-sm geofence-instance-select mr-2 mb-2 mb-sm-0"
+                id="geofenceInstanceSelect" aria-label="Pilih instansi untuk pemetaan geofencing"
+                <?= $instansiList === [] ? 'disabled' : '' ?>>
+                <?php foreach ($instansiList as $instance): ?>
+                    <option value="<?= $e($instance['id']) ?>"
+                        <?= $selectedInstansi !== null && (int) $selectedInstansi['id'] === (int) $instance['id'] ? 'selected' : '' ?>>
+                        <?= $e($instance['nama']) ?>
+                    </option>
+                <?php endforeach; ?>
+            </select>
+            <span class="badge badge-primary p-2" id="geofenceRadiusBadge">
+                <?= $selectedInstansi !== null && (float) ($selectedInstansi['radius_geofence_meter'] ?? 0) > 0
+                    ? 'Radius Aktif: ' . $e($selectedInstansi['radius_geofence_meter']) . ' Meter'
+                    : 'Radius geofencing belum diatur' ?>
             </span>
-            <span class="badge badge-primary p-2">Radius Aktif: 50 Meter</span>
         </div>
     </div>
     <div class="card-body">
-        <div class="geofence-map-container mb-3 d-flex align-items-center justify-content-center">
-            <div class="geofence-grid-bg position-absolute"></div>
-
-            <!-- Info Card di dalam Map -->
-            <div class="position-absolute p-2 bg-white rounded shadow-sm border" style="top: 20px; left: 20px; z-index: 5;">
-                <div class="font-weight-bold text-dark" style="font-size: 0.8rem;">PT. Informatika Solusi Nusantara</div>
-                <div class="text-muted" style="font-size: 0.7rem;">Koordinat: -6.9174, 107.6191 • Radius Presensi: 50m</div>
+        <div class="geofence-map-container mb-3">
+            <div id="geofenceMap" role="application" aria-label="Peta lokasi instansi"></div>
+            <div class="geofence-info-card p-2 bg-white rounded shadow-sm border" id="geofenceInfoCard"
+                <?= $selectedInstansi === null ? 'hidden' : '' ?>>
+                <div class="font-weight-bold text-dark" style="font-size: 0.8rem;" id="geofenceInfoName">
+                    <?= $e($selectedInstansi['nama'] ?? '') ?>
+                </div>
+                <div class="text-muted geofence-address" style="font-size: 0.7rem;" id="geofenceInfoAddress">
+                    <?= $e($selectedInstansi['alamat_lengkap'] ?? '') ?>
+                </div>
+                <div class="text-muted" style="font-size: 0.7rem;" id="geofenceInfoCoordinates">
+                    <?php if ($selectedInstansi !== null && $selectedInstansi['latitude'] !== null && $selectedInstansi['longitude'] !== null): ?>
+                        Koordinat: <?= $e($selectedInstansi['latitude']) ?>, <?= $e($selectedInstansi['longitude']) ?>
+                    <?php else: ?>
+                        Koordinat belum tersedia
+                    <?php endif; ?>
+                </div>
+                <div class="text-muted" style="font-size: 0.7rem;" id="geofenceInfoRadius">
+                    <?= $selectedInstansi !== null && (float) ($selectedInstansi['radius_geofence_meter'] ?? 0) > 0
+                        ? 'Radius geofencing: ' . $e($selectedInstansi['radius_geofence_meter']) . ' Meter'
+                        : 'Radius geofencing belum diatur' ?>
+                </div>
             </div>
+            <div class="geofence-map-message" id="geofenceMapMessage"
+                <?= $selectedInstansi !== null
+                    && $selectedInstansi['latitude'] !== null
+                    && $selectedInstansi['longitude'] !== null
+                    ? 'hidden'
+                    : '' ?>>
+                <?= $selectedInstansi === null
+                    ? 'Tidak ada instansi aktif.'
+                    : 'Koordinat lokasi instansi belum tersedia.' ?>
+            </div>
+        </div>
 
-            <!-- Titik Pusat / Instansi -->
-            <div class="position-absolute rounded-circle bg-primary border border-white shadow" style="width: 16px; height: 16px; top: 52%; left: 52%; z-index: 4; transform: translate(-50%, -50%);"></div>
-            <!-- Lingkaran Radius Geofence -->
-            <div class="position-absolute rounded-circle border border-primary border-dashed" style="width: 140px; height: 140px; top: 52%; left: 52%; z-index: 3; transform: translate(-50%, -50%); background: rgba(40, 117, 189, 0.08);"></div>
-
-            <!-- Titik Siswa di dalam / luar radius -->
-            <div class="position-absolute rounded-circle bg-primary shadow-sm" style="width: 10px; height: 10px; top: 45%; left: 48%; z-index: 5;" title="Siswa dalam radius"></div>
-            <div class="position-absolute rounded-circle bg-primary shadow-sm" style="width: 10px; height: 10px; top: 58%; left: 46%; z-index: 5;" title="Siswa dalam radius"></div>
-            <div class="position-absolute rounded-circle bg-primary shadow-sm" style="width: 10px; height: 10px; top: 53%; left: 58%; z-index: 5;" title="Siswa dalam radius"></div>
-            <div class="position-absolute rounded-circle bg-danger shadow-sm" style="width: 10px; height: 10px; top: 43%; left: 42%; z-index: 5;" title="Siswa di luar radius"></div>
+        <div class="geofence-instance-details text-muted mb-3" id="geofenceInstanceDetails">
+            <div><strong>Jenis instansi:</strong> <span id="geofenceInfoType"><?= $e($selectedInstansi['jenis'] ?? '—') ?></span></div>
+            <div><strong>Alamat lengkap:</strong> <span id="geofenceInfoFullAddress"><?= $e($selectedInstansi['alamat_lengkap'] ?? '—') ?></span></div>
+            <div><strong>Koordinat:</strong> <span id="geofenceInfoFullCoordinates">
+                <?php if ($selectedInstansi !== null && $selectedInstansi['latitude'] !== null && $selectedInstansi['longitude'] !== null): ?>
+                    <?= $e($selectedInstansi['latitude']) ?>, <?= $e($selectedInstansi['longitude']) ?>
+                <?php else: ?>
+                    Belum tersedia
+                <?php endif; ?>
+            </span></div>
+            <div><strong>Radius geofencing aktif:</strong> <span id="geofenceInfoFullRadius">
+                <?= $selectedInstansi !== null && (float) ($selectedInstansi['radius_geofence_meter'] ?? 0) > 0
+                    ? $e($selectedInstansi['radius_geofence_meter']) . ' Meter'
+                    : 'Belum diatur' ?>
+            </span></div>
         </div>
 
         <div class="d-flex align-items-center justify-content-between flex-wrap text-muted" style="font-size: 0.78rem;">
-            <div>
-                <span class="badge badge-pill badge-primary mr-1">&nbsp;</span> <strong>3 Siswa</strong> di dalam zona
-                <span class="badge badge-pill badge-danger ml-3 mr-1">&nbsp;</span> <strong>1 Siswa</strong> di luar zona
-            </div>
-            <div>
-                <i class="fas fa-sync-alt fa-spin mr-1 text-info"></i> Pembaruan GPS Otomatis
+            <div id="geofenceStudentStatus" aria-live="polite">
+                <?php if ($selectedInstansi === null || !$selectedInstansi['student_location_available']): ?>
+                    Data lokasi siswa belum tersedia.
+                <?php elseif ($selectedInstansi['inside_count'] === null || $selectedInstansi['outside_count'] === null): ?>
+                    Status lokasi siswa belum dapat dihitung karena koordinat atau radius geofencing belum tersedia.
+                <?php else: ?>
+                    <span class="badge badge-pill badge-primary mr-1">&nbsp;</span>
+                    <strong id="geofenceInsideCount"><?= $e($selectedInstansi['inside_count']) ?> Siswa</strong> di dalam zona
+                    <span class="badge badge-pill badge-danger ml-3 mr-1">&nbsp;</span>
+                    <strong id="geofenceOutsideCount"><?= $e($selectedInstansi['outside_count']) ?> Siswa</strong> di luar zona
+                <?php endif; ?>
             </div>
         </div>
     </div>
@@ -405,7 +508,202 @@ ob_start();
     </div>
 </section>
 
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
+    (() => {
+            const selector = document.getElementById('geofenceInstanceSelect');
+            const mapElement = document.getElementById('geofenceMap');
+            const mapMessage = document.getElementById('geofenceMapMessage');
+            const infoCard = document.getElementById('geofenceInfoCard');
+            const radiusBadge = document.getElementById('geofenceRadiusBadge');
+            const studentStatus = document.getElementById('geofenceStudentStatus');
+            const endpoint = <?= json_encode($geofenceEndpoint, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>;
+            const initialInstance = <?= json_encode(
+                $selectedInstansi,
+                JSON_INVALID_UTF8_SUBSTITUTE | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT
+            ) ?>;
+            let map = null;
+            let marker = null;
+            let radiusCircle = null;
+            let requestNumber = 0;
+
+            const setText = (id, value) => {
+                document.getElementById(id).textContent = value;
+            };
+
+            const formatCoordinate = (value) => value === null || value === '' ? null : String(value);
+
+            const popupContent = (instance, latitude, longitude, radius) => {
+                const container = document.createElement('div');
+                container.className = 'geofence-popup';
+                [
+                    ['Nama instansi', instance.nama],
+                    ['Alamat', instance.alamat_lengkap],
+                    ['Latitude', latitude],
+                    ['Longitude', longitude],
+                    ['Radius', radius > 0 ? `${radius} Meter` : 'Belum diatur']
+                ].forEach(([label, value]) => {
+                    const row = document.createElement('div');
+                    const strong = document.createElement('strong');
+                    strong.textContent = `${label}: `;
+                    row.append(strong, document.createTextNode(value || '—'));
+                    container.appendChild(row);
+                });
+                return container;
+            };
+
+            const updateMap = (instance) => {
+                const latitude = Number(instance.latitude);
+                const longitude = Number(instance.longitude);
+                const hasCoordinates = instance.latitude !== null
+                    && instance.longitude !== null
+                    && Number.isFinite(latitude)
+                    && Number.isFinite(longitude)
+                    && latitude >= -90 && latitude <= 90
+                    && longitude >= -180 && longitude <= 180;
+
+                infoCard.hidden = false;
+                mapMessage.hidden = hasCoordinates;
+                mapMessage.textContent = hasCoordinates
+                    ? ''
+                    : 'Koordinat lokasi instansi belum tersedia.';
+
+                if (!hasCoordinates) {
+                    if (map !== null) {
+                        map.remove();
+                        map = null;
+                        marker = null;
+                        radiusCircle = null;
+                    }
+                    return;
+                }
+
+                if (typeof L === 'undefined') {
+                    mapMessage.hidden = false;
+                    mapMessage.textContent = 'Peta tidak dapat dimuat. Periksa koneksi internet.';
+                    return;
+                }
+
+                if (map === null) {
+                    map = L.map(mapElement);
+                    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+                        maxZoom: 19
+                    }).addTo(map);
+                }
+
+                const radius = Number(instance.radius_geofence_meter) || 0;
+                if (marker !== null) {
+                    map.removeLayer(marker);
+                }
+                if (radiusCircle !== null) {
+                    map.removeLayer(radiusCircle);
+                    radiusCircle = null;
+                }
+
+                marker = L.marker([latitude, longitude])
+                    .addTo(map)
+                    .bindPopup(popupContent(instance, formatCoordinate(instance.latitude), formatCoordinate(instance.longitude), radius));
+                map.setView([latitude, longitude], 16);
+                if (radius > 0) {
+                    radiusCircle = L.circle([latitude, longitude], {
+                        radius,
+                        color: '#2875bd',
+                        fillColor: '#2875bd',
+                        fillOpacity: 0.12
+                    }).addTo(map);
+                    map.fitBounds(radiusCircle.getBounds(), {padding: [24, 24]});
+                }
+                window.setTimeout(() => map.invalidateSize(), 0);
+            };
+
+            const updateInformation = (instance) => {
+                setText('geofenceInfoName', instance.nama || '—');
+                setText('geofenceInfoAddress', instance.alamat_lengkap || '—');
+                setText(
+                    'geofenceInfoCoordinates',
+                    instance.latitude !== null && instance.longitude !== null
+                        ? `Koordinat: ${instance.latitude}, ${instance.longitude}`
+                        : 'Koordinat belum tersedia'
+                );
+                const radius = Number(instance.radius_geofence_meter) || 0;
+                const radiusText = radius > 0 ? `${radius} Meter` : 'Belum diatur';
+                setText('geofenceInfoRadius', radius > 0 ? `Radius geofencing: ${radiusText}` : 'Radius geofencing belum diatur');
+                setText('geofenceInfoType', instance.jenis || '—');
+                setText('geofenceInfoFullAddress', instance.alamat_lengkap || '—');
+                setText(
+                    'geofenceInfoFullCoordinates',
+                    instance.latitude !== null && instance.longitude !== null
+                        ? `${instance.latitude}, ${instance.longitude}`
+                        : 'Belum tersedia'
+                );
+                setText('geofenceInfoFullRadius', radiusText);
+                radiusBadge.textContent = radius > 0
+                    ? `Radius Aktif: ${radius} Meter`
+                    : 'Radius geofencing belum diatur';
+
+                if (!instance.student_location_available) {
+                    studentStatus.textContent = 'Data lokasi siswa belum tersedia.';
+                } else if (instance.inside_count === null || instance.outside_count === null) {
+                    studentStatus.textContent = 'Status lokasi siswa belum dapat dihitung karena koordinat atau radius geofencing belum tersedia.';
+                } else {
+                    studentStatus.replaceChildren();
+                    const insideBadge = document.createElement('span');
+                    insideBadge.className = 'badge badge-pill badge-primary mr-1';
+                    insideBadge.textContent = ' ';
+                    const inside = document.createElement('strong');
+                    inside.textContent = `${instance.inside_count} Siswa`;
+                    const outsideBadge = document.createElement('span');
+                    outsideBadge.className = 'badge badge-pill badge-danger ml-3 mr-1';
+                    outsideBadge.textContent = ' ';
+                    const outside = document.createElement('strong');
+                    outside.textContent = `${instance.outside_count} Siswa`;
+                    studentStatus.append(
+                        insideBadge,
+                        inside,
+                        document.createTextNode(' di dalam zona '),
+                        outsideBadge,
+                        outside,
+                        document.createTextNode(' di luar zona')
+                    );
+                }
+                updateMap(instance);
+            };
+
+            if (initialInstance !== null) {
+                updateInformation(initialInstance);
+            }
+
+            if (selector !== null) {
+                selector.addEventListener('change', async () => {
+                    if (selector.value === '') {
+                        return;
+                    }
+                    const currentRequest = ++requestNumber;
+                    try {
+                        const response = await fetch(`${endpoint}&id=${encodeURIComponent(selector.value)}`, {
+                            headers: {Accept: 'application/json'},
+                            credentials: 'same-origin'
+                        });
+                        const payload = await response.json();
+                        if (!response.ok || !payload.data) {
+                            throw new Error(payload.error || 'Data instansi tidak dapat dimuat.');
+                        }
+                        if (currentRequest !== requestNumber) {
+                            return;
+                        }
+                        updateInformation(payload.data);
+                    } catch (error) {
+                        if (currentRequest !== requestNumber) {
+                            return;
+                        }
+                        mapMessage.hidden = false;
+                        mapMessage.textContent = error.message || 'Data instansi tidak dapat dimuat.';
+                    }
+                });
+            }
+    })();
+
     (() => {
         const searchInput = document.getElementById('attendanceSearch');
         const statusFilter = document.getElementById('attendanceStatusFilter');

@@ -8,6 +8,7 @@ use App\Http\Controllers\AdminTeacherController;
 use App\Http\Controllers\AdminUserController;
 use App\Http\Controllers\Api\V1\Guru\AgendaController;
 use App\Http\Controllers\Api\V1\Guru\EmailChangeController;
+use App\Http\Controllers\Api\V1\Guru\JurnalController as GuruJurnalController;
 use App\Http\Controllers\Api\V1\Guru\ProfilController as GuruProfilController;
 use App\Http\Controllers\Api\V1\Siswa\IzinController;
 use App\Http\Controllers\Api\V1\Siswa\JurnalController;
@@ -77,6 +78,13 @@ Route::prefix('v1/guru')->middleware([
     Route::post('/agenda', [AgendaController::class, 'store']);
     Route::patch('/agenda/{id}/status', [AgendaController::class, 'updateStatus'])
         ->whereNumber('id');
+
+    Route::get('/jurnal', [GuruJurnalController::class, 'index']);
+    Route::get('/jurnal/{jurnal}', [GuruJurnalController::class, 'show'])
+        ->whereNumber('jurnal');
+    Route::get('/jurnal/{jurnal}/lampiran/{lampiran}', [GuruJurnalController::class, 'showDocumentation'])
+        ->whereNumber('jurnal')
+        ->whereNumber('lampiran');
 });
 
 // Autentikasi Siswa
@@ -93,7 +101,8 @@ Route::prefix('v1/siswa/auth')->group(function (): void {
         Route::post('/logout', [SiswaAuthController::class, 'logout']);
     });
 });
-// Profil Siswa
+
+// Profil dan Jurnal Siswa
 Route::prefix('v1/siswa')->middleware([
     EnsureSanctumTokenStorage::class,
     'auth:sanctum',
@@ -105,6 +114,7 @@ Route::prefix('v1/siswa')->middleware([
     Route::middleware(EnsurePasswordChanged::class)->group(function (): void {
         Route::get('/profil', [ProfilController::class, 'show']);
         Route::post('/profil', [ProfilController::class, 'update']);
+        Route::get('/presensi', [PresensiController::class, 'index']);
         Route::post('/presensi', [PresensiController::class, 'store']);
         Route::post('/jurnal', [JurnalController::class, 'store']);
         Route::post('/izin', [IzinController::class, 'store']);
@@ -142,7 +152,7 @@ Route::prefix('v1/admin/users')->middleware([
     Route::delete('/{user}', [AdminUserController::class, 'destroy']);
 });
 
-// Manajemen akun Siswa dan Guru
+// Manajemen akun Siswa
 Route::prefix('v1/admin/students')->middleware([
     EnsureSanctumTokenStorage::class,
     'auth:sanctum',
@@ -158,6 +168,7 @@ Route::prefix('v1/admin/students')->middleware([
     Route::delete('/{user}', [AdminStudentController::class, 'destroy']);
 });
 
+// Manajemen akun Guru
 Route::prefix('v1/admin/teachers')->middleware([
     EnsureSanctumTokenStorage::class,
     'auth:sanctum',

@@ -3,31 +3,36 @@ require_once dirname(__DIR__, 3) . '/Support/Csrf.php';
 require_once __DIR__ . '/../../../../../config/koneksi.php';
 
 $urlDaftar = '?page=data-mitra';
+
+// 1. Validasi Method
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     http_response_code(405);
     header('Allow: POST');
     exit('Metode permintaan tidak diizinkan.');
 }
 
+// 2. Validasi CSRF
 if (!AdminCsrf::verify($_POST['csrf_token'] ?? null)) {
     http_response_code(419);
     exit('Sesi formulir tidak valid. Muat ulang halaman lalu coba kembali.');
 }
 
+// 3. Validasi ID
 $id = filter_var($_POST['delete_id'] ?? null, FILTER_VALIDATE_INT);
 if ($id === false || $id === null || $id <= 0) {
     http_response_code(400);
     exit('Instansi yang dipilih tidak valid.');
 }
 
+// 4. Cek apakah masih ada penempatan AKTIF
 $placementStmt = mysqli_prepare(
     $koneksi,
     "SELECT COUNT(*) FROM penempatan_pkl WHERE instansi_id = ? AND status = 'aktif'"
 );
 if ($placementStmt === false) {
-    error_log('Gagal memeriksa penempatan sebelum menonaktifkan instansi: ' . mysqli_error($koneksi));
+    error_log('Gagal memeriksa penempatan sebelum menghapus instansi: ' . mysqli_error($koneksi));
     http_response_code(500);
-    exit('Status instansi belum dapat diperbarui.');
+    exit('Instansi belum dapat dihapus.');
 }
 mysqli_stmt_bind_param($placementStmt, 'i', $id);
 mysqli_stmt_bind_result($placementStmt, $activePlacements);
@@ -38,36 +43,54 @@ if (!$placementQuerySucceeded) {
 mysqli_stmt_close($placementStmt);
 if (!$placementQuerySucceeded) {
     http_response_code(500);
-    exit('Status instansi belum dapat diperbarui.');
+    exit('Instansi belum dapat dihapus.');
 }
+
+// Jika ada siswa aktif, tolak hapus
 if ((int) $activePlacements > 0) {
     http_response_code(409);
-    exit('Instansi masih memiliki penempatan aktif. Selesaikan atau pindahkan penempatan sebelum menonaktifkan.');
+    exit('Gagal menghapus! Instansi masih memiliki siswa PKL aktif. Selesaikan atau pindahkan penempatan sebelum menghapus.');
 }
 
-$status = 'nonaktif';
-$stmt = mysqli_prepare($koneksi, 'UPDATE instansi SET status = ? WHERE id = ?');
-if ($stmt === false) {
-    error_log('Gagal menyiapkan penonaktifan instansi: ' . mysqli_error($koneksi));
-    http_response_code(500);
-    exit('Instansi belum dapat dinonaktifkan.');
-}
+// 5. Eksekusi Hapus (Menggunakan Transaksi)
+mysqli_begin_transaction($koneksi);
 
-mysqli_stmt_bind_param($stmt, 'si', $status, $id);
-$updated = mysqli_stmt_execute($stmt);
-$affectedRows = mysqli_stmt_affected_rows($stmt);
-if (!$updated) {
-    error_log('Gagal menonaktifkan instansi: ' . mysqli_stmt_error($stmt));
-    mysqli_stmt_close($stmt);
-    http_response_code(500);
-    exit('Instansi belum dapat dinonaktifkan.');
-}
-mysqli_stmt_close($stmt);
+try {
+    // Langkah 1: Hapus riwayat penempatan_pkl (yang sudah tidak aktif)
+    $stmtHapusPenempatan = mysqli_prepare($koneksi, 'DELETE FROM penempatan_pkl WHERE instansi_id = ?');
+    if ($stmtHapusPenempatan === false) {
+        throw new Exception('Gagal menyiapkan penghapusan riwayat penempatan.');
+    }
+    mysqli_stmt_bind_param($stmtHapusPenempatan, 'i', $id);
+    mysqli_stmt_execute($stmtHapusPenempatan);
+    mysqli_stmt_close($stmtHapusPenempatan);
 
-if ($affectedRows === 0) {
-    http_response_code(404);
-    exit('Instansi tidak ditemukan atau sudah nonaktif.');
-}
+    // Langkah 2: Hapus Instansi secara permanen
+    $stmtHapusInstansi = mysqli_prepare($koneksi, 'DELETE FROM instansi WHERE id = ?');
+    if ($stmtHapusInstansi === false) {
+        throw new Exception('Gagal menyiapkan penghapusan instansi.');
+    }
+    mysqli_stmt_bind_param($stmtHapusInstansi, 'i', $id);
+    mysqli_stmt_execute($stmtHapusInstansi);
+    $affectedRows = mysqli_stmt_affected_rows($stmtHapusInstansi);
+    mysqli_stmt_close($stmtHapusInstansi);
 
-header("Location: $urlDaftar", true, 303);
-exit;
+    // Jika 0, berarti ID tidak ditemukan
+    if ($affectedRows === 0) {
+        throw new Exception('Instansi tidak ditemukan.', 404);
+    }
+
+    // Commit (Simpan perubahan permanen)
+    mysqli_commit($koneksi);
+    header("Location: $urlDaftar", true, 303);
+    exit;
+
+} catch (Exception $e) {
+    // Rollback (Batalkan semua perubahan jika ada error)
+    mysqli_rollback($koneksi);
+    error_log('Gagal menghapus instansi: ' . $e->getMessage());
+    
+    // Tampilkan error yang sesuai
+    http_response_code($e->getCode() === 404 ? 404 : 500);
+    exit($e->getCode() === 404 ? 'Instansi tidak ditemukan.' : 'Instansi belum dapat dihapus.');
+}

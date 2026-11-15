@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\JurnalNativeController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
@@ -25,3 +26,6 @@ Route::get('/password-reset/guru', function () {
         'token' => request()->query('token', ''),
     ]);
 });
+
+Route::get('/jurnal', [JurnalNativeController::class, 'index'])->name('jurnal.index');
+Route::post('/jurnal', [JurnalNativeController::class, 'store'])->name('jurnal.store');

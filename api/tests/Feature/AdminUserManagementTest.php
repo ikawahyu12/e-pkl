@@ -63,6 +63,22 @@ class AdminUserManagementTest extends TestCase
             ->assertJsonPath('data.users.0.username', 'root-admin');
     }
 
+    public function test_admin_login_records_last_login_for_management_list(): void
+    {
+        $this->createUser('admin', 'aktif', 'root-admin');
+
+        $login = $this->postJson('/api/v1/admin/auth/login', [
+            'login' => 'root-admin',
+            'password' => 'password-aman',
+        ])->assertOk();
+
+        $managedUsers = $this->withToken($login->json('data.token'))
+            ->getJson('/api/v1/admin/users')
+            ->assertOk();
+
+        $this->assertNotNull($managedUsers->json('data.users.0.terakhir_login_at'));
+    }
+
     public function test_admin_can_create_an_account_and_password_is_hashed(): void
     {
         $admin = $this->createUser('admin', 'aktif', 'root-admin');
