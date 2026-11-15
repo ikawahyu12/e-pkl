@@ -41,6 +41,9 @@ class AdminAuthService
             now()->addHours(12)
         );
 
+        $user->terakhir_login_at = now();
+        $user->save();
+
         return [
             'token' => $newToken->plainTextToken,
             'user' => $this->userData($user),
