@@ -57,6 +57,7 @@ Route::prefix('v1/siswa')->middleware([
     Route::get('/profil', [ProfilController::class, 'show']);
     Route::post('/profil', [ProfilController::class, 'update']);
     Route::post('/profil/password', [ProfilController::class, 'updatePassword']);
+    Route::get('/presensi', [PresensiController::class, 'index']);
     Route::post('/presensi', [PresensiController::class, 'store']);
     Route::post('/jurnal', [JurnalController::class, 'store']);
     Route::post('/izin', [IzinController::class, 'store']);

@@ -12,10 +12,25 @@ class PresensiController extends Controller
     /** Halaman utama presensi: url('presensi') */
     public function index()
     {
+        $api = new ApiClient();
+        $response = $api->get('siswa/presensi', $_SESSION['api_token'] ?? null);
+        $statusCode = (int) ($response['status'] ?? 502);
+
+        if ($statusCode === 401) {
+            unset($_SESSION['api_token'], $_SESSION['user']);
+        }
+
         $this->render('siswa/presensi/index', [
             'title'    => 'Presensi Harian',
             'showBack' => true,
             'wide'     => true,
+            'presensiData' => ($response['success'] ?? false) === true
+                && is_array($response['data'] ?? null)
+                    ? $response['data']
+                    : [],
+            'presensiError' => ($response['success'] ?? false) === true
+                ? null
+                : ($response['message'] ?? 'Jadwal presensi gagal dimuat dari server.'),
         ]);
     }
 
