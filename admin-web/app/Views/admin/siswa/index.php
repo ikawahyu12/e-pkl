@@ -324,9 +324,9 @@ ob_start();
                     <div class="d-flex mb-3" style="gap:1rem;">
                         <div class="sl-trash"><i class="fas fa-trash-alt"></i></div>
                         <div>
-                            <h5 class="font-weight-bold mb-1" id="slModalHapusJudul">Nonaktifkan Akun Siswa?</h5>
+                            <h5 class="font-weight-bold mb-1" id="slModalHapusJudul">Hapus Akun Siswa?</h5>
                             <p class="small text-muted mb-0">
-                                Apakah Anda yakin ingin menonaktifkan akun Siswa
+                                Apakah Anda yakin ingin menghapus akun Siswa
                                 <strong id="slHNama">-</strong> (NIS: <span id="slHNisn">-</span>)?
                             </p>
                         </div>
@@ -345,7 +345,7 @@ ob_start();
                         <button type="button" class="btn btn-light border btn-sm px-4" data-dismiss="modal">Batal</button>
                         <!-- TIPE SUBMIT UNTUK MENGIRIM FORM -->
                         <button type="submit" class="btn btn-warning btn-sm px-3">
-                            <i class="fas fa-user-slash mr-1"></i> Nonaktifkan Akun
+                            <i class="fas fa-trash-alt mr-1"></i> Hapus
                         </button>
                     </div>
                 </div>

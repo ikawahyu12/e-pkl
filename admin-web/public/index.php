@@ -905,13 +905,7 @@ if (
             if ($userId === false) {
                 throw new InvalidArgumentException('ID siswa tidak valid.');
             }
-            $reasonCode = isset($_POST['alasan_kode']) && is_string($_POST['alasan_kode'])
-                ? $_POST['alasan_kode']
-                : null;
-            $reasonDetail = isset($_POST['alasan_detail']) && is_string($_POST['alasan_detail'])
-                ? $_POST['alasan_detail']
-                : null;
-            $result = $api->deleteAdminStudent($token, $userId, $reasonCode, $reasonDetail);
+            $result = $api->deleteAdminStudent($token, $userId);
         } elseif ($accountType === 'teacher') {
             if ($userId === false) {
                 throw new InvalidArgumentException('ID guru tidak valid.');

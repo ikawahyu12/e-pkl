@@ -398,24 +398,30 @@ class AdminStudentController extends Controller
     {
         $data = $request->validate([
             'alasan_kode' => [
-                'required',
+                'sometimes',
+                'nullable',
                 Rule::in(array_keys(\App\Services\PenempatanPklService::ALASAN_PEMBATALAN)),
             ],
             'alasan_detail' => [
-                Rule::requiredIf($request->input('alasan_kode') === 'lainnya'),
+                'sometimes',
                 'nullable',
                 'string',
                 'max:2000',
             ],
         ]);
+        $reasonCode = $data['alasan_kode'] ?? 'lainnya';
+        $reasonDetail = $data['alasan_detail'] ?? null;
+        if (! isset($data['alasan_kode'])) {
+            $reasonDetail = 'Akun dinonaktifkan melalui aksi Hapus pada Manajemen Siswa.';
+        }
 
         try {
             $statusService->setStudentStatus(
                 $request->user(),
                 $user,
                 'nonaktif',
-                $data['alasan_kode'],
-                $data['alasan_detail'] ?? null
+                $reasonCode,
+                $reasonDetail
             );
         } catch (\Illuminate\Validation\ValidationException $exception) {
             if (isset($exception->errors()['user'])) {

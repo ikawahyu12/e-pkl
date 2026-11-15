@@ -133,16 +133,24 @@ final class AdminApiClient
     public function deleteAdminStudent(
         string $token,
         int $id,
-        ?string $reasonCode,
+        ?string $reasonCode = null,
         ?string $reasonDetail = null
     ): array
     {
-        $payload = ['alasan_kode' => $reasonCode];
+        $payload = [];
+        if ($reasonCode !== null) {
+            $payload['alasan_kode'] = $reasonCode;
+        }
         if ($reasonDetail !== null && $reasonDetail !== '') {
             $payload['alasan_detail'] = $reasonDetail;
         }
 
-        return $this->request('DELETE', '/api/v1/admin/students/' . $id, $payload, $token);
+        return $this->request(
+            'DELETE',
+            '/api/v1/admin/students/' . $id,
+            $payload !== [] ? $payload : null,
+            $token
+        );
     }
 
     public function adminTeachers(string $token, array $filters = []): array

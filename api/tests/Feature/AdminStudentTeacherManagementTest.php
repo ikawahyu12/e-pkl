@@ -342,19 +342,28 @@ class AdminStudentTeacherManagementTest extends TestCase
         ]);
     }
 
-    public function test_delete_student_endpoint_cannot_deactivate_without_reason(): void
+    public function test_delete_student_endpoint_does_not_require_a_user_supplied_reason(): void
     {
         $admin = $this->createUser('admin', 'student-delete-reason-admin');
         $student = $this->createStudentAccount('student-delete-reason');
+        $placementId = $this->createPlacement($student, 'aktif');
         $this->actingAs($admin, 'sanctum');
 
         $this->deleteJson('/api/v1/admin/students/'.$student->id)
-            ->assertUnprocessable()
-            ->assertJsonValidationErrors('alasan_kode');
+            ->assertOk()
+            ->assertJsonPath('data', null);
 
-        $this->assertDatabaseHas('users', ['id' => $student->id, 'status' => 'aktif']);
-        $this->assertDatabaseHas('siswa', ['user_id' => $student->id, 'status_siswa' => 'aktif']);
-        $this->assertDatabaseCount('riwayat_status_penempatan', 0);
+        $this->assertDatabaseHas('users', ['id' => $student->id, 'status' => 'nonaktif']);
+        $this->assertDatabaseHas('siswa', ['user_id' => $student->id, 'status_siswa' => 'nonaktif']);
+        $this->assertDatabaseHas('penempatan_pkl', [
+            'id' => $placementId,
+            'status' => 'dibatalkan',
+        ]);
+        $this->assertDatabaseHas('riwayat_status_penempatan', [
+            'penempatan_id' => $placementId,
+            'alasan_kode' => 'lainnya',
+            'alasan_detail' => 'Akun dinonaktifkan melalui aksi Hapus pada Manajemen Siswa.',
+        ]);
     }
 
     public function test_student_biodata_update_rejects_status_and_unsupported_ttl_fields(): void

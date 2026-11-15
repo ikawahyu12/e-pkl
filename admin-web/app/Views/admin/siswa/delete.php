@@ -37,13 +37,7 @@ if (!is_string($token) || $token === '') {
 }
 
 try {
-    $reasonCode = isset($_POST['alasan_kode']) && is_string($_POST['alasan_kode'])
-        ? $_POST['alasan_kode']
-        : null;
-    $reasonDetail = isset($_POST['alasan_detail']) && is_string($_POST['alasan_detail'])
-        ? $_POST['alasan_detail']
-        : null;
-    $result = $api->deleteAdminStudent($token, (int) $userId, $reasonCode, $reasonDetail);
+    $result = $api->deleteAdminStudent($token, (int) $userId);
     if ($result['status'] >= 200 && $result['status'] < 300) {
         header('Location: ?page=data-siswa');
         exit;
