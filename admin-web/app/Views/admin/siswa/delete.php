@@ -12,52 +12,56 @@ if (!AdminCsrf::verify($_POST['csrf_token'] ?? null)) {
     exit('Permintaan tidak valid. Muat ulang halaman dan coba lagi.');
 }
 
-$id = filter_var($_POST['id_siswa'] ?? null, FILTER_VALIDATE_INT);
-if ($id === false || $id < 1) {
+$studentId = filter_var($_POST['id_siswa'] ?? null, FILTER_VALIDATE_INT);
+if ($studentId === false || $studentId < 1) {
     http_response_code(400);
     exit('ID Siswa tidak valid.');
 }
 
-$transactionStarted = false;
+$statement = mysqli_prepare($koneksi, 'SELECT user_id FROM siswa WHERE id = ? LIMIT 1');
+mysqli_stmt_bind_param($statement, 'i', $studentId);
+mysqli_stmt_execute($statement);
+mysqli_stmt_bind_result($statement, $userId);
+$found = mysqli_stmt_fetch($statement);
+mysqli_stmt_close($statement);
+
+if (!$found || (int) $userId < 1) {
+    http_response_code(404);
+    exit('Akun Siswa tidak ditemukan.');
+}
+
+$token = $_SESSION['admin_token'] ?? '';
+if (!is_string($token) || $token === '') {
+    http_response_code(401);
+    exit('Sesi Admin tidak valid. Silakan login kembali.');
+}
 
 try {
-    mysqli_begin_transaction($koneksi);
-    $transactionStarted = true;
-
-    $lookupStatement = mysqli_prepare($koneksi, 'SELECT user_id FROM siswa WHERE id = ? FOR UPDATE');
-    mysqli_stmt_bind_param($lookupStatement, 'i', $id);
-    mysqli_stmt_execute($lookupStatement);
-    mysqli_stmt_bind_result($lookupStatement, $userId);
-    $studentFound = mysqli_stmt_fetch($lookupStatement);
-    mysqli_stmt_close($lookupStatement);
-
-    if (!$studentFound) {
-        mysqli_rollback($koneksi);
-        http_response_code(404);
-        exit('Data Siswa tidak ditemukan.');
+    $reasonCode = isset($_POST['alasan_kode']) && is_string($_POST['alasan_kode'])
+        ? $_POST['alasan_kode']
+        : null;
+    $reasonDetail = isset($_POST['alasan_detail']) && is_string($_POST['alasan_detail'])
+        ? $_POST['alasan_detail']
+        : null;
+    $result = $api->deleteAdminStudent($token, (int) $userId, $reasonCode, $reasonDetail);
+    if ($result['status'] >= 200 && $result['status'] < 300) {
+        header('Location: ?page=data-siswa');
+        exit;
     }
 
-    $studentStatement = mysqli_prepare($koneksi, "UPDATE siswa SET status_siswa = 'keluar' WHERE id = ?");
-    mysqli_stmt_bind_param($studentStatement, 'i', $id);
-    mysqli_stmt_execute($studentStatement);
-    mysqli_stmt_close($studentStatement);
-
-    $userStatus = 'nonaktif';
-    $userStatement = mysqli_prepare($koneksi, 'UPDATE users SET status = ? WHERE id = ?');
-    mysqli_stmt_bind_param($userStatement, 'si', $userStatus, $userId);
-    mysqli_stmt_execute($userStatement);
-    mysqli_stmt_close($userStatement);
-
-    mysqli_commit($koneksi);
-    $transactionStarted = false;
-    header('Location: ?page=data-siswa');
-    exit;
-} catch (mysqli_sql_exception $exception) {
-    if ($transactionStarted) {
-        mysqli_rollback($koneksi);
+    $messages = [];
+    foreach (($result['body']['errors'] ?? []) as $fieldErrors) {
+        foreach ((array) $fieldErrors as $fieldError) {
+            $messages[] = (string) $fieldError;
+        }
     }
-
-    error_log('Admin Siswa deactivation failed: ' . $exception->getMessage());
-    http_response_code(500);
-    exit('Siswa gagal dinonaktifkan. Silakan coba lagi atau hubungi administrator.');
+    http_response_code($result['status'] >= 400 && $result['status'] < 600 ? $result['status'] : 502);
+    $message = $messages !== []
+        ? implode(' ', $messages)
+        : ($result['body']['message'] ?? 'Akun Siswa gagal dinonaktifkan.');
+    exit(htmlspecialchars($message, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8'));
+} catch (Throwable $exception) {
+    error_log('Admin Siswa deactivation API error: ' . $exception->getMessage());
+    http_response_code(503);
+    exit('Akun Siswa gagal dinonaktifkan melalui API. Silakan coba lagi.');
 }

@@ -486,7 +486,15 @@ $e = static fn ($value): string => htmlspecialchars((string) $value, ENT_QUOTES 
 
                         </button>
 
+                        <p class="login-subtitle mt-3 mb-0">
+                            <a href="<?= $e($routerUrl) ?>?page=forgot-password">Lupa kata sandi?</a>
+                        </p>
 
+                        <?php if (is_array($passwordResetFlash ?? null)): ?>
+                            <div class="alert alert-<?= ($passwordResetFlash['type'] ?? '') === 'success' ? 'success' : 'danger' ?> small mt-3" role="status">
+                                <?= $e($passwordResetFlash['message'] ?? '') ?>
+                            </div>
+                        <?php endif; ?>
                     </form>
 
                 </div>

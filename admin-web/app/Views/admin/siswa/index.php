@@ -38,7 +38,8 @@ $totalSiswa = (int) mysqli_fetch_assoc($qTotal)['total'];
 $qStat = mysqli_query($koneksi, "
     SELECT 
         SUM(CASE WHEN status_siswa = 'aktif' THEN 1 ELSE 0 END) AS aktif,
-        SUM(CASE WHEN status_siswa = 'lulus' THEN 1 ELSE 0 END) AS selesai
+        SUM(CASE WHEN status_siswa = 'lulus' THEN 1 ELSE 0 END) AS selesai,
+        SUM(CASE WHEN status_siswa = 'nonaktif' THEN 1 ELSE 0 END) AS nonaktif
     FROM siswa
 ");
 if (!$qStat) {
@@ -49,6 +50,7 @@ if (!$qStat) {
 $stat = mysqli_fetch_assoc($qStat);
 $siswaAktif   = (int) ($stat['aktif'] ?? 0);
 $siswaSelesai = (int) ($stat['selesai'] ?? 0);
+$siswaNonaktif = (int) ($stat['nonaktif'] ?? 0);
 
 $totalPages = max(1, (int) ceil($totalSiswa / $limit));
 $page = min($page, $totalPages);
@@ -123,6 +125,8 @@ ob_start();
     .sl-badge { display: inline-block; padding: .12rem .6rem; border-radius: 999px; font-size: .62rem; font-weight: 500; }
     .sl-badge-aktif { background: #dbe8fb; color: #2a5aa0; }
     .sl-badge-selesai { background: #c7e3f6; color: #0f4c75; }
+    .sl-badge-nonaktif { background: #fee2e2; color: #b91c1c; }
+    .sl-badge-unknown { background: #e2e8f0; color: #475569; }
     .sl-aksi { white-space: nowrap; }
     .sl-aksi a, .sl-aksi button { font-size: .66rem; margin-right: .45rem; padding: 0; border: 0; background: none; text-decoration: none; cursor: pointer; }
     .sl-aksi .a-detail { color: #1a2438; }
@@ -147,7 +151,7 @@ ob_start();
 <div class="siswa-list">
     <!-- [BAGIAN STATISTIK DAN FILTER TETAP SAMA, TIDAK SAYA UBAH] -->
     <div class="row mb-3">
-        <div class="col-md-4 mb-3 mb-md-0">
+        <div class="col-md-3 mb-3 mb-md-0">
             <div class="sl-stat">
                 <span class="sl-stat-icon"><i class="fas fa-graduation-cap"></i></span>
                 <div>
@@ -156,7 +160,7 @@ ob_start();
                 </div>
             </div>
         </div>
-        <div class="col-md-4 mb-3 mb-md-0">
+        <div class="col-md-3 mb-3 mb-md-0">
             <div class="sl-stat">
                 <span class="sl-stat-icon"><i class="fas fa-briefcase"></i></span>
                 <div>
@@ -165,12 +169,22 @@ ob_start();
                 </div>
             </div>
         </div>
-        <div class="col-md-4">
+        <div class="col-md-3 mb-3 mb-md-0">
             <div class="sl-stat">
                 <span class="sl-stat-icon"><i class="far fa-check-circle"></i></span>
                 <div>
                     <div class="sl-stat-label">Selesai</div>
                     <div class="sl-stat-value" style="color:#0a5d7a;"><?= $e($siswaSelesai) ?></div>
+                </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="sl-stat">
+                    <span class="sl-stat-icon"><i class="fas fa-user-slash"></i></span>
+                    <div>
+                        <div class="sl-stat-label">Nonaktif</div>
+                        <div class="sl-stat-value" style="color:#b91c1c;"><?= $e($siswaNonaktif) ?></div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -192,6 +206,8 @@ ob_start();
                 <option value="">Status: Semua</option>
                 <option value="Aktif">Aktif</option>
                 <option value="Selesai">Selesai</option>
+                <option value="Nonaktif">Nonaktif</option>
+                <option value="Keluar">Keluar</option>
             </select>
         </div>
     </div>
@@ -216,7 +232,21 @@ ob_start();
                         <tr><td colspan="8" class="text-center py-4 text-muted">Belum ada data siswa.</td></tr>
                     <?php else: ?>
                         <?php foreach ($siswaList as $i => $s): ?>
-                            <tr data-kelas="<?= $e($s['kelas'] ?? '') ?>" data-status="<?= $e($s['status'] ?? 'Aktif') ?>">
+                            <?php
+                            $statusLabel = [
+                                'aktif' => 'Aktif',
+                                'lulus' => 'Selesai',
+                                'nonaktif' => 'Nonaktif',
+                                'keluar' => 'Keluar',
+                            ][$s['status'] ?? ''] ?? 'Tidak diketahui';
+                            $statusClass = match ($s['status'] ?? '') {
+                                'aktif' => 'sl-badge-aktif',
+                                'lulus' => 'sl-badge-selesai',
+                                'nonaktif', 'keluar' => 'sl-badge-nonaktif',
+                                default => 'sl-badge-unknown',
+                            };
+                            ?>
+                            <tr data-kelas="<?= $e($s['kelas'] ?? '') ?>" data-status="<?= $e($statusLabel) ?>">
                                 <td class="c-no"><?= $offset + $i + 1 ?></td>
                                 <td class="sl-nisn"><?= $e($s['nis'] ?? '-') ?></td>
                                 <td class="sl-nama"><?= $e($s['nama_siswa']) ?></td>
@@ -224,7 +254,7 @@ ob_start();
                                 <td><?= $e($s['nama_instansi'] ?? '-') ?></td>
                                 <td>-</td>
                                 <td>
-                                    <span class="sl-badge <?= ($s['status'] ?? '') === 'Selesai' ? 'sl-badge-selesai' : 'sl-badge-aktif' ?>"><?= $e($s['status'] ?? 'Aktif') ?></span>
+                                    <span class="sl-badge <?= $statusClass ?>"><?= $e($statusLabel) ?></span>
                                 </td>
                                 <td class="sl-aksi">
                                     <a class="a-detail" href="?page=detail&id=<?= (int) $s['id_siswa'] ?>">Detail</a>

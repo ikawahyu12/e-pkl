@@ -81,6 +81,7 @@ class AdminAuthService
             'email' => $user->email,
             'nama_tampilan' => $user->nama_tampilan,
             'role' => $user->role->nama,
+            'wajib_ganti_password' => (bool) $user->wajib_ganti_password,
         ];
     }
 }

@@ -113,6 +113,7 @@ $geofence = [
             <div style="font-size: 32px; font-weight: 800; letter-spacing: -.02em; color: var(--text);" id="clock-display"></div>
             <p id="form-date-text" style="margin-top: 4px;"><?= e($presensiData['tanggal'] ?? '') ?></p>
         </div>
+    </div>
 
         <div class="activity-fields">
             <div class="activity-field activity-field-wide" id="gps-status-box">

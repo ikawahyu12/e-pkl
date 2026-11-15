@@ -315,12 +315,12 @@
 
         <section class="login-panel" aria-labelledby="loginTitle">
             <h2 id="loginTitle">Selamat datang</h2>
-            <p class="login-description">Masuk menggunakan email atau username yang terdaftar.</p>
+            <p class="login-description">Masuk menggunakan NISN, email, atau username yang terdaftar.</p>
 
             <form class="login-form" method="POST" action="<?= e(url('login')) ?>" aria-labelledby="loginTitle">
                 <input type="hidden" name="csrf_token" value="<?= e($csrfToken) ?>">
                 <div class="login-field">
-                    <label for="loginIdentifier">Email atau username</label>
+                    <label for="loginIdentifier">NISN, email, atau username</label>
                     <input
                         class="login-input"
                         id="loginIdentifier"
@@ -328,7 +328,7 @@
                         type="text"
                         value="<?= e($identifier ?? '') ?>"
                         autocomplete="username"
-                        placeholder="Masukkan email atau username"
+                        placeholder="Masukkan NISN, email, atau username"
                         aria-describedby="identifierError"
                         required
                     >
@@ -365,6 +365,8 @@
                 </div>
 
                 <button class="login-submit" id="loginSubmit" type="submit">Masuk</button>
+                <p class="login-help"><a href="<?= e(url('auth/lupaPassword')) ?>">Lupa kata sandi?</a></p>
+                <p class="login-help"><a href="<?= e(url('auth/register')) ?>">Belum punya akun? Daftar Siswa</a></p>
 
                 <?php if (!empty($error)): ?>
                     <p class="login-message" role="alert"><?= e($error) ?></p>

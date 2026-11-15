@@ -64,8 +64,14 @@ class PresensiController extends Controller
         $type = $input['type'] ?? null;
         $latitude = $input['latitude'] ?? null;
         $longitude = $input['longitude'] ?? null;
+        $sessionId = filter_var(
+            $input['session_id'] ?? null,
+            FILTER_VALIDATE_INT,
+            ['options' => ['min_range' => 1]]
+        );
         if (
             !in_array($type, ['datang', 'pulang'], true)
+            || $sessionId === false
             || !is_numeric($latitude)
             || !is_numeric($longitude)
             || !is_finite((float) $latitude)
@@ -75,12 +81,13 @@ class PresensiController extends Controller
             || (float) $longitude < -180
             || (float) $longitude > 180
         ) {
-            $this->respond('error', 'Data lokasi atau jenis presensi tidak valid.', 422);
+            $this->respond('error', 'Data sesi, lokasi, atau jenis presensi tidak valid.', 422);
             return;
         }
 
         $api = new ApiClient();
         $response = $api->post('siswa/presensi', [
+            'session_id' => $sessionId,
             'type' => $type,
             'latitude' => (float) $latitude,
             'longitude' => (float) $longitude,

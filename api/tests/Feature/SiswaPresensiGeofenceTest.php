@@ -54,6 +54,7 @@ class SiswaPresensiGeofenceTest extends TestCase
             $table->unsignedBigInteger('user_id');
             $table->string('nisn')->unique();
             $table->string('nama_lengkap');
+            $table->string('status_siswa')->default('aktif');
             $table->timestamps();
         });
 
@@ -228,6 +229,30 @@ class SiswaPresensiGeofenceTest extends TestCase
             ->assertJsonPath('data.distance_meters', 100);
     }
 
+    public function test_student_can_check_out_after_checking_in(): void
+    {
+        $this->postJson('/api/v1/siswa/presensi', [
+            'session_id' => $this->sessionId,
+            'type' => 'datang',
+            'latitude' => 0,
+            'longitude' => 0,
+        ])->assertOk();
+
+        $this->postJson('/api/v1/siswa/presensi', [
+            'session_id' => $this->sessionId,
+            'type' => 'pulang',
+            'latitude' => 0,
+            'longitude' => 0,
+        ])
+            ->assertOk()
+            ->assertJsonPath('success', true);
+
+        $this->assertDatabaseHas('presensi', [
+            'status_pulang' => 'sesuai',
+            'status_harian' => 'hadir',
+        ]);
+    }
+
     public function test_geofence_uses_the_instance_assigned_to_the_student(): void
     {
         $otherInstansi = $this->createInstansi('Instansi Lain', 1, 1);
@@ -389,4 +414,3 @@ class SiswaPresensiGeofenceTest extends TestCase
         ]);
     }
 }
- 

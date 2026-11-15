@@ -11,6 +11,9 @@ $hasClasses = $kelasOptions !== [];
 $e = static fn ($v): string => htmlspecialchars((string) $v, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
 $isEditing = $isEditing ?? false;
 $status = strtolower((string) ($s['status'] ?? 'aktif'));
+$formInput = is_array($adminFlash['input'] ?? null) ? $adminFlash['input'] : [];
+$reasonCode = (string) ($formInput['alasan_kode'] ?? '');
+$reasonDetail = (string) ($formInput['alasan_detail'] ?? '');
 ?>
 
 <div class="row">
@@ -82,6 +85,25 @@ $status = strtolower((string) ($s['status'] ?? 'aktif'));
             </label>
         </div>
     </div>
+    <?php if ($isEditing): ?>
+        <div class="col-12 form-group mb-3" id="student-deactivation-reason" <?= $status === 'nonaktif' ? '' : 'hidden' ?>>
+            <label class="sf-label" for="alasan_kode">Alasan penonaktifan <span class="req">*</span></label>
+            <select class="sf-input" id="alasan_kode" name="alasan_kode" <?= $status === 'nonaktif' ? 'required' : 'disabled' ?>>
+                <option value="">Pilih alasan penonaktifan</option>
+                <option value="siswa_mengundurkan_diri" <?= $reasonCode === 'siswa_mengundurkan_diri' ? 'selected' : '' ?>>Siswa mengundurkan diri</option>
+                <option value="perubahan_penempatan_dari_sekolah" <?= $reasonCode === 'perubahan_penempatan_dari_sekolah' ? 'selected' : '' ?>>Perubahan penempatan dari sekolah</option>
+                <option value="instansi_tidak_dapat_menerima_siswa" <?= $reasonCode === 'instansi_tidak_dapat_menerima_siswa' ? 'selected' : '' ?>>Instansi tidak dapat menerima siswa</option>
+                <option value="ketidaksesuaian_data_penempatan" <?= $reasonCode === 'ketidaksesuaian_data_penempatan' ? 'selected' : '' ?>>Ketidaksesuaian data penempatan</option>
+                <option value="pelanggaran_atau_ketidakdisiplinan" <?= $reasonCode === 'pelanggaran_atau_ketidakdisiplinan' ? 'selected' : '' ?>>Pelanggaran atau ketidakdisiplinan</option>
+                <option value="kondisi_operasional_tertentu" <?= $reasonCode === 'kondisi_operasional_tertentu' ? 'selected' : '' ?>>Kondisi operasional tertentu</option>
+                <option value="lainnya" <?= $reasonCode === 'lainnya' ? 'selected' : '' ?>>Lainnya</option>
+            </select>
+            <div class="mt-2" id="student-deactivation-detail" <?= $reasonCode === 'lainnya' ? '' : 'hidden' ?>>
+                <label class="sf-label" for="alasan_detail">Detail alasan <span class="req">*</span></label>
+                <textarea class="sf-input" id="alasan_detail" name="alasan_detail" maxlength="2000" <?= $reasonCode === 'lainnya' ? 'required' : 'disabled' ?>><?= $e($reasonDetail) ?></textarea>
+            </div>
+        </div>
+    <?php endif; ?>
 </div>
 
 <script>
@@ -90,6 +112,36 @@ document.addEventListener('DOMContentLoaded', function () {
     const togglePasswordBtn = document.getElementById('togglePassword');
     const eyeIcon = document.getElementById('eyeIcon');
     const btnGeneratePass = document.getElementById('btnGeneratePass');
+    const reasonSection = document.getElementById('student-deactivation-reason');
+    const reasonSelect = document.getElementById('alasan_kode');
+    const reasonDetailSection = document.getElementById('student-deactivation-detail');
+    const reasonDetailInput = document.getElementById('alasan_detail');
+
+    function updateStudentDeactivationReason() {
+        if (!reasonSection || !reasonSelect) {
+            return;
+        }
+
+        const deactivating = document.querySelector('input[name="status"]:checked')?.value === 'nonaktif';
+        reasonSection.hidden = !deactivating;
+        reasonSelect.disabled = !deactivating;
+        reasonSelect.required = deactivating;
+
+        const needsDetail = deactivating && reasonSelect.value === 'lainnya';
+        if (reasonDetailSection && reasonDetailInput) {
+            reasonDetailSection.hidden = !needsDetail;
+            reasonDetailInput.disabled = !needsDetail;
+            reasonDetailInput.required = needsDetail;
+        }
+    }
+
+    document.querySelectorAll('input[name="status"]').forEach(function (statusInput) {
+        statusInput.addEventListener('change', updateStudentDeactivationReason);
+    });
+    if (reasonSelect) {
+        reasonSelect.addEventListener('change', updateStudentDeactivationReason);
+    }
+    updateStudentDeactivationReason();
 
     // 1. Fitur Lihat / Sembunyikan Password
     if (togglePasswordBtn) {

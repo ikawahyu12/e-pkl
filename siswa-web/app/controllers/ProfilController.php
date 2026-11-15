@@ -206,8 +206,12 @@ class ProfilController extends Controller
         }
 
         if (($res['success'] ?? false) === true) {
+            if (isset($_SESSION['user']) && is_array($_SESSION['user'])) {
+                $_SESSION['user']['wajib_ganti_password'] = false;
+            }
+
             $_SESSION['flash'] = ['type' => 'success', 'message' => 'Kata sandi berhasil diubah.'];
-            $this->redirect('profil');
+            $this->redirect('beranda');
         }
 
         // Ambil pesan error pertama dari validasi Laravel kalau ada

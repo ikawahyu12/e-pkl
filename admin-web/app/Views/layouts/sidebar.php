@@ -13,6 +13,7 @@ $defaultMenuUrls = [
     'manajemen-admin' => $base . '/?page=manajemen-admin',
     'manajemen-siswa' => $base . '/?page=manajemen-siswa',
     'manajemen-guru'  => $base . '/?page=manajemen-guru',
+    'manajemen-pkl'   => $base . '/?page=manajemen-pkl',
 
     'laporan'         => $base . '/?page=laporan',
 ];
@@ -39,6 +40,7 @@ $menuItems = [
     ['key' => 'guru-pembimbing', 'label' => 'Guru Pembimbing', 'icon' => 'fas fa-fw fa-chalkboard-teacher'],
     ['key' => 'instansi-mitra', 'label' => 'Instansi Mitra', 'icon' => 'fas fa-fw fa-building'],
     ['key' => 'manajemen-user', 'label' => 'Manajemen User', 'icon' => 'fas fa-fw fa-users-cog'],
+    ['key' => 'manajemen-pkl', 'label' => 'Manajemen PKL', 'icon' => 'fas fa-fw fa-briefcase'],
     ['key' => 'laporan', 'label' => 'Laporan', 'icon' => 'fas fa-fw fa-chart-bar'],
 ];
 ?>
