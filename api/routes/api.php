@@ -5,6 +5,7 @@ use App\Http\Controllers\AdminAuthController;
 use App\Http\Controllers\AdminStudentController;
 use App\Http\Controllers\AdminTeacherController;
 use App\Http\Controllers\AdminUserController;
+use App\Http\Controllers\Api\V1\Guru\JurnalController as GuruJurnalController;
 use App\Http\Controllers\Api\V1\Siswa\PresensiController;
 use App\Http\Controllers\Api\V1\Siswa\ProfilController;
 use App\Http\Controllers\Api\V1\Siswa\JurnalController;
@@ -31,6 +32,19 @@ Route::prefix('v1/guru/auth')->group(function (): void {
         Route::get('/me', [GuruAuthController::class, 'me']);
         Route::post('/logout', [GuruAuthController::class, 'logout']);
     });
+});
+
+Route::prefix('v1/guru')->middleware([
+    EnsureSanctumTokenStorage::class,
+    'auth:sanctum',
+    EnsureGuruRole::class,
+])->group(function (): void {
+    Route::get('/jurnal', [GuruJurnalController::class, 'index']);
+    Route::get('/jurnal/{jurnal}', [GuruJurnalController::class, 'show'])
+        ->whereNumber('jurnal');
+    Route::get('/jurnal/{jurnal}/lampiran/{lampiran}', [GuruJurnalController::class, 'showDocumentation'])
+        ->whereNumber('jurnal')
+        ->whereNumber('lampiran');
 });
 
 // Autentikasi Siswa
