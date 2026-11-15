@@ -20,9 +20,12 @@ $e = static fn ($v): string => htmlspecialchars((string) $v, ENT_QUOTES | ENT_SU
 // 1. KONFIGURASI PAGINATION
 // ==========================================
 $limit = 10;
-$page  = isset($_GET['hal']) ? (int)$_GET['hal'] : 1;
-if ($page < 1) $page = 1;
-$offset = ($page - 1) * $limit;
+$requestedPage = max(1, (int) ($_GET['hal'] ?? 1));
+$searchTerm = trim((string) ($_GET['search'] ?? ''));
+if (mb_strlen($searchTerm, 'UTF-8') > 100) {
+    http_response_code(422);
+    exit('Kata pencarian maksimal 100 karakter.');
+}
 
 // ==========================================
 // 2. HITUNG TOTAL DATA
@@ -52,44 +55,174 @@ $siswaAktif   = (int) ($stat['aktif'] ?? 0);
 $siswaSelesai = (int) ($stat['selesai'] ?? 0);
 $siswaNonaktif = (int) ($stat['nonaktif'] ?? 0);
 
-$totalPages = max(1, (int) ceil($totalSiswa / $limit));
-$page = min($page, $totalPages);
+$totalSearchResults = $totalSiswa;
+$totalPages = max(1, (int) ceil($totalSearchResults / $limit));
+$page = min($requestedPage, $totalPages);
 $offset = ($page - 1) * $limit;
 
 // ==========================================
 // 3. AMBIL DATA SISWA
 // ==========================================
-$sql = "SELECT
-            s.id AS id_siswa,
-            COALESCE(s.nis, s.nisn) AS nis,
-            s.nisn,
-            s.nama_lengkap AS nama_siswa,
-            s.status_siswa AS status,
-            k.nama AS kelas,
-            (
-                SELECT i.nama
-                FROM penempatan_pkl p
-                INNER JOIN instansi i ON i.id = p.instansi_id
-                WHERE p.siswa_id = s.id
-                ORDER BY p.tanggal_mulai DESC
-                LIMIT 1
-            ) AS nama_instansi
-        FROM siswa s
-        LEFT JOIN kelas k ON k.id = s.kelas_id
-        ORDER BY s.nama_lengkap ASC
-        LIMIT $limit OFFSET $offset";
-
-$result = mysqli_query($koneksi, $sql);
-if (!$result) {
-    error_log('Admin Siswa index query failed: ' . mysqli_error($koneksi));
-    http_response_code(500);
-    exit('Data Siswa tidak dapat dimuat saat ini.');
-}
-
 $siswaList = [];
-while ($row = mysqli_fetch_assoc($result)) {
-    $siswaList[] = $row;
+if ($searchTerm === '') {
+    $sql = "SELECT
+                s.id AS id_siswa,
+                COALESCE(s.nis, s.nisn) AS nis,
+                s.nisn,
+                s.nama_lengkap AS nama_siswa,
+                s.status_siswa AS status,
+                k.nama AS kelas,
+                (
+                    SELECT i.nama
+                    FROM penempatan_pkl p
+                    INNER JOIN instansi i ON i.id = p.instansi_id
+                    WHERE p.siswa_id = s.id
+                    ORDER BY p.tanggal_mulai DESC
+                    LIMIT 1
+                ) AS nama_instansi
+            FROM siswa s
+            LEFT JOIN kelas k ON k.id = s.kelas_id
+            ORDER BY s.nama_lengkap ASC
+            LIMIT $limit OFFSET $offset";
+
+    $result = mysqli_query($koneksi, $sql);
+    if (!$result) {
+        error_log('Admin Siswa index query failed: ' . mysqli_error($koneksi));
+        http_response_code(500);
+        exit('Data Siswa tidak dapat dimuat saat ini.');
+    }
+
+    while ($row = mysqli_fetch_assoc($result)) {
+        $siswaList[] = $row;
+    }
+} else {
+    $token = $_SESSION['admin_token'] ?? '';
+    if (!is_string($token) || $token === '') {
+        http_response_code(401);
+        exit('Sesi Admin tidak valid. Silakan masuk kembali.');
+    }
+
+    $fetchSearchPage = static function (int $targetPage) use ($api, $token, $searchTerm, $limit): array {
+        $response = $api->adminStudents($token, [
+            'search' => $searchTerm,
+            'page' => $targetPage,
+            'per_page' => $limit,
+        ]);
+        $body = $response['body'] ?? null;
+        if (
+            ($response['status'] ?? 0) < 200
+            || ($response['status'] ?? 0) >= 300
+            || !is_array($body)
+            || ($body['success'] ?? false) !== true
+            || !is_array($body['data']['users'] ?? null)
+            || !is_array($body['data']['pagination'] ?? null)
+        ) {
+            throw new RuntimeException('Student search API returned an invalid response.');
+        }
+
+        return $body['data'];
+    };
+
+    try {
+        $apiData = $fetchSearchPage($page);
+        $pagination = $apiData['pagination'];
+        if (
+            !isset($pagination['total'], $pagination['last_page'], $pagination['current_page'])
+            || !is_numeric($pagination['total'])
+            || !is_numeric($pagination['last_page'])
+            || !is_numeric($pagination['current_page'])
+            || (int) $pagination['last_page'] < 1
+        ) {
+            throw new RuntimeException('Student search API returned invalid pagination data.');
+        }
+
+        $totalSearchResults = (int) $pagination['total'];
+        $totalPages = (int) $pagination['last_page'];
+        $page = min($requestedPage, $totalPages);
+        if ($page !== (int) $pagination['current_page']) {
+            $apiData = $fetchSearchPage($page);
+        }
+        $offset = ($page - 1) * $limit;
+
+        $profileIds = [];
+        foreach ($apiData['users'] as $student) {
+            $profileId = is_array($student) ? (int) ($student['profile_id'] ?? 0) : 0;
+            if ($profileId < 1) {
+                throw new RuntimeException('Student search API returned an invalid profile ID.');
+            }
+            $profileIds[] = $profileId;
+        }
+        if (count(array_unique($profileIds)) !== count($profileIds)) {
+            throw new RuntimeException('Student search API returned duplicate profile IDs.');
+        }
+
+        if ($profileIds !== []) {
+            $placeholders = implode(', ', array_fill(0, count($profileIds), '?'));
+            $sql = "SELECT
+                        s.id AS id_siswa,
+                        COALESCE(s.nis, s.nisn) AS nis,
+                        s.nisn,
+                        s.nama_lengkap AS nama_siswa,
+                        s.status_siswa AS status,
+                        k.nama AS kelas,
+                        (
+                            SELECT i.nama
+                            FROM penempatan_pkl p
+                            INNER JOIN instansi i ON i.id = p.instansi_id
+                            WHERE p.siswa_id = s.id
+                            ORDER BY p.tanggal_mulai DESC
+                            LIMIT 1
+                        ) AS nama_instansi
+                    FROM siswa s
+                    LEFT JOIN kelas k ON k.id = s.kelas_id
+                    WHERE s.id IN ($placeholders)";
+            $statement = mysqli_prepare($koneksi, $sql);
+            if (!$statement) {
+                throw new RuntimeException('Unable to prepare student search detail query.');
+            }
+            if (!mysqli_stmt_bind_param($statement, str_repeat('i', count($profileIds)), ...$profileIds)) {
+                throw new RuntimeException('Unable to bind student search detail query.');
+            }
+            if (!mysqli_stmt_execute($statement)) {
+                throw new RuntimeException('Unable to execute student search detail query.');
+            }
+
+            $result = mysqli_stmt_get_result($statement);
+            if (!$result) {
+                mysqli_stmt_close($statement);
+                throw new RuntimeException('Unable to read student search detail results.');
+            }
+            $studentsById = [];
+            while ($row = mysqli_fetch_assoc($result)) {
+                $studentsById[(int) $row['id_siswa']] = $row;
+            }
+            mysqli_stmt_close($statement);
+
+            if (count($studentsById) !== count($profileIds)) {
+                throw new RuntimeException('Student records changed while loading search results.');
+            }
+            foreach ($profileIds as $profileId) {
+                $siswaList[] = $studentsById[$profileId];
+            }
+        }
+    } catch (Throwable $exception) {
+        error_log('Admin Siswa search failed: ' . $exception->getMessage());
+        http_response_code(502);
+        exit('Pencarian data Siswa tidak dapat dimuat saat ini.');
+    }
 }
+
+$pageUrl = static function (int $targetPage) use ($searchTerm): string {
+    $query = [
+        'page' => 'data-siswa',
+        'hal' => $targetPage,
+    ];
+    if ($searchTerm !== '') {
+        $query['search'] = $searchTerm;
+    }
+
+    return '?' . http_build_query($query);
+};
 
 ob_start();
 ?>
@@ -105,6 +238,7 @@ ob_start();
     .sl-stat-value { font-size: 1.45rem; font-weight: 800; line-height: 1.15; }
     .sl-toolbar { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: .6rem; background: #fff; border-radius: 12px; padding: .55rem; box-shadow: 0 1px 3px rgba(16,24,40,.07); }
     .sl-search { position: relative; flex: 0 1 230px; }
+    .sl-search-form { width: 100%; margin: 0; }
     .sl-search i { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: #64748b; font-size: .78rem; }
     .sl-field { height: 34px; border: 0; border-radius: 8px; background: #eaf1fb; font-size: .75rem; color: #3b4a5e; outline: 0; }
     .sl-search .sl-field { width: 100%; padding: 0 .75rem 0 34px; }
@@ -192,8 +326,15 @@ ob_start();
 
     <div class="sl-toolbar mb-3">
         <div class="sl-search">
-            <i class="fas fa-search"></i>
-            <input type="search" id="slCari" class="sl-field" placeholder="Cari nama atau NIS..." aria-label="Cari nama atau NIS">
+            <form action="" method="get" class="sl-search-form">
+                <input type="hidden" name="page" value="data-siswa">
+                <input type="hidden" name="hal" value="1">
+                <i class="fas fa-search"></i>
+                <input type="search" id="slCari" name="search" class="sl-field" maxlength="100"
+                       value="<?= $e($searchTerm) ?>"
+                       placeholder="Cari nama, NISN, atau username..."
+                       aria-label="Cari nama, NISN, atau username">
+            </form>
         </div>
         <div class="sl-filters">
             <select id="slJurusan" class="sl-field sl-jurusan" aria-label="Filter jurusan">
@@ -280,14 +421,14 @@ ob_start();
 
         <div class="sl-foot">
             <div class="sl-info" id="slInfo">
-                Menampilkan <?= ($offset + 1) ?>-<?= ($offset + count($siswaList)) ?> dari <?= $e($totalSiswa) ?> siswa
+                Menampilkan <?= $totalSearchResults > 0 ? $offset + 1 : 0 ?>-<?= $offset + count($siswaList) ?> dari <?= $e($totalSearchResults) ?> siswa
             </div>
             <ul class="sl-pager" aria-label="Navigasi halaman">
                 <?php
                 $prevClass = ($page <= 1) ? 'disabled' : '';
                 $prevHal   = max(1, $page - 1);
                 ?>
-                <li class="<?= $prevClass ?>"><a href="?page=data-siswa&hal=<?= $prevHal ?>">Sebelumnya</a></li>
+                <li class="<?= $prevClass ?>"><a href="<?= $e($pageUrl($prevHal)) ?>">Sebelumnya</a></li>
 
                 <?php
                 $start = max(1, $page - 2);
@@ -297,14 +438,14 @@ ob_start();
                 for ($p = $start; $p <= $end; $p++):
                     $activeClass = ($p == $page) ? 'active' : '';
                 ?>
-                    <li class="<?= $activeClass ?>"><a href="?page=data-siswa&hal=<?= $p ?>"><?= $p ?></a></li>
+                    <li class="<?= $activeClass ?>"><a href="<?= $e($pageUrl($p)) ?>"><?= $p ?></a></li>
                 <?php endfor; ?>
 
                 <?php
                 $nextClass = ($page >= $totalPages) ? 'disabled' : '';
                 $nextHal   = min($totalPages, $page + 1);
                 ?>
-                <li class="<?= $nextClass ?>"><a href="?page=data-siswa&hal=<?= $nextHal ?>">Selanjutnya</a></li>
+                <li class="<?= $nextClass ?>"><a href="<?= $e($pageUrl($nextHal)) ?>">Selanjutnya</a></li>
             </ul>
         </div>
     </div>
@@ -359,14 +500,12 @@ ob_start();
         var $ = window.jQuery;
         
         function terapkan() {
-            var q = $('#slCari').val().toLowerCase().trim();
             var j = $('#slJurusan').val();
             var st = $('#slStatus').val();
             var tampil = 0;
             $('#slTabel tbody tr[data-status]').each(function () {
                 var $r = $(this);
-                var cocok = (!q || $r.text().toLowerCase().indexOf(q) > -1)
-                    && (!j || String($r.data('kelas')).indexOf(j) > -1)
+                var cocok = (!j || String($r.data('kelas')).indexOf(j) > -1)
                     && (!st || $r.data('status') === st);
                 $r.toggle(cocok);
                 if (cocok) { tampil++; }
@@ -374,7 +513,6 @@ ob_start();
             $('#slKosong').toggle(tampil === 0);
             $('#slInfo').text('Menampilkan ' + tampil + ' siswa (difilter)');
         }
-        $('#slCari').on('input', terapkan);
         $('#slJurusan, #slStatus').on('change', terapkan);
 
         // ISI DATA MODAL SAAT TOMBOL HAPUS DIKLIK

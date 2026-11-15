@@ -9,7 +9,7 @@ use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Validation\Rule;
+use Illuminate\Support\Facades\Storage;
 
 class ProfilController extends Controller
 {
@@ -32,26 +32,63 @@ class ProfilController extends Controller
             'nama' => ['required', 'string', 'min:3', 'max:120'],
             'no_hp' => ['sometimes', 'nullable', 'string', 'max:25'],
             'email' => ['prohibited'],
+            'foto' => ['sometimes', 'nullable', 'image', 'max:2048'],
         ]);
 
         $user = $request->user();
-        $profile = DB::transaction(function () use ($user, $data): Guru {
-            $lockedUser = User::query()->with('role')->lockForUpdate()->findOrFail($user->id);
-            $guru = Guru::query()->where('user_id', $lockedUser->id)->lockForUpdate()->first();
-            if (! $this->isEligibleGuru($lockedUser, $guru)) {
-                abort(404);
+        $newPhotoPath = null;
+        $oldPhotoPath = null;
+
+        try {
+            $profile = DB::transaction(function () use (
+                $request,
+                $user,
+                $data,
+                &$newPhotoPath,
+                &$oldPhotoPath
+            ): Guru {
+                $lockedUser = User::query()->with('role')->lockForUpdate()->findOrFail($user->id);
+                $guru = Guru::query()->where('user_id', $lockedUser->id)->lockForUpdate()->first();
+                if (! $this->isEligibleGuru($lockedUser, $guru)) {
+                    abort(404);
+                }
+
+                $guru->nama_lengkap = trim($data['nama']);
+                if (array_key_exists('no_hp', $data)) {
+                    $guru->no_hp = $data['no_hp'];
+                }
+                $lockedUser->nama_tampilan = trim($data['nama']);
+
+                if ($request->hasFile('foto')) {
+                    $oldPhotoPath = $lockedUser->foto_profil;
+                    $newPhotoPath = $request->file('foto')->store('foto-guru', 'public');
+                    if ($newPhotoPath === false) {
+                        throw new \RuntimeException('Foto profil Guru gagal disimpan.');
+                    }
+                    $lockedUser->foto_profil = $newPhotoPath;
+                }
+
+                $guru->save();
+                $lockedUser->save();
+
+                return $guru->fresh();
+            });
+        } catch (\Throwable $exception) {
+            if (is_string($newPhotoPath) && ! Storage::disk('public')->delete($newPhotoPath)) {
+                throw new \RuntimeException(
+                    'Foto profil baru tidak dapat dibersihkan setelah pembaruan gagal.',
+                    previous: $exception
+                );
             }
 
-            $guru->nama_lengkap = trim($data['nama']);
-            if (array_key_exists('no_hp', $data)) {
-                $guru->no_hp = $data['no_hp'];
-            }
-            $lockedUser->nama_tampilan = trim($data['nama']);
-            $guru->save();
-            $lockedUser->save();
+            throw $exception;
+        }
 
-            return $guru->fresh();
-        });
+        if ($oldPhotoPath !== null && $oldPhotoPath !== $newPhotoPath) {
+            if (! Storage::disk('public')->delete($oldPhotoPath)) {
+                throw new \RuntimeException('Foto profil lama tidak dapat dihapus setelah pembaruan berhasil.');
+            }
+        }
 
         return response()->json([
             'success' => true,
@@ -93,6 +130,7 @@ class ProfilController extends Controller
                 .($classes->isNotEmpty() ? ' • '.$classes->implode(', ') : ''),
             'email' => $user->email,
             'no_hp' => $guru->no_hp,
+            'foto_url' => $user->foto_profil ? url('/api/v1/foto/'.$user->foto_profil) : null,
             'jumlah_siswa' => $students->count(),
             'kelas' => $classes,
         ];

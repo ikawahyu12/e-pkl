@@ -42,6 +42,7 @@ class GuruJurnalReadTest extends TestCase
             $table->id();
             $table->unsignedBigInteger('user_id');
             $table->string('nama_lengkap');
+            $table->string('status_bimbingan')->default('aktif');
             $table->timestamps();
         });
 
@@ -176,7 +177,7 @@ class GuruJurnalReadTest extends TestCase
             ->assertJsonPath('data.dokumentasi.0.mime_type', 'image/jpeg');
 
         $this->assertSame(
-            'http://localhost:8000/api/v1/guru/jurnal/'.$this->jurnalId.'/lampiran/'.$lampiranId,
+            url('/api/v1/guru/jurnal/'.$this->jurnalId.'/lampiran/'.$lampiranId),
             $response->json('data.dokumentasi.0.url'),
         );
     }
@@ -272,7 +273,7 @@ class GuruJurnalReadTest extends TestCase
 
         $this->getJson('/api/v1/guru/jurnal')
             ->assertForbidden()
-            ->assertJsonPath('message', 'Profil Guru tidak ditemukan.');
+            ->assertJsonPath('message', 'Akses hanya tersedia untuk akun Guru aktif dengan status bimbingan aktif.');
     }
 
     public function test_journal_list_requires_a_teacher_account(): void

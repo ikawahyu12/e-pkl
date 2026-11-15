@@ -1,13 +1,6 @@
 <?php
-/**
- * Admin > Data Guru > Edit  (UI saja, belum menyimpan ke database)
- *
- * File ini berdiri sendiri. Satu-satunya yang dibutuhkan: app/Views/layouts/admin.php
- * Letak file: app/Views/admin/guru/edit.php
- * Data guru diambil dari array dummy berdasarkan ?id=  (contoh: ?page=edit&id=1)
- */
+require_once dirname(__DIR__, 3) . '/Support/AdminHttp.php';
 
-// 1. Alamat asset (dipakai hanya jika halaman dibuka langsung dari folder app/Views)
 if (!isset($assetBaseUrl)) {
     $scriptDir = str_replace('\\', '/', dirname($_SERVER['SCRIPT_NAME'] ?? '/'));
     if (preg_match('#^(.*?)/app/Views(?:/.*)?$#', $scriptDir, $m)) {
@@ -15,40 +8,56 @@ if (!isset($assetBaseUrl)) {
     }
 }
 
-// 2. Alamat tombol Kembali / Batal (daftar guru).
-$urlDaftar = '?page=data-guru';
+$e = static fn ($v): string => htmlspecialchars((string) $v, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
 
-// 3. Data dummy guru
-$guruList = [
-    1 => ['nip' => '198804122015031001', 'nama' => 'Alfredo H., S.Kom', 'jk' => 'Laki-laki', 'wa' => '0812-9876-5432', 'email' => 'alfredo@smksalfattah.sch.id', 'jabatan' => 'Guru Pembimbing', 'jurusan' => 'Rekayasa Perangkat Lunak (RPL)', 'status' => 'Aktif'],
-    2 => ['nip' => '197903152008012003', 'nama' => 'Dewi Sartika, M.Sn.', 'jk' => 'Perempuan', 'wa' => '0813-8765-4321', 'email' => 'dewi.sartika@smksalfattah.sch.id', 'jabatan' => 'Kajur / Guru Pembimbing', 'jurusan' => 'Desain Komunikasi Visual (DKV)', 'status' => 'Aktif'],
-    3 => ['nip' => '198501202010011005', 'nama' => 'Eko Prasetyo, S.T.', 'jk' => 'Laki-laki', 'wa' => '0857-7654-3210', 'email' => 'eko.prasetyo@smksalfattah.sch.id', 'jabatan' => 'Guru Pembimbing', 'jurusan' => 'Teknik Komputer & Jaringan (TKJ)', 'status' => 'Aktif'],
-    4 => ['nip' => '199008052019031009', 'nama' => 'Budi Santoso, S.Kom.', 'jk' => 'Laki-laki', 'wa' => '0821-6543-2109', 'email' => 'budi.santoso@smksalfattah.sch.id', 'jabatan' => 'Guru Pembimbing', 'jurusan' => 'Rekayasa Perangkat Lunak (RPL)', 'status' => 'Cuti'],
-];
-$id = (int) ($_GET['id'] ?? 1);
-$g  = $guruList[$id] ?? $guruList[1];
-
-$opsiJabatan = [
-    'Guru Pembimbing',
-    'Kajur / Guru Pembimbing',
-    'Koordinator PKL',
-];
-
-$opsiJurusan = [
-    'Rekayasa Perangkat Lunak (RPL)',
-    'Teknik Komputer & Jaringan (TKJ)',
-    'Desain Komunikasi Visual (DKV)',
-    'Akuntansi dan Keuangan Lembaga (AKL)',
-];
-
-$opsiStatus = ['Aktif', 'Cuti', 'Nonaktif'];
-
-$e   = static fn ($v): string => htmlspecialchars((string) $v, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
-$pil = static fn ($a, $b): string => (string) $a === (string) $b ? ' selected' : '';
-
-// 4. Variabel untuk layouts/admin.php
 $pageTitle  = 'Edit Data Guru';
-$activePage = 'guru'; // samakan dengan kunci menu "Data Guru" di sidebar.php
+$activePage = 'data-guru';
+$urlDaftar  = '?page=data-guru';
+
+$id  = (int) ($_GET['id'] ?? 0);
+$res = admin_api('GET', '/admin/guru/' . $id);
+
+if ($res['status'] !== 200) {
+    admin_flash_set('error', admin_errors($res));
+    header('Location: ' . $urlDaftar);
+    exit;
+}
+
+$g           = $res['body']['data'] ?? [];
+$jurusanList = admin_api('GET', '/admin/jurusan')['body']['data'] ?? [];
+$error       = null;
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    if (!guru_csrf_ok()) {
+        $error = 'Sesi formulir tidak valid. Muat ulang halaman.';
+    } else {
+        $put = admin_api('PUT', '/admin/guru/' . $id, [
+            'nama_lengkap'     => trim($_POST['nama_lengkap'] ?? ''),
+            'nip'              => trim($_POST['nip'] ?? ''),
+            'username'         => trim($_POST['username'] ?? ''),
+            'email'            => trim($_POST['email'] ?? ''),
+            'password'         => $_POST['password'] ?? '',
+            'jenis_kelamin'    => $_POST['jenis_kelamin'] ?? null,
+            'no_hp'            => trim($_POST['no_hp'] ?? ''),
+            'alamat'           => trim($_POST['alamat'] ?? ''),
+            'mata_pelajaran'   => trim($_POST['mata_pelajaran'] ?? ''),
+            'jurusan_id'       => ($_POST['jurusan_id'] ?? '') !== '' ? (int) $_POST['jurusan_id'] : null,
+            'status_bimbingan' => $_POST['status_bimbingan'] ?? 'aktif',
+            'kuota_bimbingan'  => ($_POST['kuota_bimbingan'] ?? '') !== '' ? (int) $_POST['kuota_bimbingan'] : 0,
+        ]);
+
+        if ($put['status'] === 200) {
+            admin_flash_set('success', 'Data guru berhasil diperbarui.');
+            header('Location: ' . $urlDaftar);
+            exit;
+        }
+        $error = admin_errors($put);
+        $g = array_merge($g, $_POST); // pertahankan isian
+    }
+}
+
+$v = static fn (string $k, string $d = ''): string => htmlspecialchars((string) ($g[$k] ?? $d), ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+$aktif = ($g['status_bimbingan'] ?? 'aktif') === 'aktif';
 
 ob_start();
 ?>
@@ -107,78 +116,102 @@ ob_start();
     <div class="ed-top">
         <div>
             <div class="ed-crumb">
-                <a href="<?= $e($urlDaftar) ?>">Data Guru</a><span class="sep">/</span>Edit<span class="sep">/</span><span class="now"><?= $e($g['nama']) ?></span>
+                <a href="<?= $e($urlDaftar) ?>">Data Guru</a><span class="sep">/</span>Edit<span class="sep">/</span><span class="now"><?= $v('nama_lengkap') ?></span>
             </div>
             <h1 class="ed-title">Edit Data Guru</h1>
-            <p class="ed-sub">Perbarui informasi data diri, jabatan, tugas pembimbingan, dan status keaktifan guru</p>
+            <p class="ed-sub">Perbarui data diri, akun login, dan status bimbingan guru</p>
         </div>
         <a href="<?= $e($urlDaftar) ?>" class="ed-back"><i class="fas fa-arrow-left mr-2"></i>Kembali</a>
     </div>
 
     <div class="ed-banner">
-        <span><i class="fas fa-user-edit"></i>Anda sedang mengubah data <strong><?= $e($g['nama']) ?></strong> <small>(NIP: <?= $e($g['nip']) ?>)</small></span>
-        <?php 
-            $statusClass = '';
-            if ($g['status'] === 'Nonaktif') $statusClass = ' nonaktif';
-            elseif ($g['status'] === 'Cuti') $statusClass = ' cuti';
-        ?>
-        <span class="ed-pill<?= $statusClass ?>"><?= $e($g['status']) ?></span>
+        <span><i class="fas fa-user-edit"></i>Anda sedang mengubah data <strong><?= $v('nama_lengkap') ?></strong> <small>(NIP: <?= $v('nip', '-') ?>)</small></span>
+        <span class="ed-pill<?= $aktif ? '' : ' nonaktif' ?>"><?= $aktif ? 'Aktif' : 'Non-Aktif' ?></span>
     </div>
 
-    <form id="edForm" action="#" method="post" novalidate>
+    <?php if ($error): ?>
+        <div class="alert alert-danger"><?= $e($error) ?></div>
+    <?php endif; ?>
+
+    <form method="post" action="?page=edit-data-guru&id=<?= $id ?>">
+        <input type="hidden" name="csrf" value="<?= $e(guru_csrf()) ?>">
         <div class="ed-card">
 
-            <div class="ed-sec">1. Informasi Biodata &amp; Kontak Guru</div>
+            <div class="ed-sec">1. Biodata &amp; Kontak</div>
             <div class="row">
-                <div class="col-12 form-group">
-                    <label class="ed-label" for="nip">NIP / Nomor Induk Pegawai <span class="req">*</span></label>
-                    <input class="ed-input" type="text" id="nip" name="nip" value="<?= $e($g['nip']) ?>" readonly>
+                <div class="col-md-6 form-group">
+                    <label class="ed-label" for="nama_lengkap">Nama Lengkap &amp; Gelar <span class="req">*</span></label>
+                    <input class="ed-input" type="text" id="nama_lengkap" name="nama_lengkap" value="<?= $v('nama_lengkap') ?>" required>
                 </div>
-                <div class="col-12 form-group">
-                    <label class="ed-label" for="nama">Nama Lengkap &amp; Gelar <span class="req">*</span></label>
-                    <input class="ed-input" type="text" id="nama" name="nama" value="<?= $e($g['nama']) ?>" required>
+                <div class="col-md-6 form-group">
+                    <label class="ed-label" for="nip">NIP / NUPTK</label>
+                    <input class="ed-input" type="text" id="nip" name="nip" maxlength="30" value="<?= $v('nip') ?>">
                 </div>
                 <div class="col-md-4 form-group">
-                    <label class="ed-label" for="jk">Jenis Kelamin <span class="req">*</span></label>
-                    <select class="ed-input" id="jk" name="jk" required>
-                        <option<?= $pil('Laki-laki', $g['jk']) ?>>Laki-laki</option>
-                        <option<?= $pil('Perempuan', $g['jk']) ?>>Perempuan</option>
+                    <label class="ed-label" for="jenis_kelamin">Jenis Kelamin</label>
+                    <select class="ed-input" id="jenis_kelamin" name="jenis_kelamin">
+                        <option value="">Pilih</option>
+                        <option value="L" <?= ($g['jenis_kelamin'] ?? '') === 'L' ? 'selected' : '' ?>>Laki-laki</option>
+                        <option value="P" <?= ($g['jenis_kelamin'] ?? '') === 'P' ? 'selected' : '' ?>>Perempuan</option>
                     </select>
                 </div>
                 <div class="col-md-4 form-group">
-                    <label class="ed-label" for="wa">Nomor WhatsApp Guru <span class="req">*</span></label>
-                    <input class="ed-input" type="tel" id="wa" name="wa" value="<?= $e($g['wa']) ?>" required>
+                    <label class="ed-label" for="no_hp">No. HP / WhatsApp</label>
+                    <input class="ed-input" type="tel" id="no_hp" name="no_hp" value="<?= $v('no_hp') ?>">
                 </div>
                 <div class="col-md-4 form-group">
-                    <label class="ed-label" for="email">Email Guru <span class="req">*</span></label>
-                    <input class="ed-input" type="email" id="email" name="email" value="<?= $e($g['email']) ?>" required>
+                    <label class="ed-label" for="alamat">Alamat</label>
+                    <input class="ed-input" type="text" id="alamat" name="alamat" value="<?= $v('alamat') ?>">
                 </div>
             </div>
 
             <hr class="ed-divider">
 
-            <div class="ed-sec">2. Penugasan &amp; Status Bimbingan</div>
+            <div class="ed-sec">2. Akun Login</div>
             <div class="row">
                 <div class="col-md-4 form-group">
-                    <label class="ed-label" for="jabatan">Jabatan Pembimbing <span class="req">*</span></label>
-                    <select class="ed-input" id="jabatan" name="jabatan" required>
-                        <?php foreach ($opsiJabatan as $o): ?><option<?= $pil($o, $g['jabatan']) ?>><?= $e($o) ?></option><?php endforeach; ?>
-                    </select>
+                    <label class="ed-label" for="username">Username <span class="req">*</span></label>
+                    <input class="ed-input" type="text" id="username" name="username" value="<?= $v('username') ?>" required>
                 </div>
                 <div class="col-md-4 form-group">
-                    <label class="ed-label" for="jurusan">Kompetensi Keahlian / Jurusan <span class="req">*</span></label>
-                    <select class="ed-input" id="jurusan" name="jurusan" required>
-                        <?php foreach ($opsiJurusan as $o): ?><option<?= $pil($o, $g['jurusan']) ?>><?= $e($o) ?></option><?php endforeach; ?>
-                    </select>
+                    <label class="ed-label" for="email">Email <span class="req">*</span></label>
+                    <input class="ed-input" type="email" id="email" name="email" value="<?= $v('email') ?>" required>
                 </div>
                 <div class="col-md-4 form-group">
-                    <label class="ed-label" for="status">Status Guru <span class="req">*</span></label>
-                    <select class="ed-input" id="status" name="status" required>
-                        <?php foreach ($opsiStatus as $o): ?><option<?= $pil($o, $g['status']) ?>><?= $e($o) ?></option><?php endforeach; ?>
+                    <label class="ed-label" for="password">Password Baru <span class="opt">(kosongkan jika tidak diubah)</span></label>
+                    <input class="ed-input" type="password" id="password" name="password" minlength="8" autocomplete="new-password">
+                </div>
+            </div>
+
+            <hr class="ed-divider">
+
+            <div class="ed-sec">3. Penugasan &amp; Status Bimbingan</div>
+            <div class="row">
+                <div class="col-md-3 form-group">
+                    <label class="ed-label" for="mata_pelajaran">Mata Pelajaran</label>
+                    <input class="ed-input" type="text" id="mata_pelajaran" name="mata_pelajaran" value="<?= $v('mata_pelajaran') ?>">
+                </div>
+                <div class="col-md-3 form-group">
+                    <label class="ed-label" for="jurusan_id">Jurusan</label>
+                    <select class="ed-input" id="jurusan_id" name="jurusan_id">
+                        <option value="">Pilih Jurusan</option>
+                        <?php foreach ($jurusanList as $j): ?>
+                            <option value="<?= (int) $j['id'] ?>" <?= (string) ($g['jurusan_id'] ?? '') === (string) $j['id'] ? 'selected' : '' ?>>
+                                <?= $e($j['kode'] . ' - ' . $j['nama']) ?>
+                            </option>
+                        <?php endforeach; ?>
                     </select>
                 </div>
-                <div class="col-12">
-                    <div class="ed-note"><i class="fas fa-info-circle mt-1"></i><span>Perubahan status atau keahlian akan memengaruhi alokasi siswa bimbingan PKL yang ditugaskan ke guru ini.</span></div>
+                <div class="col-md-3 form-group">
+                    <label class="ed-label" for="kuota_bimbingan">Kuota Bimbingan</label>
+                    <input class="ed-input" type="number" min="0" max="100" id="kuota_bimbingan" name="kuota_bimbingan" value="<?= $v('kuota_bimbingan', '0') ?>">
+                </div>
+                <div class="col-md-3 form-group">
+                    <label class="ed-label" for="status_bimbingan">Status</label>
+                    <select class="ed-input" id="status_bimbingan" name="status_bimbingan">
+                        <option value="aktif" <?= $aktif ? 'selected' : '' ?>>Aktif</option>
+                        <option value="nonaktif" <?= !$aktif ? 'selected' : '' ?>>Non-Aktif</option>
+                    </select>
                 </div>
             </div>
 
@@ -186,7 +219,6 @@ ob_start();
                 <a href="<?= $e($urlDaftar) ?>" class="ed-btn ed-btn-cancel">Batal</a>
                 <button type="submit" class="ed-btn ed-btn-save">Simpan Perubahan</button>
             </div>
-            <div class="ed-toast" id="edToast" role="status">Tampilan saja: perubahan belum disimpan ke database.</div>
         </div>
     </form>
 </div>

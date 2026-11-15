@@ -265,6 +265,34 @@ class AgendaController extends Controller
         ]);
     }
 
+    public function destroy(Request $request, int $id): JsonResponse
+    {
+        $guru = $this->authenticatedGuru($request);
+
+        DB::transaction(function () use ($guru, $id): void {
+            $lockedGuru = $this->lockActiveGuru($guru);
+            $agenda = Agenda::query()
+                ->where('guru_id', $lockedGuru->id)
+                ->lockForUpdate()
+                ->findOrFail($id);
+
+            if ($agenda->status !== 'terjadwal') {
+                $this->fail(
+                    'status',
+                    'Hanya agenda terjadwal yang dapat dihapus. Agenda selesai atau dibatalkan disimpan sebagai histori.'
+                );
+            }
+
+            $agenda->siswa()->detach();
+            $agenda->delete();
+        }, attempts: 3);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Jadwal dihapus.',
+        ]);
+    }
+
     private function authenticatedGuru(Request $request): Guru
     {
         $user = $request->user()->loadMissing('role');

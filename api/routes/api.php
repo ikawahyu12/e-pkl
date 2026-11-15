@@ -6,6 +6,7 @@ use App\Http\Controllers\AdminPenempatanPklController;
 use App\Http\Controllers\AdminStudentController;
 use App\Http\Controllers\AdminTeacherController;
 use App\Http\Controllers\AdminUserController;
+use App\Http\Controllers\Api\V1\Admin\GuruController as AdminGuruController;
 use App\Http\Controllers\Api\V1\Guru\AgendaController;
 use App\Http\Controllers\Api\V1\Guru\EmailChangeController;
 use App\Http\Controllers\Api\V1\Guru\JurnalController as GuruJurnalController;
@@ -14,6 +15,7 @@ use App\Http\Controllers\Api\V1\Siswa\IzinController;
 use App\Http\Controllers\Api\V1\Siswa\JurnalController;
 use App\Http\Controllers\Api\V1\Siswa\PresensiController;
 use App\Http\Controllers\Api\V1\Siswa\ProfilController;
+use App\Http\Controllers\Api\V1\Siswa\RiwayatController;
 use App\Http\Controllers\PasswordController;
 use App\Http\Controllers\PasswordResetController;
 use App\Http\Controllers\SelfRegistrationController;
@@ -24,7 +26,36 @@ use App\Http\Middleware\EnsureGuruRole;
 use App\Http\Middleware\EnsurePasswordChanged;
 use App\Http\Middleware\EnsureSanctumTokenStorage;
 use App\Http\Middleware\EnsureSiswaRole;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Route;
+use Illuminate\Support\Facades\Storage;
+
+Route::get('v1/foto/{path}', function (string $path) {
+    abort_if(str_contains($path, '..'), 404);
+    abort_unless(Storage::disk('public')->exists($path), 404);
+
+    return response()->file(Storage::disk('public')->path($path));
+})->where('path', 'foto-guru/.*');
+
+// Admin: Data Guru (dipakai web admin dan mobile)
+Route::prefix('v1/admin')->middleware([
+    EnsureSanctumTokenStorage::class,
+    'auth:sanctum',
+    EnsureAdminRole::class,
+])->group(function (): void {
+    Route::get('/jurusan', function () {
+        return response()->json([
+            'data' => DB::table('jurusan')
+                ->orderBy('nama')->get(['id', 'kode', 'nama']),
+        ]);
+    });
+
+    Route::get('/guru', [AdminGuruController::class, 'index']);
+    Route::post('/guru', [AdminGuruController::class, 'store']);
+    Route::get('/guru/{id}', [AdminGuruController::class, 'show']);
+    Route::put('/guru/{id}', [AdminGuruController::class, 'update']);
+    Route::delete('/guru/{id}', [AdminGuruController::class, 'destroy']);
+});
 
 Route::prefix('v1/{role}/auth')->whereIn('role', ['admin', 'guru', 'siswa'])->group(function (): void {
     Route::post('/forgot-password', [PasswordResetController::class, 'send'])
@@ -70,6 +101,7 @@ Route::prefix('v1/guru')->middleware([
     EnsurePasswordChanged::class,
 ])->group(function (): void {
     Route::get('/profil', [GuruProfilController::class, 'show']);
+    Route::post('/profil', [GuruProfilController::class, 'update']);
     Route::patch('/profil', [GuruProfilController::class, 'update']);
     Route::post('/profil/email-change', [EmailChangeController::class, 'request']);
 
@@ -77,6 +109,8 @@ Route::prefix('v1/guru')->middleware([
     Route::get('/agenda/opsi', [AgendaController::class, 'options']);
     Route::post('/agenda', [AgendaController::class, 'store']);
     Route::patch('/agenda/{id}/status', [AgendaController::class, 'updateStatus'])
+        ->whereNumber('id');
+    Route::delete('/agenda/{id}', [AgendaController::class, 'destroy'])
         ->whereNumber('id');
 
     Route::get('/jurnal', [GuruJurnalController::class, 'index']);
@@ -118,6 +152,7 @@ Route::prefix('v1/siswa')->middleware([
         Route::post('/presensi', [PresensiController::class, 'store']);
         Route::post('/jurnal', [JurnalController::class, 'store']);
         Route::post('/izin', [IzinController::class, 'store']);
+        Route::get('/riwayat', [RiwayatController::class, 'index']);
     });
 });
 
