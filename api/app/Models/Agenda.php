@@ -1,7 +1,5 @@
 <?php
 
-// Simpan di: app/Models/Agenda.php
-
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
@@ -18,13 +16,21 @@ class Agenda extends Model
         'tanggal',
         'jam_mulai',
         'jam_selesai',
+        'jenis_pencatatan',
         'status',
         'catatan',
+        'alasan_pembatalan',
+        'dibatalkan_at',
+        'dibatalkan_oleh_user_id',
     ];
 
-    protected $casts = [
-        'tanggal' => 'date:Y-m-d',
-    ];
+    protected function casts(): array
+    {
+        return [
+            'tanggal' => 'date:Y-m-d',
+            'dibatalkan_at' => 'datetime',
+        ];
+    }
 
     public function guru(): BelongsTo
     {
@@ -44,5 +50,10 @@ class Agenda extends Model
             'agenda_kunjungan_id',
             'siswa_id'
         );
+    }
+
+    public function dibatalkanOleh(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'dibatalkan_oleh_user_id');
     }
 }

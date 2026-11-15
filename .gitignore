@@ -31,3 +31,5 @@ Thumbs.db
 # Local database
 /api/database/*.sqlite
 /api/database/*.sqlite-*
+# Backup lokal
+backup-perubahan-siswa-20261111/

@@ -52,6 +52,15 @@ ob_start();
     <?php endif; ?>
     <?php if (is_array($adminFlash ?? null) && ($adminFlash['type'] ?? '') === 'danger'): ?>
         <div class="alert alert-danger"><?= htmlspecialchars($adminFlash['message'] ?? 'Permintaan gagal.', ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') ?></div>
+        <?php if (is_array($adminFlash['errors'] ?? null)): ?>
+            <ul class="alert alert-danger">
+                <?php foreach ($adminFlash['errors'] as $messages): ?>
+                    <?php foreach ((array) $messages as $message): ?>
+                        <li><?= htmlspecialchars((string) $message, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') ?></li>
+                    <?php endforeach; ?>
+                <?php endforeach; ?>
+            </ul>
+        <?php endif; ?>
     <?php endif; ?>
     <form id="sfForm" action="?page=edit-siswa&amp;id=<?= (int) ($siswa['id'] ?? 0) ?>" method="post">
         <input type="hidden" name="action" value="student-user-update">

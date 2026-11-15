@@ -16,15 +16,11 @@ use App\Http\Middleware\EnsureGuruRole;
 use App\Http\Middleware\EnsureSanctumTokenStorage;
 use App\Http\Middleware\EnsureSiswaRole;
 use Illuminate\Support\Facades\Route;
-<<<<<<< HEAD
-use App\Http\Controllers\Api\V1\Siswa\ProfilController;
 use App\Http\Controllers\Api\V1\Admin\GuruController;
 use App\Http\Controllers\Api\V1\Admin\GuruController as AdminGuruController;
 use App\Http\Controllers\Api\V1\Guru\ProfilController as GuruProfilController;
 use Illuminate\Support\Facades\Storage;
 use App\Http\Controllers\Api\V1\Guru\AgendaController;
-=======
->>>>>>> origin/main
 
 Route::get('v1/foto/{path}', function (string $path) {
     abort_if(str_contains($path, '..'), 404);
@@ -106,18 +102,12 @@ Route::prefix('v1/admin/auth')->group(function (): void {
     });
 });
 
-<<<<<<< HEAD
 // Admin: Guru Pembimbing
 Route::prefix('v1/admin')->middleware([
-=======
-// Manajemen akun Admin
-Route::prefix('v1/admin/users')->middleware([
->>>>>>> origin/main
     EnsureSanctumTokenStorage::class,
     'auth:sanctum',
     EnsureAdminRole::class,
 ])->group(function (): void {
-<<<<<<< HEAD
     Route::get('/jurusan', [AdminGuruController::class, 'jurusan']);
     Route::get('/guru', [AdminGuruController::class, 'index']);
     Route::post('/guru', [AdminGuruController::class, 'store']);
@@ -126,7 +116,20 @@ Route::prefix('v1/admin/users')->middleware([
     Route::delete('/guru/{id}', [AdminGuruController::class, 'destroy']);
 });
 
-  // Profil Guru
+// Manajemen akun Admin
+Route::prefix('v1/admin/users')->middleware([
+    EnsureSanctumTokenStorage::class,
+    'auth:sanctum',
+    EnsureAdminRole::class,
+])->group(function (): void {
+    Route::get('/', [AdminUserController::class, 'index']);
+    Route::post('/', [AdminUserController::class, 'store']);
+    Route::get('/{user}', [AdminUserController::class, 'show']);
+    Route::match(['put', 'patch'], '/{user}', [AdminUserController::class, 'update']);
+    Route::delete('/{user}', [AdminUserController::class, 'destroy']);
+});
+
+// Profil Guru
 Route::prefix('v1/guru')->middleware([
     EnsureSanctumTokenStorage::class,
     'auth:sanctum',
@@ -142,13 +145,6 @@ Route::prefix('v1/guru')->middleware([
     Route::post('/agenda', [AgendaController::class, 'store']);
     Route::patch('/agenda/{id}/status', [AgendaController::class, 'updateStatus']);
     Route::delete('/agenda/{id}', [AgendaController::class, 'destroy']);
-});
-=======
-    Route::get('/', [AdminUserController::class, 'index']);
-    Route::post('/', [AdminUserController::class, 'store']);
-    Route::get('/{user}', [AdminUserController::class, 'show']);
-    Route::match(['put', 'patch'], '/{user}', [AdminUserController::class, 'update']);
-    Route::delete('/{user}', [AdminUserController::class, 'destroy']);
 });
 
 // Manajemen akun Siswa
@@ -177,4 +173,3 @@ Route::prefix('v1/admin/teachers')->middleware([
     Route::patch('/{user}', [AdminTeacherController::class, 'update']);
     Route::delete('/{user}', [AdminTeacherController::class, 'destroy']);
 });
->>>>>>> origin/main

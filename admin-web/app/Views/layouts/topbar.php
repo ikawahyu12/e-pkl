@@ -51,6 +51,10 @@ $adminUserRole = isset($adminUserRole) && is_string($adminUserRole) ? $adminUser
                 <span class="dropdown-item-text small font-weight-bold"><?= $e($adminUserName) ?></span>
                 <span class="dropdown-item-text small text-muted"><?= $e($adminUserRole) ?></span>
                 <div class="dropdown-divider"></div>
+                <a class="dropdown-item" href="<?= $e($routerUrl) ?>?page=ganti-password">
+                    <i class="fas fa-key fa-sm fa-fw mr-2 text-gray-400" aria-hidden="true"></i>
+                    Ganti Kata Sandi
+                </a>
                 <form method="POST" action="<?= $e($routerUrl) ?>" class="m-0">
                     <input type="hidden" name="action" value="logout">
                     <input type="hidden" name="csrf_token" value="<?= $e($csrfToken) ?>">

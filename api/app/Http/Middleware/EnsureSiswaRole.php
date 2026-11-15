@@ -15,12 +15,14 @@ class EnsureSiswaRole
         $user?->loadMissing(['role', 'siswa']);
 
         if (
-            $user?->role?->nama !== 'siswa'
-            || $user?->siswa === null
+            $user?->role?->nama !== 'siswa' ||
+            $user?->status !== 'aktif' ||
+            $user?->siswa === null ||
+            $user?->siswa?->status_siswa !== 'aktif'
         ) {
             return response()->json([
                 'success' => false,
-                'message' => 'Akses hanya tersedia untuk akun Siswa.',
+                'message' => 'Akses hanya tersedia untuk akun Siswa aktif dengan profil Siswa aktif.',
             ], 403);
         }
 

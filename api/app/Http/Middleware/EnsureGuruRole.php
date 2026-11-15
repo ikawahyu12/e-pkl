@@ -11,12 +11,17 @@ class EnsureGuruRole
     public function handle(Request $request, Closure $next): Response
     {
         $user = $request->user();
-        $user?->loadMissing('role');
+        $user?->loadMissing(['role', 'guru']);
 
-        if ($user?->role?->nama !== 'guru') {
+        if (
+            $user?->role?->nama !== 'guru' ||
+            $user?->status !== 'aktif' ||
+            $user?->guru === null ||
+            $user?->guru?->status_bimbingan !== 'aktif'
+        ) {
             return response()->json([
                 'success' => false,
-                'message' => 'Akses hanya tersedia untuk akun Guru.',
+                'message' => 'Akses hanya tersedia untuk akun Guru aktif dengan status bimbingan aktif.',
             ], 403);
         }
 

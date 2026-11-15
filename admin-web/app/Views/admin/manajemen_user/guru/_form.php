@@ -8,6 +8,7 @@ $g = $guru ?? [
 $e = static fn ($v): string => htmlspecialchars((string) $v, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
 $isEditing = $isEditing ?? false;
 $status = strtolower((string) ($g['status'] ?? 'aktif'));
+$teacherStatusChangeAllowed = !$isEditing || ($teacherResponsibilitiesLoaded ?? false);
 ?>
 
 <div class="row">
@@ -53,14 +54,17 @@ $status = strtolower((string) ($g['status'] ?? 'aktif'));
         <span class="sf-label">Status Akun Guru <span class="req">*</span></span>
         <div class="sf-radios">
             <label class="sf-radio <?= $status === 'aktif' ? 'on' : '' ?>">
-                <span class="txt"><input type="radio" name="status" value="aktif" <?= $status === 'aktif' ? 'checked' : '' ?>> Aktif</span>
+                <span class="txt"><input type="radio" name="status" value="aktif" <?= $status === 'aktif' ? 'checked' : '' ?> <?= $teacherStatusChangeAllowed ? '' : 'disabled' ?>> Aktif</span>
                 <span class="sf-tag sf-tag-aktif">Aktif</span>
             </label>
             <label class="sf-radio <?= $status !== 'aktif' ? 'on' : '' ?>">
-                <span class="txt"><input type="radio" name="status" value="nonaktif" <?= $status !== 'aktif' ? 'checked' : '' ?>> Nonaktif</span>
+                <span class="txt"><input type="radio" name="status" value="nonaktif" <?= $status !== 'aktif' ? 'checked' : '' ?> <?= $teacherStatusChangeAllowed ? '' : 'disabled' ?>> Nonaktif</span>
                 <span class="sf-tag sf-tag-pending">Nonaktif</span>
             </label>
         </div>
+        <?php if (!$teacherStatusChangeAllowed): ?>
+            <small class="form-text text-danger">Status akun tidak dapat diubah karena daftar penempatan aktif gagal dimuat.</small>
+        <?php endif; ?>
     </div>
 </div>
 

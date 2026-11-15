@@ -35,7 +35,8 @@ class GuruAuthServiceTest extends TestCase
         $user = new User;
         $user->status = $status;
         $user->setRelation('role', new Role(['nama' => $roleName]));
-        $user->setRelation('guru', $hasGuruProfile ? new Guru : null);
+        $guru = $hasGuruProfile ? new Guru(['status_bimbingan' => 'aktif']) : null;
+        $user->setRelation('guru', $guru);
 
         return $user;
     }

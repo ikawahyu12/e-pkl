@@ -18,7 +18,10 @@ class SiswaAuthService
             ->with(['role', 'siswa'])
             ->where(function ($query) use ($login): void {
                 $query->where('username', $login)
-                    ->orWhere('email', $login);
+                    ->orWhere('email', $login)
+                    ->orWhereHas('siswa', function ($siswaQuery) use ($login): void {
+                        $siswaQuery->where('nis', $login);
+                    });
             })
             ->first();
 
@@ -40,6 +43,9 @@ class SiswaAuthService
             ['siswa'],
             now()->addHours(12)
         );
+
+        $user->terakhir_login_at = now();
+        $user->save();
 
         return [
             'token' => $newToken->plainTextToken,
@@ -80,6 +86,7 @@ class SiswaAuthService
             'email' => $user->email,
             'nama_tampilan' => $user->nama_tampilan,
             'role' => $user->role->nama,
+            'wajib_ganti_password' => (bool) $user->wajib_ganti_password,
             'siswa' => [
                 'id' => $user->siswa->id,
                 'nisn' => $user->siswa->nisn,

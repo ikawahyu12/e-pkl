@@ -1,165 +1,146 @@
 <?php
 
-// Simpan di: app/Http/Controllers/Api/V1/Guru/ProfilController.php
-//
-// Route (routes/api.php), di dalam grup 'v1/guru' yang sudah ada:
-//   Route::get('/profil', [GuruProfilController::class, 'show']);
-//   Route::post('/profil', [GuruProfilController::class, 'update']);   // JSON atau multipart (foto)
-//   Route::post('/profil/password', [GuruProfilController::class, 'updatePassword']);
-//
-// Foto tampil lewat Storage::url(), jadi jalankan sekali: php artisan storage:link
-// dan pastikan APP_URL di .env bisa dijangkau dari HP/emulator.
-
 namespace App\Http\Controllers\Api\V1\Guru;
 
 use App\Http\Controllers\Controller;
 use App\Models\Guru;
 use App\Models\PenempatanPkl;
-use App\Models\Siswa;
 use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
-use Illuminate\Validation\Rule;
 
 class ProfilController extends Controller
 {
     public function show(Request $request): JsonResponse
     {
-        $user = $request->user();
-        $guru = Guru::where('user_id', $user->id)->first();
-
-        if (! $guru) {
-            return $this->guruTidakDitemukan();
+        $user = $request->user()->loadMissing(['role', 'guru']);
+        if (! $this->isEligibleGuru($user)) {
+            return $this->notFound();
         }
 
         return response()->json([
             'success' => true,
-            'data' => $this->payload($user, $guru),
+            'data' => $this->payload($user, $user->guru),
         ]);
     }
 
     public function update(Request $request): JsonResponse
     {
-        $user = $request->user();
-        $guru = Guru::where('user_id', $user->id)->first();
-
-        if (! $guru) {
-            return $this->guruTidakDitemukan();
-        }
-
         $data = $request->validate([
-            'nama'  => ['required', 'string', 'max:120'],
-            'email' => [
-                'nullable', 'email', 'max:255',
-                Rule::unique('users', 'email')->ignore($user->id),
-            ],
-            'no_hp' => ['nullable', 'string', 'max:20'],
-            'foto'  => ['nullable', 'image', 'max:2048'],
+            'nama' => ['required', 'string', 'min:3', 'max:120'],
+            'no_hp' => ['sometimes', 'nullable', 'string', 'max:25'],
+            'email' => ['prohibited'],
+            'foto' => ['sometimes', 'nullable', 'image', 'max:2048'],
         ]);
 
-        $nama = trim($data['nama']);
+        $user = $request->user();
+        $newPhotoPath = null;
+        $oldPhotoPath = null;
 
-        $guru->update([
-            'nama_lengkap' => $nama,
-            'no_hp'        => $data['no_hp'] ?? $guru->no_hp,
-        ]);
+        try {
+            $profile = DB::transaction(function () use (
+                $request,
+                $user,
+                $data,
+                &$newPhotoPath,
+                &$oldPhotoPath
+            ): Guru {
+                $lockedUser = User::query()->with('role')->lockForUpdate()->findOrFail($user->id);
+                $guru = Guru::query()->where('user_id', $lockedUser->id)->lockForUpdate()->first();
+                if (! $this->isEligibleGuru($lockedUser, $guru)) {
+                    abort(404);
+                }
 
-        $user->nama_tampilan = $nama;
-        if (! empty($data['email'])) {
-            $user->email = $data['email'];
-        }
+                $guru->nama_lengkap = trim($data['nama']);
+                if (array_key_exists('no_hp', $data)) {
+                    $guru->no_hp = $data['no_hp'];
+                }
+                $lockedUser->nama_tampilan = trim($data['nama']);
 
-        if ($request->hasFile('foto')) {
-            if ($user->foto_profil) {
-                Storage::disk('public')->delete($user->foto_profil);
+                if ($request->hasFile('foto')) {
+                    $oldPhotoPath = $lockedUser->foto_profil;
+                    $newPhotoPath = $request->file('foto')->store('foto-guru', 'public');
+                    if ($newPhotoPath === false) {
+                        throw new \RuntimeException('Foto profil Guru gagal disimpan.');
+                    }
+                    $lockedUser->foto_profil = $newPhotoPath;
+                }
+
+                $guru->save();
+                $lockedUser->save();
+
+                return $guru->fresh();
+            });
+        } catch (\Throwable $exception) {
+            if (is_string($newPhotoPath) && ! Storage::disk('public')->delete($newPhotoPath)) {
+                throw new \RuntimeException(
+                    'Foto profil baru tidak dapat dibersihkan setelah pembaruan gagal.',
+                    previous: $exception
+                );
             }
-            $user->foto_profil = $request->file('foto')->store('foto-guru', 'public');
+
+            throw $exception;
         }
 
-        $user->save();
+        if ($oldPhotoPath !== null && $oldPhotoPath !== $newPhotoPath) {
+            if (! Storage::disk('public')->delete($oldPhotoPath)) {
+                throw new \RuntimeException('Foto profil lama tidak dapat dihapus setelah pembaruan berhasil.');
+            }
+        }
 
         return response()->json([
             'success' => true,
-            'message' => 'Profil berhasil diperbarui',
-            'data'    => $this->payload($user, $guru->fresh()),
+            'message' => 'Profil Guru berhasil diperbarui.',
+            'data' => $this->payload($user->fresh(['role']), $profile),
         ]);
     }
 
-    public function updatePassword(Request $request): JsonResponse
+    private function isEligibleGuru(User $user, ?Guru $guru = null): bool
     {
-        $data = $request->validate([
-            'password_lama' => ['required', 'string'],
-            'password_baru' => ['required', 'string', 'min:8', 'different:password_lama'],
-        ]);
+        $guru ??= $user->guru;
 
-        $user = $request->user();
-
-        if (! Hash::check($data['password_lama'], $user->password_hash)) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Kata sandi lama salah.',
-            ], 422);
-        }
-
-        $user->password_hash = Hash::make($data['password_baru']);
-        $user->wajib_ganti_password = false;
-        $user->save();
-
-        // Logout perangkat lain, token yang sedang dipakai tetap hidup.
-        $currentId = $user->currentAccessToken()?->id;
-        $user->tokens()
-            ->when($currentId, fn ($q) => $q->where('id', '!=', $currentId))
-            ->delete();
-
-        return response()->json([
-            'success' => true,
-            'message' => 'Kata sandi berhasil diubah.',
-        ]);
+        return $user->role?->nama === 'guru'
+            && $user->status === 'aktif'
+            && $guru !== null
+            && $guru->status_bimbingan === 'aktif';
     }
 
-    private function guruTidakDitemukan(): JsonResponse
-    {
-        return response()->json([
-            'success' => false,
-            'message' => 'Data guru tidak ditemukan',
-        ], 404);
-    }
-
-    /** Bentuk data profil; key disamakan dengan ProfilGuru.fromJson di Flutter. */
     private function payload(User $user, Guru $guru): array
     {
-        $siswaIds = PenempatanPkl::where('guru_id', $guru->id)
-            ->where('status', '!=', 'dibatalkan')
-            ->pluck('siswa_id')
-            ->unique();
-
-        $siswa = Siswa::with('kelas')->whereIn('id', $siswaIds)->get();
-
-        $kelas = $siswa->map(fn ($s) => $s->kelas?->nama)
+        $placements = PenempatanPkl::query()
+            ->with('siswa.kelas')
+            ->where('guru_id', $guru->id)
+            ->whereIn('status', ['belum_mulai', 'aktif'])
+            ->get();
+        $students = $placements->pluck('siswa')->filter()->unique('id');
+        $classes = $students->map(fn ($student) => $student->kelas?->nama)
             ->filter()
             ->unique()
             ->sort()
             ->values();
 
-        // Contoh hasil: "12 siswa • XI RPL 1, XI RPL 2"
-        $bimbingan = $siswa->count() . ' siswa'
-            . ($kelas->isNotEmpty() ? ' • ' . $kelas->implode(', ') : '');
-
         return [
-            'nama'         => $guru->nama_lengkap,
-            'peran'        => 'Guru Pembimbing PKL',
-            'nip'          => $guru->nip,
-            'sekolah'      => config('app.nama_sekolah', '-'),
-            'bimbingan'    => $bimbingan,
-            'email'        => $user->email,
-            'no_hp'        => $guru->no_hp,
-           'foto_url' => $user->foto_profil
-    ? url('/api/v1/foto/' . $user->foto_profil)
-    : null,
-            'jumlah_siswa' => $siswa->count(),
-            'kelas'        => $kelas,
+            'nama' => $guru->nama_lengkap,
+            'peran' => 'Guru Pembimbing PKL',
+            'nip' => $guru->nip,
+            'sekolah' => config('app.nama_sekolah', '-'),
+            'bimbingan' => $students->count().' siswa'
+                .($classes->isNotEmpty() ? ' • '.$classes->implode(', ') : ''),
+            'email' => $user->email,
+            'no_hp' => $guru->no_hp,
+            'foto_url' => $user->foto_profil ? url('/api/v1/foto/'.$user->foto_profil) : null,
+            'jumlah_siswa' => $students->count(),
+            'kelas' => $classes,
         ];
+    }
+
+    private function notFound(): JsonResponse
+    {
+        return response()->json([
+            'success' => false,
+            'message' => 'Data Guru tidak ditemukan atau tidak aktif.',
+        ], 404);
     }
 }

@@ -18,7 +18,10 @@ class GuruAuthService
             ->with(['role', 'guru'])
             ->where(function ($query) use ($login): void {
                 $query->where('username', $login)
-                    ->orWhere('email', $login);
+                    ->orWhere('email', $login)
+                    ->orWhereHas('guru', function ($guruQuery) use ($login): void {
+                        $guruQuery->where('nip', $login);
+                    });
             })
             ->first();
 
@@ -40,6 +43,9 @@ class GuruAuthService
             ['guru'],
             now()->addHours(12)
         );
+
+        $user->terakhir_login_at = now();
+        $user->save();
 
         return [
             'token' => $newToken->plainTextToken,
@@ -65,7 +71,8 @@ class GuruAuthService
     {
         return $user->role?->nama === 'guru'
             && $user->status === 'aktif'
-            && $user->guru !== null;
+            && $user->guru !== null
+            && $user->guru->status_bimbingan === 'aktif';
     }
 
     /**
@@ -79,6 +86,7 @@ class GuruAuthService
             'email' => $user->email,
             'nama_tampilan' => $user->nama_tampilan,
             'role' => $user->role->nama,
+            'wajib_ganti_password' => (bool) $user->wajib_ganti_password,
             'guru' => [
                 'id' => $user->guru->id,
                 'nip' => $user->guru->nip,

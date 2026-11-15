@@ -81,6 +81,7 @@ if (!function_exists('pf_icon')) {
     .pf-alert { padding: 12px 16px; border-radius: 12px; font-size: 13px; font-weight: 600; }
     .pf-alert-success { background: #dcfce7; color: #16a34a; }
     .pf-alert-error { background: #ffe4e6; color: #e11d48; }
+    .pf-alert-info { background: #e0f2fe; color: #075985; }
 
     @media (min-width: 900px) {
         .pf-overview {

@@ -38,17 +38,37 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !AdminCsrf::verify($_POST['csrf_tok
     $pesanError = 'Sesi formulir tidak valid. Muat ulang halaman lalu coba kembali.';
 } elseif ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $namaInstansi   = trim($_POST['nama_instansi'] ?? '');
-    $namaKontak     = trim($_POST['nama_kontak'] ?? '');
-    $noTelepon      = trim($_POST['no_telepon'] ?? '');
+    $namaKontak     = trim($_POST['pembimbing_lapangan'] ?? '');
+    $noTelepon      = trim($_POST['telepon'] ?? '');
     $email          = trim($_POST['email'] ?? '');
     $kuota          = filter_var($_POST['kuota'] ?? null, FILTER_VALIDATE_INT);
     $alamat         = trim($_POST['alamat'] ?? '');
-    $jenisInstansi  = $_POST['jenis_instansi'] ?? 'eksternal';
+    $jenisInstansi  = $_POST['jenis'] ?? '';
     $status         = $_POST['status'] ?? 'aktif';
+    $latitude      = filter_var($_POST['latitude'] ?? null, FILTER_VALIDATE_FLOAT);
+    $longitude     = filter_var($_POST['longitude'] ?? null, FILTER_VALIDATE_FLOAT);
+    $radius        = filter_var($_POST['radius_geofence_meter'] ?? null, FILTER_VALIDATE_INT);
 
-    // Validasi
-    if (empty($namaInstansi) || empty($namaKontak) 
-        || empty($noTelepon) || empty($alamat) || $kuota === false || $kuota <= 0) {
+    if (
+        $namaInstansi === ''
+        || $namaKontak === ''
+        || $noTelepon === ''
+        || $alamat === ''
+        || $kuota === false
+        || $kuota === null
+        || $kuota <= 0
+        || $latitude === false
+        || $latitude === null
+        || $latitude < -90
+        || $latitude > 90
+        || $longitude === false
+        || $longitude === null
+        || $longitude < -180
+        || $longitude > 180
+        || $radius === false
+        || $radius === null
+        || $radius <= 0
+    ) {
         $pesanError = 'Harap isi seluruh kolom formulir dengan benar.';
     } elseif (!in_array($jenisInstansi, ['eksternal', 'internal'], true)) {
         $pesanError = 'Jenis instansi tidak valid.';
@@ -61,6 +81,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !AdminCsrf::verify($_POST['csrf_tok
         || mb_strlen($email, 'UTF-8') > 150
         || mb_strlen($jenisInstansi, 'UTF-8') > 80
         || $kuota > 4294967295
+        || $radius > 4294967295
     ) {
         $pesanError = 'Panjang salah satu isian melebihi batas kolom database.';
     } elseif ($email !== '' && !filter_var($email, FILTER_VALIDATE_EMAIL)) {
@@ -75,7 +96,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !AdminCsrf::verify($_POST['csrf_tok
             kuota_siswa = ?,
             alamat = ?,
             jenis = ?,
-            status = ?
+            status = ?,
+            latitude = ?,
+            longitude = ?,
+            radius_geofence_meter = ?,
+            updated_at = CURRENT_TIMESTAMP
         WHERE id = ?";
 
         $stmt = mysqli_prepare($koneksi, $sql);
@@ -83,10 +108,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !AdminCsrf::verify($_POST['csrf_tok
         if ($stmt) {
             $emailParam = ($email === '') ? null : $email;
 
-            // Tipe: s s s s i s s s i  → 9 parameter
             mysqli_stmt_bind_param(
                 $stmt,
-                "ssssisssi",
+                "ssssisssddii",
                 $namaInstansi,
                 $namaKontak,
                 $noTelepon,
@@ -95,6 +119,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !AdminCsrf::verify($_POST['csrf_tok
                 $alamat,
                 $jenisInstansi,
                 $status,
+                $latitude,
+                $longitude,
+                $radius,
                 $id
             );
 
@@ -113,7 +140,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !AdminCsrf::verify($_POST['csrf_tok
 }
 
 // ==========================================
-// 3. AMBIL DATA INSTANSI DARI DATABASE (tanpa sektor)
+// 3. AMBIL DATA INSTANSI DARI DATABASE
 // ==========================================
 $stmtGet = mysqli_prepare($koneksi, "
     SELECT
@@ -125,10 +152,18 @@ $stmtGet = mysqli_prepare($koneksi, "
         kuota_siswa AS kuota,
         alamat,
         jenis AS jenis_instansi,
-        status
+        status,
+        latitude,
+        longitude,
+        radius_geofence_meter
     FROM instansi
     WHERE id = ?
 ");
+if ($stmtGet === false) {
+    error_log('Gagal menyiapkan data instansi: ' . mysqli_error($koneksi));
+    http_response_code(500);
+    exit('Data instansi tidak dapat dimuat.');
+}
 mysqli_stmt_bind_param($stmtGet, "i", $id);
 mysqli_stmt_execute($stmtGet);
 $resultGet = mysqli_stmt_get_result($stmtGet);
@@ -138,6 +173,27 @@ mysqli_stmt_close($stmtGet);
 if (!$mitra) {
     header('Location: ?page=data-mitra&pesan=tidak_ditemukan');
     exit;
+}
+
+$form = [
+    'nama_instansi' => $mitra['nama_instansi'],
+    'pembimbing_lapangan' => $mitra['nama_kontak'],
+    'telepon' => $mitra['no_telepon'],
+    'email' => $mitra['email'],
+    'kuota' => $mitra['kuota'],
+    'alamat' => $mitra['alamat'],
+    'jenis' => $mitra['jenis_instansi'],
+    'status' => $mitra['status'],
+    'latitude' => $mitra['latitude'],
+    'longitude' => $mitra['longitude'],
+    'radius_geofence_meter' => $mitra['radius_geofence_meter'],
+];
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    foreach ($form as $field => $value) {
+        if (isset($_POST[$field]) && is_scalar($_POST[$field])) {
+            $form[$field] = (string) $_POST[$field];
+        }
+    }
 }
 
 ob_start();
@@ -196,7 +252,7 @@ ob_start();
                     <div class="sl-input-group">
                         <i class="fas fa-building"></i>
                         <input type="text" name="nama_instansi" class="sl-form-control" maxlength="160"
-                               value="<?= $e($mitra['nama_instansi']) ?>" required>
+                               value="<?= $e($form['nama_instansi']) ?>" required>
                     </div>
                 </div>
             </div>
@@ -207,8 +263,8 @@ ob_start();
                     <label class="sl-form-label">Penanggung Jawab / Pembimbing <span class="text-danger">*</span></label>
                     <div class="sl-input-group">
                         <i class="fas fa-user-tie"></i>
-                        <input type="text" name="nama_kontak" class="sl-form-control" maxlength="120"
-                               value="<?= $e($mitra['nama_kontak'] ?? '') ?>" required>
+                        <input type="text" name="pembimbing_lapangan" class="sl-form-control" maxlength="120"
+                               value="<?= $e($form['pembimbing_lapangan']) ?>" required>
                     </div>
                 </div>
 
@@ -216,8 +272,8 @@ ob_start();
                     <label class="sl-form-label">No. Kontak / WhatsApp Instansi <span class="text-danger">*</span></label>
                     <div class="sl-input-group">
                         <i class="fas fa-phone-alt"></i>
-                        <input type="text" name="no_telepon" class="sl-form-control" maxlength="25"
-                               value="<?= $e($mitra['no_telepon'] ?? '') ?>" required>
+                        <input type="text" name="telepon" class="sl-form-control" maxlength="25"
+                               value="<?= $e($form['telepon']) ?>" required>
                     </div>
                 </div>
             </div>
@@ -229,7 +285,7 @@ ob_start();
                     <div class="sl-input-group">
                         <i class="fas fa-envelope"></i>
                         <input type="email" name="email" class="sl-form-control" maxlength="150"
-                               value="<?= $e($mitra['email'] ?? '') ?>">
+                               value="<?= $e($form['email']) ?>">
                     </div>
                 </div>
 
@@ -238,7 +294,7 @@ ob_start();
                     <div class="sl-input-group">
                         <i class="fas fa-users"></i>
                         <input type="number" name="kuota" class="sl-form-control" min="1"
-                               value="<?= $e($mitra['kuota'] ?? 1) ?>" required>
+                               value="<?= $e($form['kuota']) ?>" required>
                     </div>
                 </div>
             </div>
@@ -249,9 +305,9 @@ ob_start();
                     <label class="sl-form-label">Jenis Instansi <span class="text-danger">*</span></label>
                     <div class="sl-input-group sl-select-wrapper">
                         <i class="fas fa-tag"></i>
-                        <select name="jenis_instansi" class="sl-form-control" required>
-                            <option value="eksternal" <?= $mitra['jenis_instansi'] === 'eksternal' ? 'selected' : '' ?>>Eksternal</option>
-                            <option value="internal"  <?= $mitra['jenis_instansi'] === 'internal'  ? 'selected' : '' ?>>Internal (Sekolah)</option>
+                        <select name="jenis" class="sl-form-control" required>
+                            <option value="eksternal" <?= $form['jenis'] === 'eksternal' ? 'selected' : '' ?>>Eksternal</option>
+                            <option value="internal"  <?= $form['jenis'] === 'internal' ? 'selected' : '' ?>>Internal (Sekolah)</option>
                         </select>
                     </div>
                 </div>
@@ -261,8 +317,8 @@ ob_start();
                     <div class="sl-input-group sl-select-wrapper">
                         <i class="fas fa-toggle-on"></i>
                         <select name="status" class="sl-form-control" required>
-                            <option value="aktif"    <?= $mitra['status'] === 'aktif'    ? 'selected' : '' ?>>Aktif</option>
-                            <option value="nonaktif" <?= $mitra['status'] === 'nonaktif' ? 'selected' : '' ?>>Nonaktif</option>
+                            <option value="aktif"    <?= $form['status'] === 'aktif' ? 'selected' : '' ?>>Aktif</option>
+                            <option value="nonaktif" <?= $form['status'] === 'nonaktif' ? 'selected' : '' ?>>Nonaktif</option>
                         </select>
                     </div>
                 </div>
@@ -273,7 +329,34 @@ ob_start();
                 <label class="sl-form-label">Alamat Lengkap Instansi <span class="text-danger">*</span></label>
                 <div class="sl-input-group">
                     <i class="fas fa-map-marker-alt" style="top: 14px;"></i>
-                    <textarea name="alamat" class="sl-form-control" rows="3" required><?= $e($mitra['alamat']) ?></textarea>
+                    <textarea name="alamat" class="sl-form-control" rows="3" required><?= $e($form['alamat']) ?></textarea>
+                </div>
+            </div>
+
+            <div class="row">
+                <div class="col-md-6 mb-3">
+                    <label class="sl-form-label">Latitude <span class="text-danger">*</span></label>
+                    <div class="sl-input-group">
+                        <i class="fas fa-map-marker-alt"></i>
+                        <input type="number" name="latitude" class="sl-form-control" step="0.0000001"
+                               min="-90" max="90" value="<?= $e($form['latitude']) ?>" required>
+                    </div>
+                </div>
+                <div class="col-md-6 mb-3">
+                    <label class="sl-form-label">Longitude <span class="text-danger">*</span></label>
+                    <div class="sl-input-group">
+                        <i class="fas fa-map-marker-alt"></i>
+                        <input type="number" name="longitude" class="sl-form-control" step="0.0000001"
+                               min="-180" max="180" value="<?= $e($form['longitude']) ?>" required>
+                    </div>
+                </div>
+                <div class="col-md-6 mb-3">
+                    <label class="sl-form-label">Radius Geofence (Meter) <span class="text-danger">*</span></label>
+                    <div class="sl-input-group">
+                        <i class="fas fa-location-crosshairs"></i>
+                        <input type="number" name="radius_geofence_meter" class="sl-form-control"
+                               min="1" step="1" value="<?= $e($form['radius_geofence_meter']) ?>" required>
+                    </div>
                 </div>
             </div>
 

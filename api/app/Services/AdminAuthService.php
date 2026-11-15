@@ -41,6 +41,9 @@ class AdminAuthService
             now()->addHours(12)
         );
 
+        $user->terakhir_login_at = now();
+        $user->save();
+
         return [
             'token' => $newToken->plainTextToken,
             'user' => $this->userData($user),
@@ -78,6 +81,7 @@ class AdminAuthService
             'email' => $user->email,
             'nama_tampilan' => $user->nama_tampilan,
             'role' => $user->role->nama,
+            'wajib_ganti_password' => (bool) $user->wajib_ganti_password,
         ];
     }
 }

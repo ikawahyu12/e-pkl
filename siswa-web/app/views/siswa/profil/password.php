@@ -9,6 +9,13 @@ $flash = $flash ?? null;
 <form class="pf-stack reveal" method="POST" action="<?= url('profil/updatePassword') ?>">
     <input type="hidden" name="csrf_token" value="<?= e($csrfToken ?? '') ?>">
 
+    <?php if (!empty($_SESSION['user']['wajib_ganti_password'])): ?>
+        <div class="pf-alert pf-alert-info">
+            Kata sandi wajib diganti sebelum Anda dapat menggunakan fitur siswa.
+            Jika Anda lupa kata sandi, gunakan <a href="<?= e(url('auth/lupaPassword')) ?>">Lupa Kata Sandi</a> di halaman login.
+        </div>
+    <?php endif; ?>
+
     <?php if (!empty($flash)): ?>
         <div class="pf-alert pf-alert-<?= e($flash['type']) ?>"><?= e($flash['message']) ?></div>
     <?php endif; ?>

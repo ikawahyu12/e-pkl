@@ -4,53 +4,63 @@ namespace App\Http\Controllers\Api\V1\Siswa;
 
 use App\Http\Controllers\Controller;
 use App\Models\PenempatanPkl;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
+use League\Flysystem\UnableToWriteFile;
 use Throwable;
 
 class IzinController extends Controller
 {
-    public function store(Request $request)
+    public function store(Request $request): JsonResponse
     {
         $data = $request->validate([
-            'jenis'          => 'required|in:izin,sakit',
-            'tanggal_mulai'  => 'required|date',
-            'tanggal_selesai'=> 'required|date|after_or_equal:tanggal_mulai',
-            'alasan'         => 'required|string',
-            'lampiran'       => 'nullable|file|mimes:jpg,jpeg,png,pdf|max:5120',
+            'jenis' => ['required', 'in:izin,sakit'],
+            'tanggal_mulai' => ['required', 'date_format:Y-m-d'],
+            'tanggal_selesai' => ['required', 'date_format:Y-m-d', 'after_or_equal:tanggal_mulai'],
+            'alasan' => ['required', 'string'],
+            'lampiran' => ['nullable', 'file', 'mimes:jpg,jpeg,png,pdf', 'max:5120'],
         ]);
 
         $siswa = $request->user()->siswa;
-        if (!$siswa) {
+        if (! $siswa) {
             return response()->json([
                 'success' => false,
                 'message' => 'Data siswa tidak ditemukan.',
             ], 404);
         }
 
-        $penempatan = PenempatanPkl::where('siswa_id', $siswa->id)
-            ->where('status', '!=', 'dibatalkan')
+        $penempatan = PenempatanPkl::query()
+            ->where('siswa_id', $siswa->id)
+            ->where('status', 'aktif')
+            ->whereDate('tanggal_mulai', '<=', $data['tanggal_mulai'])
+            ->whereDate('tanggal_selesai', '>=', $data['tanggal_selesai'])
             ->orderByDesc('tanggal_mulai')
             ->first();
 
-        if (!$penempatan) {
+        if (! $penempatan) {
             return response()->json([
                 'success' => false,
-                'message' => 'Penempatan PKL untuk akun ini belum tersedia. Minta admin membuat penempatan terlebih dahulu.',
+                'message' => 'Tidak ada penempatan aktif Siswa yang mencakup tanggal pengajuan.',
             ], 422);
         }
 
         $file = $request->file('lampiran');
-        $filePath = null;
-        if ($file) {
-            $filePath = $file->store('izin', 'public');
-            if ($filePath === false) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Lampiran gagal disimpan. Silakan coba lagi.',
-                ], 500);
-            }
+        try {
+            $filePath = $file?->store('izin', 'local');
+        } catch (UnableToWriteFile) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Lampiran gagal disimpan. Silakan coba lagi.',
+            ], 500);
+        }
+
+        if ($file && $filePath === false) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Lampiran gagal disimpan. Silakan coba lagi.',
+            ], 500);
         }
 
         try {
@@ -67,7 +77,7 @@ class IzinController extends Controller
                     'updated_at' => $now,
                 ]);
 
-                if ($file && $filePath) {
+                if ($file && is_string($filePath)) {
                     DB::table('pengajuan_izin_lampiran')->insert([
                         'pengajuan_id' => $id,
                         'nama_file' => basename($filePath),
@@ -81,8 +91,8 @@ class IzinController extends Controller
                 return $id;
             });
         } catch (Throwable $exception) {
-            if ($filePath) {
-                Storage::disk('public')->delete($filePath);
+            if (is_string($filePath)) {
+                Storage::disk('local')->delete($filePath);
             }
 
             throw $exception;
