@@ -51,6 +51,15 @@ ob_start();
     <?php endif; ?>
     <?php if (is_array($adminFlash ?? null) && ($adminFlash['type'] ?? '') === 'danger'): ?>
         <div class="alert alert-danger"><?= htmlspecialchars($adminFlash['message'] ?? 'Permintaan gagal.', ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') ?></div>
+        <?php if (is_array($adminFlash['errors'] ?? null) && $adminFlash['errors'] !== []): ?>
+            <ul class="alert alert-danger">
+                <?php foreach ($adminFlash['errors'] as $messages): ?>
+                    <?php foreach ((array) $messages as $message): ?>
+                        <li><?= htmlspecialchars((string) $message, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') ?></li>
+                    <?php endforeach; ?>
+                <?php endforeach; ?>
+            </ul>
+        <?php endif; ?>
     <?php endif; ?>
     <form id="sfForm" action="?page=edit-guru&amp;id=<?= (int) ($guru['id'] ?? 0) ?>" method="post">
         <input type="hidden" name="action" value="teacher-user-update">
@@ -59,6 +68,61 @@ ob_start();
         <div class="sf-card">
             <?php include __DIR__ . '/_form.php'; ?>
 
+            <?php
+            $responsibilities = is_array($teacherResponsibilities['penempatan'] ?? null)
+                ? $teacherResponsibilities['penempatan']
+                : [];
+            $replacements = is_array($teacherResponsibilities['guru_pengganti'] ?? null)
+                ? $teacherResponsibilities['guru_pengganti']
+                : [];
+            ?>
+            <?php if ($responsibilities !== []): ?>
+                <hr>
+                <h6 class="font-weight-bold">Siswa yang masih dibimbing</h6>
+                <p class="small text-muted">Pilih Guru pengganti dan isi alasan untuk setiap penempatan sebelum memilih status Nonaktif.</p>
+                <div class="table-responsive">
+                    <table class="table table-sm table-bordered">
+                        <thead>
+                            <tr>
+                                <th>Siswa</th>
+                                <th>Instansi</th>
+                                <th>Periode</th>
+                                <th>Status</th>
+                                <th>Guru pengganti</th>
+                                <th>Alasan</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <?php foreach ($responsibilities as $placement): ?>
+                                <?php $placementId = (int) ($placement['id'] ?? 0); ?>
+                                <tr>
+                                    <td>
+                                        <?= htmlspecialchars((string) ($placement['siswa']['nama'] ?? '-'), ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') ?>
+                                        <br><small><?= htmlspecialchars((string) ($placement['siswa']['nisn'] ?? '-'), ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') ?></small>
+                                        <input type="hidden" name="reassignments[<?= $placementId ?>][penempatan_id]" value="<?= $placementId ?>">
+                                    </td>
+                                    <td><?= htmlspecialchars((string) ($placement['instansi']['nama'] ?? '-'), ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') ?></td>
+                                    <td><?= htmlspecialchars((string) ($placement['periode']['nama'] ?? '-'), ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') ?></td>
+                                    <td><?= htmlspecialchars((string) ($placement['status'] ?? '-'), ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') ?></td>
+                                    <td>
+                                        <select class="form-control form-control-sm teacher-replacement" name="reassignments[<?= $placementId ?>][guru_baru_id]">
+                                            <option value="">Pilih Guru aktif</option>
+                                            <?php foreach ($replacements as $replacement): ?>
+                                                <option value="<?= (int) ($replacement['id'] ?? 0) ?>">
+                                                    <?= htmlspecialchars((string) ($replacement['nama'] ?? '-'), ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') ?>
+                                                    (<?= htmlspecialchars((string) ($replacement['nip'] ?? '-'), ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') ?>)
+                                                </option>
+                                            <?php endforeach; ?>
+                                        </select>
+                                    </td>
+                                    <td><input class="form-control form-control-sm teacher-reason" name="reassignments[<?= $placementId ?>][alasan]" maxlength="5000"></td>
+                                </tr>
+                            <?php endforeach; ?>
+                        </tbody>
+                    </table>
+                </div>
+            <?php endif; ?>
+
             <div class="sf-foot">
                 <a href="?page=manajemen-guru" class="sf-btn sf-btn-cancel">Batal</a>
                 <button type="submit" class="sf-btn sf-btn-save"><i class="fas fa-save mr-2"></i>Perbarui Akun</button>
@@ -66,6 +130,23 @@ ob_start();
         </div>
     </form>
 </div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    const statusInputs = document.querySelectorAll('input[name="status"]');
+    const replacements = document.querySelectorAll('.teacher-replacement');
+    const reasons = document.querySelectorAll('.teacher-reason');
+
+    function updateTransferRequirements() {
+        const deactivating = document.querySelector('input[name="status"]:checked')?.value === 'nonaktif';
+        replacements.forEach((input) => { input.required = deactivating; });
+        reasons.forEach((input) => { input.required = deactivating; });
+    }
+
+    statusInputs.forEach((input) => input.addEventListener('change', updateTransferRequirements));
+    updateTransferRequirements();
+});
+</script>
 
 <?php
 $content = ob_get_clean();

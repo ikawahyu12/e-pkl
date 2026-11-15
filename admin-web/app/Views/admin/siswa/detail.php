@@ -42,10 +42,11 @@ $inisial = '';
 foreach (array_slice(preg_split('/\s+/', trim($s['nama_siswa'])), 0, 2) as $kata) { $inisial .= mb_strtoupper(mb_substr($kata, 0, 1)); }
 $statusSiswa = $s['status'] ?? '';
 $selesai = $statusSiswa === 'lulus';
-$keluar = $statusSiswa === 'keluar';
+$nonaktif = in_array($statusSiswa, ['nonaktif', 'keluar'], true);
 $statusLabel = [
     'aktif' => 'Aktif',
     'lulus' => 'Lulus',
+    'nonaktif' => 'Nonaktif',
     'keluar' => 'Keluar',
 ][$statusSiswa] ?? 'Tidak diketahui';
 
@@ -108,7 +109,7 @@ ob_start();
                 <h2 class="dt-name"><?= $e($s['nama_siswa']) ?></h2>
                 <div class="dt-meta">NIS: <?= $e($s['nis'] ?? '-') ?> &middot; <?= $e($s['kelas'] ?? '-') ?></div>
             </div>
-            <span class="dt-pill<?= $selesai ? ' selesai' : ($keluar ? ' nonaktif' : '') ?>"><?= $e($statusLabel) ?></span>
+            <span class="dt-pill<?= $selesai ? ' selesai' : ($nonaktif ? ' nonaktif' : '') ?>"><?= $e($statusLabel) ?></span>
         </div>
     </div>
 

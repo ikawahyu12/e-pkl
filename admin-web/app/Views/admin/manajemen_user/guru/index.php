@@ -118,12 +118,7 @@ ob_start();
                             <td class="sl-aksi">
                                 <a class="a-detail" href="?page=detail-guru&amp;id=<?= (int) $user['id'] ?>">Detail</a>
                                 <a class="a-edit" href="?page=edit-guru&amp;id=<?= (int) $user['id'] ?>">Edit</a>
-                                <form method="post" action="?page=manajemen-guru" class="d-inline" onsubmit="return confirm('Yakin ingin menghapus akun guru ini?')">
-                                    <input type="hidden" name="action" value="teacher-user-delete">
-                                    <input type="hidden" name="csrf_token" value="<?= $escape($csrfToken) ?>">
-                                    <input type="hidden" name="user_id" value="<?= (int) $user['id'] ?>">
-                                    <button type="submit" class="a-hapus">Hapus</button>
-                                </form>
+                                <a class="a-edit" href="?page=edit-guru&amp;id=<?= (int) $user['id'] ?>">Alihkan / Nonaktifkan</a>
                             </td>
                         </tr>
                     <?php endforeach; ?>

@@ -120,12 +120,27 @@ ob_start();
                             <td class="sl-aksi">
                                 <a class="a-detail" href="?page=detail-siswa&amp;id=<?= (int) $user['id'] ?>">Detail</a>
                                 <a class="a-edit" href="?page=edit-siswa&amp;id=<?= (int) $user['id'] ?>">Edit</a>
-                                <form method="post" action="?page=manajemen-siswa" class="d-inline" onsubmit="return confirm('Yakin ingin menghapus akun siswa ini?')">
-                                    <input type="hidden" name="action" value="student-user-delete">
-                                    <input type="hidden" name="csrf_token" value="<?= $escape($csrfToken) ?>">
-                                    <input type="hidden" name="user_id" value="<?= (int) $user['id'] ?>">
-                                    <button type="submit" class="a-hapus">Hapus</button>
-                                </form>
+                                <details class="d-inline-block student-deactivation">
+                                    <summary class="a-hapus">Nonaktifkan</summary>
+                                    <form method="post" action="?page=manajemen-siswa">
+                                        <input type="hidden" name="action" value="student-user-delete">
+                                        <input type="hidden" name="csrf_token" value="<?= $escape($csrfToken) ?>">
+                                        <input type="hidden" name="user_id" value="<?= (int) $user['id'] ?>">
+                                        <label class="small" for="student-reason-<?= (int) $user['id'] ?>">Alasan penonaktifan</label>
+                                        <select class="form-control form-control-sm student-deactivation-code" id="student-reason-<?= (int) $user['id'] ?>" name="alasan_kode" disabled required>
+                                            <option value="">Pilih alasan</option>
+                                            <option value="siswa_mengundurkan_diri">Siswa mengundurkan diri</option>
+                                            <option value="perubahan_penempatan_dari_sekolah">Perubahan penempatan dari sekolah</option>
+                                            <option value="instansi_tidak_dapat_menerima_siswa">Instansi tidak dapat menerima siswa</option>
+                                            <option value="ketidaksesuaian_data_penempatan">Ketidaksesuaian data penempatan</option>
+                                            <option value="pelanggaran_atau_ketidakdisiplinan">Pelanggaran atau ketidakdisiplinan</option>
+                                            <option value="kondisi_operasional_tertentu">Kondisi operasional tertentu</option>
+                                            <option value="lainnya">Lainnya</option>
+                                        </select>
+                                        <input class="form-control form-control-sm mt-1 student-deactivation-detail" type="text" name="alasan_detail" maxlength="2000" placeholder="Detail alasan lainnya" disabled hidden>
+                                        <button type="submit" class="btn btn-sm btn-danger mt-1">Konfirmasi nonaktif</button>
+                                    </form>
+                                </details>
                             </td>
                         </tr>
                     <?php endforeach; ?>
@@ -144,6 +159,31 @@ ob_start();
         <?php endif; ?>
     </div>
 </div>
+
+<script>
+document.querySelectorAll('.student-deactivation').forEach(function (details) {
+    const form = details.querySelector('form');
+    const code = details.querySelector('.student-deactivation-code');
+    const detail = details.querySelector('.student-deactivation-detail');
+    if (!form || !code || !detail) {
+        return;
+    }
+
+    function updateReasonFields() {
+        const enabled = details.open;
+        code.disabled = !enabled;
+        code.required = enabled;
+        const needsDetail = enabled && code.value === 'lainnya';
+        detail.hidden = !needsDetail;
+        detail.disabled = !needsDetail;
+        detail.required = needsDetail;
+    }
+
+    details.addEventListener('toggle', updateReasonFields);
+    code.addEventListener('change', updateReasonFields);
+    updateReasonFields();
+});
+</script>
 
 <?php
 $content = ob_get_clean();

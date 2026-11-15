@@ -47,7 +47,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             || $kelasId === false
             || $kelasId < 1
             || !in_array($jenisKelamin, ['L', 'P'], true)
-            || !in_array($statusSiswa, ['aktif', 'lulus', 'keluar'], true)
+            || !in_array($statusSiswa, ['aktif', 'nonaktif'], true)
         ) {
             $pesanError = 'Lengkapi NISN, nama, username, password, kelas, jenis kelamin, dan status dengan nilai yang valid.';
         } elseif (strlen($password) < 12) {
@@ -56,7 +56,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             mb_strlen($nisn, 'UTF-8') > 20
             || mb_strlen($nis, 'UTF-8') > 30
             || mb_strlen($namaSiswa, 'UTF-8') > 120
-            || mb_strlen($username, 'UTF-8') > 60
+            || mb_strlen($username, 'UTF-8') > 20
             || mb_strlen($email, 'UTF-8') > 150
             || mb_strlen($noHp, 'UTF-8') > 25
             || mb_strlen($namaOrangTua, 'UTF-8') > 120
@@ -67,90 +67,44 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         } elseif ($email !== '' && !filter_var($email, FILTER_VALIDATE_EMAIL)) {
             $pesanError = 'Masukkan alamat email yang valid atau kosongkan kolom email.';
         } else {
-            $transactionStarted = false;
-
             try {
-                mysqli_begin_transaction($koneksi);
-                $transactionStarted = true;
+                $token = $_SESSION['admin_token'] ?? '';
+                if (!is_string($token) || $token === '') {
+                    throw new RuntimeException('Sesi Admin tidak valid. Silakan login kembali.');
+                }
 
-                $roleName = 'siswa';
-                $roleStatement = mysqli_prepare($koneksi, 'SELECT id FROM roles WHERE LOWER(nama) = ? LIMIT 1');
-                mysqli_stmt_bind_param($roleStatement, 's', $roleName);
-                mysqli_stmt_execute($roleStatement);
-                mysqli_stmt_bind_result($roleStatement, $roleId);
-                $roleFound = mysqli_stmt_fetch($roleStatement);
-                mysqli_stmt_close($roleStatement);
+                $result = $api->createAdminStudent($token, [
+                    'nama' => $namaSiswa,
+                    'username' => $username,
+                    'nisn' => $nisn,
+                    'nis' => $nis === '' ? null : $nis,
+                    'email' => $email === '' ? null : $email,
+                    'password' => $password,
+                    'kelas_id' => $kelasId,
+                    'jenis_kelamin' => $jenisKelamin,
+                    'no_hp' => $noHp,
+                    'alamat' => $alamat,
+                    'nama_orang_tua' => $namaOrangTua,
+                    'no_hp_orang_tua' => $noHpOrangTua,
+                    'status' => $statusSiswa,
+                ]);
 
-                if (!$roleFound) {
-                    mysqli_rollback($koneksi);
-                    $transactionStarted = false;
-                    $pesanError = 'Role Siswa belum tersedia di database. Data tidak disimpan.';
-                } else {
-                    $emailValue = $email === '' ? null : $email;
-                    $passwordHash = password_hash($password, PASSWORD_BCRYPT);
-                    $namaTampilan = $namaSiswa;
-                    $statusAkun = $statusSiswa === 'keluar' ? 'nonaktif' : 'aktif';
-                    $wajibGantiPassword = 1;
-                    $userStatement = mysqli_prepare(
-                        $koneksi,
-                        'INSERT INTO users (role_id, username, email, password_hash, nama_tampilan, status, wajib_ganti_password)
-                         VALUES (?, ?, ?, ?, ?, ?, ?)'
-                    );
-                    mysqli_stmt_bind_param(
-                        $userStatement,
-                        'isssssi',
-                        $roleId,
-                        $username,
-                        $emailValue,
-                        $passwordHash,
-                        $namaTampilan,
-                        $statusAkun,
-                        $wajibGantiPassword
-                    );
-                    mysqli_stmt_execute($userStatement);
-                    $userId = mysqli_insert_id($koneksi);
-                    mysqli_stmt_close($userStatement);
-
-                    $nisValue = $nis === '' ? null : $nis;
-                    $studentStatement = mysqli_prepare(
-                        $koneksi,
-                        'INSERT INTO siswa (
-                            user_id, nisn, nis, nama_lengkap, kelas_id, jenis_kelamin, no_hp,
-                            alamat, nama_orang_tua, no_hp_orang_tua, status_siswa
-                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
-                    );
-                    mysqli_stmt_bind_param(
-                        $studentStatement,
-                        'isssissssss',
-                        $userId,
-                        $nisn,
-                        $nisValue,
-                        $namaSiswa,
-                        $kelasId,
-                        $jenisKelamin,
-                        $noHp,
-                        $alamat,
-                        $namaOrangTua,
-                        $noHpOrangTua,
-                        $statusSiswa
-                    );
-                    mysqli_stmt_execute($studentStatement);
-                    mysqli_stmt_close($studentStatement);
-
-                    mysqli_commit($koneksi);
-                    $transactionStarted = false;
+                if ($result['status'] >= 200 && $result['status'] < 300) {
                     header('Location: ' . $urlDaftar);
                     exit;
                 }
-            } catch (mysqli_sql_exception $exception) {
-                if ($transactionStarted) {
-                    mysqli_rollback($koneksi);
+                $messages = [];
+                foreach (($result['body']['errors'] ?? []) as $fieldErrors) {
+                    foreach ((array) $fieldErrors as $fieldError) {
+                        $messages[] = (string) $fieldError;
+                    }
                 }
-
-                error_log('Admin Siswa create failed: ' . $exception->getMessage());
-                $pesanError = $exception->getCode() === 1062
-                    ? 'NISN, NIS, username, atau email sudah terdaftar.'
-                    : 'Data Siswa gagal disimpan. Periksa kembali isian dan konfigurasi database.';
+                $pesanError = $messages !== []
+                    ? implode(' ', $messages)
+                    : ($result['body']['message'] ?? 'Data Siswa gagal disimpan.');
+            } catch (Throwable $exception) {
+                error_log('Admin Siswa create API error: ' . $exception->getMessage());
+                $pesanError = 'Data Siswa gagal disimpan melalui API. Periksa koneksi dan sesi Admin.';
             }
         }
     }
@@ -257,7 +211,7 @@ ob_start();
                 </div>
                 <div class="col-md-6 form-group">
                     <label class="sf-label" for="username">Username akun <span class="req">*</span></label>
-                    <input class="sf-input" type="text" id="username" name="username" maxlength="60" value="<?= $e($_POST['username'] ?? '') ?>" required>
+                    <input class="sf-input" type="text" id="username" name="username" maxlength="20" value="<?= $e($_POST['username'] ?? '') ?>" required>
                 </div>
                 <div class="col-md-6 form-group">
                     <label class="sf-label" for="email">Email akun</label>
@@ -342,13 +296,9 @@ ob_start();
                             <span class="txt"><input type="radio" name="status" value="aktif" <?= (($_POST['status'] ?? 'aktif') === 'aktif') ? 'checked' : '' ?>> Aktif / Terdaftar</span>
                             <span class="sf-tag sf-tag-aktif">Aktif</span>
                         </label>
-                        <label class="sf-radio <?= (($_POST['status'] ?? '') === 'lulus') ? 'on' : '' ?>">
-                            <span class="txt"><input type="radio" name="status" value="lulus" <?= (($_POST['status'] ?? '') === 'lulus') ? 'checked' : '' ?>> Lulus</span>
-                            <span class="sf-tag sf-tag-pending">Lulus</span>
-                        </label>
-                        <label class="sf-radio <?= (($_POST['status'] ?? '') === 'keluar') ? 'on' : '' ?>">
-                            <span class="txt"><input type="radio" name="status" value="keluar" <?= (($_POST['status'] ?? '') === 'keluar') ? 'checked' : '' ?>> Keluar</span>
-                            <span class="sf-tag sf-tag-pending">Keluar</span>
+                        <label class="sf-radio <?= (($_POST['status'] ?? '') === 'nonaktif') ? 'on' : '' ?>">
+                            <span class="txt"><input type="radio" name="status" value="nonaktif" <?= (($_POST['status'] ?? '') === 'nonaktif') ? 'checked' : '' ?>> Nonaktif</span>
+                            <span class="sf-tag sf-tag-pending">Nonaktif</span>
                         </label>
                     </div>
                 </div>

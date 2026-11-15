@@ -23,6 +23,7 @@ $sql = "SELECT
             s.*,
             s.nama_lengkap AS nama_siswa,
             s.status_siswa AS status,
+            u.status AS status_akun,
             k.nama AS kelas,
             (
                 SELECT i.nama
@@ -33,6 +34,7 @@ $sql = "SELECT
                 LIMIT 1
             ) AS nama_instansi
         FROM siswa s
+        LEFT JOIN users u ON u.id = s.user_id
         LEFT JOIN kelas k ON k.id = s.kelas_id
         WHERE s.id = ?
         LIMIT 1";
@@ -63,16 +65,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $jenisKelamin = (string) ($_POST['jk'] ?? '');
         $noHp = trim((string) ($_POST['wa'] ?? ''));
         $alamat = trim((string) ($_POST['alamat'] ?? ''));
-        $statusSiswa = (string) ($_POST['status'] ?? '');
 
         if (
             $namaSiswa === ''
             || $kelasId === false
             || $kelasId < 1
             || !in_array($jenisKelamin, ['L', 'P'], true)
-            || !in_array($statusSiswa, ['aktif', 'lulus', 'keluar'], true)
         ) {
-            $pesanError = 'Lengkapi nama, kelas, jenis kelamin, dan status dengan nilai yang valid.';
+            $pesanError = 'Lengkapi nama, kelas, dan jenis kelamin dengan nilai yang valid.';
         } elseif (
             mb_strlen($nis, 'UTF-8') > 30
             || mb_strlen($namaSiswa, 'UTF-8') > 120
@@ -80,62 +80,38 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         ) {
             $pesanError = 'Panjang salah satu isian melebihi batas kolom database.';
         } else {
-            $transactionStarted = false;
-
             try {
-                mysqli_begin_transaction($koneksi);
-                $transactionStarted = true;
-
-                $nisValue = $nis === '' ? null : $nis;
-                $updateStatement = mysqli_prepare(
-                    $koneksi,
-                    'UPDATE siswa
-                     SET nis = ?, nama_lengkap = ?, kelas_id = ?, jenis_kelamin = ?, no_hp = ?,
-                         alamat = ?, status_siswa = ?
-                     WHERE id = ?'
-                );
-                mysqli_stmt_bind_param(
-                    $updateStatement,
-                    'ssissssi',
-                    $nisValue,
-                    $namaSiswa,
-                    $kelasId,
-                    $jenisKelamin,
-                    $noHp,
-                    $alamat,
-                    $statusSiswa,
-                    $id
-                );
-                mysqli_stmt_execute($updateStatement);
-                mysqli_stmt_close($updateStatement);
-
-                if ($statusSiswa === 'keluar') {
-                    $userStatus = 'nonaktif';
-                    $userStatement = mysqli_prepare(
-                        $koneksi,
-                        'UPDATE users
-                         INNER JOIN siswa ON siswa.user_id = users.id
-                         SET users.status = ?
-                         WHERE siswa.id = ?'
-                    );
-                    mysqli_stmt_bind_param($userStatement, 'si', $userStatus, $id);
-                    mysqli_stmt_execute($userStatement);
-                    mysqli_stmt_close($userStatement);
+                $userId = (int) ($s['user_id'] ?? 0);
+                $token = $_SESSION['admin_token'] ?? '';
+                if ($userId < 1 || !is_string($token) || $token === '') {
+                    throw new RuntimeException('Akun Siswa atau sesi Admin tidak valid.');
                 }
 
-                mysqli_commit($koneksi);
-                $transactionStarted = false;
-                header('Location: ' . $urlDaftar);
-                exit;
-            } catch (mysqli_sql_exception $exception) {
-                if ($transactionStarted) {
-                    mysqli_rollback($koneksi);
+                $result = $api->updateAdminStudent($token, $userId, [
+                    'nis' => $nis === '' ? null : $nis,
+                    'nama' => $namaSiswa,
+                    'kelas_id' => $kelasId,
+                    'jenis_kelamin' => $jenisKelamin,
+                    'no_hp' => $noHp === '' ? null : $noHp,
+                    'alamat' => $alamat === '' ? null : $alamat,
+                ]);
+                if ($result['status'] >= 200 && $result['status'] < 300) {
+                    header('Location: ' . $urlDaftar);
+                    exit;
                 }
 
-                error_log('Admin Siswa edit failed: ' . $exception->getMessage());
-                $pesanError = $exception->getCode() === 1062
-                    ? 'NIS sudah digunakan oleh Siswa lain.'
-                    : 'Data Siswa gagal diperbarui. Periksa kembali isian dan konfigurasi database.';
+                $messages = [];
+                foreach (($result['body']['errors'] ?? []) as $fieldErrors) {
+                    foreach ((array) $fieldErrors as $fieldError) {
+                        $messages[] = (string) $fieldError;
+                    }
+                }
+                $pesanError = $messages !== []
+                    ? implode(' ', $messages)
+                    : ($result['body']['message'] ?? 'Data Siswa gagal diperbarui melalui API.');
+            } catch (Throwable $exception) {
+                error_log('Admin Siswa update API error: ' . $exception->getMessage());
+                $pesanError = 'Data Siswa gagal diperbarui melalui API. Periksa koneksi dan sesi Admin.';
             }
         }
     }
@@ -258,15 +234,12 @@ ob_start();
 
             <hr class="ed-divider">
 
-            <div class="ed-sec">2. Status Siswa</div>
+            <div class="ed-sec">2. Status Akun dan Profil</div>
             <div class="row">
                 <div class="col-md-6 form-group">
-                    <label class="ed-label" for="status">Status Siswa <span class="req">*</span></label>
-                    <select class="ed-input" id="status" name="status" required>
-                        <option value="aktif" <?= $pil('aktif', $s['status'] ?? '') ?>>Aktif</option>
-                        <option value="lulus" <?= $pil('lulus', $s['status'] ?? '') ?>>Lulus</option>
-                        <option value="keluar" <?= $pil('keluar', $s['status'] ?? '') ?>>Keluar</option>
-                    </select>
+                    <label class="ed-label">Status Akun dan Profil</label>
+                    <div class="ed-input" aria-readonly="true"><?= $e(ucfirst((string) ($s['status_akun'] ?? 'tidak diketahui'))) ?></div>
+                    <small class="form-text text-muted">Ubah status melalui halaman Manajemen Siswa agar akun, profil, dan penempatan tetap tersinkron.</small>
                 </div>
             </div>
 
