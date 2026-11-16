@@ -43,10 +43,10 @@
                 
                 <!-- Foto Dokumentasi -->
                 <div class="activity-field activity-field-wide">
-                    <label>Foto Dokumentasi (Opsional)</label>
+                    <label>Foto Dokumentasi (Wajib)</label>
                     <div class="activity-upload">
                         <span class="activity-upload-icon" aria-hidden="true">&#9729;</span>
-                        <input class="activity-file-input" id="jurnal-file" name="foto" type="file" accept=".jpg,.jpeg,.png,.webp">
+                        <input class="activity-file-input" id="jurnal-file" name="foto" type="file" accept=".jpg,.jpeg,.png,.webp" required>
                         <label class="activity-file-picker" for="jurnal-file">Pilih foto</label>
                         <span class="activity-file-name" id="jurnal-file-name" aria-live="polite">Belum ada foto dipilih</span>
                         <small>Format JPG, PNG, atau WEBP (Maks 5MB)</small>
