@@ -69,45 +69,50 @@
     });
 
     document.getElementById('form-jurnal').addEventListener('submit', async function(e) {
-        e.preventDefault(); 
+    e.preventDefault(); 
 
-        const btn = document.getElementById('btn-submit');
-        const notif = document.getElementById('notif');
-        const formData = new FormData(this);
+    const btn = document.getElementById('btn-submit');
+    const notif = document.getElementById('notif');
+    const formData = new FormData(this);
 
-        notif.style.display = 'none';
-        btn.disabled = true;
-        btn.textContent = 'Mengirim...';
+    notif.style.display = 'none';
+    btn.disabled = true;
+    btn.textContent = 'Mengirim...';
 
-        try {
-            const response = await fetch(this.action, {
-                method: this.method,
-                headers: { 'Accept': 'application/json' },
-                body: formData
-            });
-            
-            const result = await response.json();
+    try {
+        const response = await fetch(this.action, {
+            method: this.method,
+            headers: { 'Accept': 'application/json' },
+            body: formData
+        });
+        
+        const result = await response.json();
 
-            if (result.success) {
-                notif.className = 'alert alert-success';
-                notif.style.display = 'block';
-                notif.textContent = '✅ ' + result.message;
-                
-                this.reset(); 
-                document.getElementById('tanggal-jurnal').value = '<?= date('Y-m-d') ?>';
-                document.getElementById('jurnal-file-name').textContent = 'Belum ada foto dipilih';
-            } else {
-                notif.className = 'alert alert-danger';
-                notif.style.display = 'block';
-                notif.textContent = '❌ ' + result.message;
-            }
-        } catch (error) {
+        if (result.success) {
+            notif.className = 'alert alert-success';
+            notif.style.display = 'block';
+            notif.textContent = '✅ ' + result.message;
+
+            this.reset(); 
+            document.getElementById('tanggal-jurnal').value = '<?= date('Y-m-d') ?>';
+            document.getElementById('jurnal-file-name').textContent = 'Belum ada foto dipilih';
+
+            // ✅ Redirect ke beranda setelah 1.5 detik
+            setTimeout(() => {
+                window.location.href = '<?= e(url('/')) ?>';
+            }, 1500);
+        } else {
             notif.className = 'alert alert-danger';
             notif.style.display = 'block';
-            notif.textContent = '❌ Terjadi kesalahan pada server atau jaringan.';
-        } finally {
-            btn.disabled = false;
-            btn.textContent = 'Kirim Jurnal';
+            notif.textContent = '❌ ' + result.message;
         }
-    });
+    } catch (error) {
+        notif.className = 'alert alert-danger';
+        notif.style.display = 'block';
+        notif.textContent = '❌ Terjadi kesalahan pada server atau jaringan.';
+    } finally {
+        btn.disabled = false;
+        btn.textContent = 'Kirim Jurnal';
+    }
+});
 </script>
