@@ -44,7 +44,8 @@ class PresensiController extends Controller
             return;
         }
 
-        $input = json_decode(file_get_contents('php://input'), true);
+        $requestBody = file_get_contents('php://input');
+        $input = is_string($requestBody) ? json_decode($requestBody, true) : null;
         if (!is_array($input)) {
             $this->respond('error', 'Data permintaan tidak valid.', 400);
             return;

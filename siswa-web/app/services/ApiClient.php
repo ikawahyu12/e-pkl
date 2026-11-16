@@ -67,43 +67,7 @@ class ApiClient
             $headers[] = 'Authorization: Bearer ' . $token;
         }
 
-        $ch = curl_init($url);
-
-        curl_setopt_array($ch, [
-            CURLOPT_HTTPGET => true,
-            CURLOPT_HTTPHEADER => $headers,
-            CURLOPT_RETURNTRANSFER => true,
-            CURLOPT_CONNECTTIMEOUT => 5,
-            CURLOPT_TIMEOUT => 15,
-        ]);
-
-        $responseBody = curl_exec($ch);
-        $status = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
-        $curlError = curl_error($ch);
-
-        curl_close($ch);
-
-        if ($responseBody === false) {
-            return [
-                'success' => false,
-                'message' => 'Tidak dapat menghubungi server API: ' . $curlError,
-                'status' => 0,
-            ];
-        }
-
-        $result = json_decode($responseBody, true);
-
-        if (!is_array($result)) {
-            return [
-                'success' => false,
-                'message' => 'Server API mengirim respons yang tidak valid.',
-                'status' => $status,
-            ];
-        }
-
-        $result['status'] = $status;
-
-        return $result;
+        return $this->requestJson('GET', $url, $headers, null, 15);
     }
 
     public function post(string $endpoint, array $payload = [], ?string $token = null): array
@@ -129,58 +93,64 @@ class ApiClient
             ];
         }
 
-        if (function_exists('curl_init')) {
-            $ch = curl_init($url);
+        return $this->requestJson('POST', $url, $headers, $body, 15);
+    }
 
-            curl_setopt_array($ch, [
-                CURLOPT_POST => true,
-                CURLOPT_POSTFIELDS => $body,
-                CURLOPT_HTTPHEADER => $headers,
-                CURLOPT_RETURNTRANSFER => true,
-                CURLOPT_CONNECTTIMEOUT => 5,
-                CURLOPT_TIMEOUT => 15,
-            ]);
+    private function requestJson(
+        string $method,
+        string $url,
+        array $headers,
+        ?string $body,
+        int $timeout,
+    ): array {
+        $httpOptions = [
+            'method' => $method,
+            'header' => implode("\r\n", $headers),
+            'ignore_errors' => true,
+            'follow_location' => 0,
+            'timeout' => $timeout,
+        ];
 
-            $responseBody = curl_exec($ch);
-            $status = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
-            $curlError = curl_error($ch);
+        if ($body !== null) {
+            $httpOptions['content'] = $body;
+        }
 
-            curl_close($ch);
+        $context = stream_context_create(['http' => $httpOptions]);
+        $transportError = '';
+        set_error_handler(static function (int $severity, string $message) use (&$transportError): bool {
+            if ($severity === E_WARNING) {
+                $transportError = $message;
 
-            if ($responseBody === false) {
-                return [
-                    'success' => false,
-                    'message' => 'Tidak dapat menghubungi server API: ' . $curlError,
-                    'status' => 0,
-                ];
-            }
-        } else {
-            $context = stream_context_create([
-                'http' => [
-                    'method' => 'POST',
-                    'header' => implode("\r\n", $headers),
-                    'content' => $body,
-                    'ignore_errors' => true,
-                    'timeout' => 15,
-                ],
-            ]);
-
-            $responseBody = @file_get_contents($url, false, $context);
-
-            $status = 0;
-            foreach ($http_response_header ?? [] as $header) {
-                if (preg_match('/^HTTP\/\S+\s+(\d+)/', $header, $matches)) {
-                    $status = (int) $matches[1];
-                }
+                return true;
             }
 
-            if ($responseBody === false) {
-                return [
-                    'success' => false,
-                    'message' => 'Tidak dapat menghubungi server API.',
-                    'status' => $status,
-                ];
+            return false;
+        }, E_WARNING);
+
+        try {
+            $responseBody = file_get_contents($url, false, $context);
+        } finally {
+            restore_error_handler();
+        }
+
+        $status = 0;
+        foreach ($http_response_header ?? [] as $header) {
+            if (preg_match('/^HTTP\/\S+\s+(\d+)/', $header, $matches)) {
+                $status = (int) $matches[1];
             }
+        }
+
+        if ($responseBody === false) {
+            $message = stripos($transportError, 'timed out') !== false
+                || stripos($transportError, 'timeout') !== false
+                ? 'Waktu koneksi ke server API habis.'
+                : 'Tidak dapat menghubungi server API.';
+
+            return [
+                'success' => false,
+                'message' => $message,
+                'status' => $status,
+            ];
         }
 
         $result = json_decode($responseBody, true);

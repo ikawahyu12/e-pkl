@@ -64,7 +64,7 @@ $geofence = [
                             </button>
                             <button class="btn btn-primary" type="button"
                                 onclick="openPresensiForm('pulang', <?= (int) $session['id'] ?>)"
-                                <?= ! $hasGeofence || ! $sessionOpen || $session['waktu_pulang'] !== null ? 'disabled' : '' ?>>
+                                <?= ! $hasGeofence || ! $sessionOpen || $session['waktu_masuk'] === null || $session['waktu_pulang'] !== null ? 'disabled' : '' ?>>
                                 Presensi pulang
                             </button>
                         </div>
@@ -113,7 +113,6 @@ $geofence = [
             <div style="font-size: 32px; font-weight: 800; letter-spacing: -.02em; color: var(--text);" id="clock-display"></div>
             <p id="form-date-text" style="margin-top: 4px;"><?= e($presensiData['tanggal'] ?? '') ?></p>
         </div>
-    </div>
 
         <div class="activity-fields">
             <div class="activity-field activity-field-wide" id="gps-status-box">
@@ -135,6 +134,7 @@ $geofence = [
             <div class="activity-field activity-field-wide">
                 <label>Titik Lokasi Anda dan Instansi</label>
                 <div id="map" style="width: 100%; height: 200px; border-radius: 12px; background: #e2e8f0; border: 1.5px solid var(--line);"></div>
+                <div class="alert alert-danger" id="map-status" role="status" aria-live="polite" style="display: none; margin-top: 8px;"></div>
             </div>
 
             <input type="hidden" id="csrf-token" value="<?= e($csrfToken ?? '') ?>">
@@ -168,8 +168,7 @@ $geofence = [
     </aside>
 </section>
 
-<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<link id="leaflet-css" rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 
 <script>
     const PRESENSI_STORE_URL = <?= json_encode(url('presensi/store'), JSON_UNESCAPED_SLASHES) ?>;
@@ -183,6 +182,150 @@ $geofence = [
     let marker = null;
     let targetMarker = null;
     let radiusCircle = null;
+    let tileLayer = null;
+    let leafletPromise = null;
+    let submitInProgress = false;
+
+    document.getElementById('leaflet-css').addEventListener('error', function () {
+        if (this.dataset.fallbackLoaded !== 'true') {
+            this.dataset.fallbackLoaded = 'true';
+            this.href = 'https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css';
+            return;
+        }
+
+        showMapStatus('Gaya peta gagal dimuat. Periksa koneksi internet lalu muat ulang halaman.');
+    });
+
+    function setGPSStatus(message, type) {
+        document.getElementById('gps-status-text').innerText = message;
+        document.getElementById('gps-alert-box').className = 'alert alert-' + type;
+    }
+
+    function showMapStatus(message) {
+        const status = document.getElementById('map-status');
+        status.innerText = message;
+        status.style.display = '';
+    }
+
+    function validCoordinates(latitude, longitude) {
+        return typeof latitude === 'number'
+            && Number.isFinite(latitude)
+            && latitude >= -90
+            && latitude <= 90
+            && typeof longitude === 'number'
+            && Number.isFinite(longitude)
+            && longitude >= -180
+            && longitude <= 180;
+    }
+
+    function clearUserMarker() {
+        if (!map || !marker) {
+            return;
+        }
+
+        map.removeLayer(marker);
+        marker = null;
+        if (radiusCircle) {
+            map.fitBounds(radiusCircle.getBounds(), { padding: [20, 20], maxZoom: 16 });
+        }
+    }
+
+    function currentPosition(timeoutMs) {
+        return new Promise((resolve, reject) => {
+            if (!navigator.geolocation) {
+                reject({ code: 0 });
+                return;
+            }
+
+            if (window.isSecureContext === false) {
+                reject({ code: 1, insecureContext: true });
+                return;
+            }
+
+            let settled = false;
+            const timeoutId = setTimeout(() => {
+                if (!settled) {
+                    settled = true;
+                    reject({ code: 3 });
+                }
+            }, timeoutMs);
+            const finish = (callback, value) => {
+                if (settled) {
+                    return;
+                }
+                settled = true;
+                clearTimeout(timeoutId);
+                callback(value);
+            };
+
+            try {
+                navigator.geolocation.getCurrentPosition(
+                    position => finish(resolve, position),
+                    error => finish(reject, error),
+                    { enableHighAccuracy: true, timeout: timeoutMs, maximumAge: 0 }
+                );
+            } catch (error) {
+                finish(reject, error);
+            }
+        });
+    }
+
+    function loadLeafletScript(source) {
+        return new Promise((resolve, reject) => {
+            const script = document.createElement('script');
+            const timeoutId = setTimeout(() => {
+                script.remove();
+                reject(new Error('Waktu pemuatan library peta habis.'));
+            }, 8000);
+
+            script.onload = () => {
+                clearTimeout(timeoutId);
+                resolve();
+            };
+            script.onerror = () => {
+                clearTimeout(timeoutId);
+                script.remove();
+                reject(new Error('Library peta gagal dimuat.'));
+            };
+            script.src = source;
+            document.head.appendChild(script);
+        });
+    }
+
+    function ensureLeaflet() {
+        if (window.L) {
+            return Promise.resolve();
+        }
+
+        if (!leafletPromise) {
+            leafletPromise = (async () => {
+                const sources = [
+                    'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js',
+                    'https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js'
+                ];
+                let lastError = null;
+
+                for (const source of sources) {
+                    try {
+                        await loadLeafletScript(source);
+                        if (window.L) {
+                            return;
+                        }
+                        lastError = new Error('Library peta tidak dapat digunakan.');
+                    } catch (error) {
+                        lastError = error;
+                    }
+                }
+
+                throw lastError || new Error('Library peta gagal dimuat.');
+            })().catch(error => {
+                leafletPromise = null;
+                throw error;
+            });
+        }
+
+        return leafletPromise;
+    }
 
     function updateClock() {
         const clockEl = document.getElementById('clock-display');
@@ -203,8 +346,8 @@ $geofence = [
         document.getElementById('view-presensi-form').style.display = '';
         document.getElementById('btn-text').innerText = type === 'datang' ? 'Check In Datang' : 'Check Out Pulang';
 
-        const session = <?= json_encode($sessions, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>;
-        const selectedSession = session.find(item => Number(item.id) === Number(sessionId));
+        const sessions = <?= json_encode($sessions, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>;
+        const selectedSession = sessions.find(item => Number(item.id) === Number(sessionId));
         const previousBox = document.getElementById('previous-checkin-box');
         previousBox.style.display = type === 'pulang' && selectedSession && selectedSession.waktu_masuk ? 'block' : 'none';
         if (type === 'pulang' && selectedSession && selectedSession.waktu_masuk) {
@@ -219,66 +362,80 @@ $geofence = [
         document.getElementById('view-schedule-list').style.display = '';
     }
 
-    function initGPSLocation() {
-        const statusText = document.getElementById('gps-status-text');
-        const alertBox = document.getElementById('gps-alert-box');
+    async function initGPSLocation() {
         const submitBtn = document.getElementById('btn-submit-presensi');
         userLat = null;
         userLng = null;
+        clearUserMarker();
         submitBtn.disabled = true;
-        statusText.innerText = 'Memeriksa lokasi GPS...';
-        alertBox.className = 'alert alert-info';
+        setGPSStatus('Memeriksa lokasi GPS...', 'info');
 
-        if (!navigator.geolocation) {
-            statusText.innerText = 'Browser Anda tidak mendukung fitur Geolocation GPS.';
-            alertBox.className = 'alert alert-danger';
-            return;
+        try {
+            const position = await currentPosition(12000);
+            const latitude = position.coords.latitude;
+            const longitude = position.coords.longitude;
+
+            if (!validCoordinates(latitude, longitude)) {
+                throw new Error('Koordinat GPS tidak valid. Coba ambil lokasi kembali.');
+            }
+
+            userLat = latitude;
+            userLng = longitude;
+            submitBtn.disabled = false;
+            setGPSStatus('Lokasi terdeteksi. Radius akan divalidasi oleh server saat presensi dikirim.', 'success');
+            renderMap(userLat, userLng).catch(error => {
+                showMapStatus(error.message || 'Peta gagal dimuat. Periksa koneksi internet.');
+            });
+        } catch (error) {
+            userLat = null;
+            userLng = null;
+            setGPSStatus(geolocationError(error), 'danger');
         }
-
-        navigator.geolocation.getCurrentPosition(
-            (position) => {
-                userLat = position.coords.latitude;
-                userLng = position.coords.longitude;
-                statusText.innerText = 'Lokasi terdeteksi. Radius akan divalidasi oleh server saat presensi dikirim.';
-                alertBox.className = 'alert alert-success';
-                submitBtn.disabled = false;
-                renderMap(userLat, userLng);
-            },
-            (error) => {
-                statusText.innerText = geolocationError(error);
-                alertBox.className = 'alert alert-danger';
-            },
-            { enableHighAccuracy: true, timeout: 10000 }
-        );
     }
 
     function geolocationError(error) {
-        if (error.code === error.PERMISSION_DENIED) {
-            return 'Izin lokasi ditolak. Aktifkan izin lokasi browser Anda.';
+        if (error && error.code === 1) {
+            return error.insecureContext
+                ? 'Lokasi hanya dapat diakses melalui HTTPS atau localhost.'
+                : 'Izin lokasi ditolak. Aktifkan izin lokasi browser Anda.';
         }
-        if (error.code === error.POSITION_UNAVAILABLE) {
-            return 'Sinyal GPS tidak tersedia.';
+        if (error && error.code === 2) {
+            return 'Sinyal GPS tidak tersedia. Pastikan layanan lokasi perangkat aktif.';
         }
-        if (error.code === error.TIMEOUT) {
-            return 'Waktu pengambilan lokasi habis. Silakan coba lagi.';
+        if (error && error.code === 3) {
+            return 'Waktu pengambilan lokasi habis. Periksa GPS dan izin lokasi, lalu coba lagi.';
         }
-        return 'Gagal mengakses GPS.';
+        return error && error.message
+            ? error.message
+            : 'Browser Anda tidak mendukung fitur Geolocation GPS.';
     }
 
     function formatAttendanceTime(value) {
         return value && value.length > 10 ? value.substring(11, 16) : value;
     }
 
-    function renderMap(lat, lng) {
+    async function renderMap(lat, lng) {
+        if (!validCoordinates(lat, lng)) {
+            throw new Error('Koordinat peta tidak valid.');
+        }
+
         if (!map) {
-            map = L.map('map');
-            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            await ensureLeaflet();
+        }
+
+        if (!map) {
+            map = window.L.map('map', { zoomControl: true }).setView([lat, lng], 16);
+            tileLayer = window.L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
                 maxZoom: 19,
+                attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
             }).addTo(map);
+            tileLayer.on('tileerror', () => {
+                showMapStatus('Tile peta gagal dimuat. Periksa koneksi internet Anda.');
+            });
         }
 
         if (!marker) {
-            marker = L.marker([lat, lng]).bindPopup('Lokasi GPS Anda').addTo(map);
+            marker = window.L.marker([lat, lng]).bindPopup('Lokasi GPS Anda').addTo(map);
         } else {
             marker.setLatLng([lat, lng]);
         }
@@ -286,9 +443,12 @@ $geofence = [
         const mapBounds = [marker.getLatLng()];
         if (GEOFENCE.configured) {
             const target = [GEOFENCE.latitude, GEOFENCE.longitude];
+            if (!validCoordinates(target[0], target[1]) || !Number.isFinite(GEOFENCE.radius) || GEOFENCE.radius <= 0) {
+                throw new Error('Koordinat atau radius geofence instansi tidak valid.');
+            }
             if (!targetMarker) {
-                targetMarker = L.marker(target).bindPopup('Lokasi instansi dari Admin').addTo(map);
-                radiusCircle = L.circle(target, {
+                targetMarker = window.L.marker(target).bindPopup('Lokasi instansi dari Admin').addTo(map);
+                radiusCircle = window.L.circle(target, {
                     radius: GEOFENCE.radius,
                     color: '#2563eb',
                     fillOpacity: 0.12
@@ -301,80 +461,122 @@ $geofence = [
             mapBounds.push(targetMarker.getLatLng());
             mapBounds.push(radiusCircle.getBounds().getNorthEast());
             mapBounds.push(radiusCircle.getBounds().getSouthWest());
+            map.fitBounds(window.L.latLngBounds(mapBounds), { padding: [20, 20], maxZoom: 16 });
+        } else {
+            map.setView([lat, lng], 16);
         }
 
-        map.fitBounds(L.latLngBounds(mapBounds), { padding: [20, 20], maxZoom: 16 });
-        setTimeout(() => map.invalidateSize(), 200);
+        document.getElementById('map-status').style.display = 'none';
+        requestAnimationFrame(() => map.invalidateSize({ pan: false }));
     }
 
-    function submitPresensi() {
+    async function submitPresensi() {
         const submitBtn = document.getElementById('btn-submit-presensi');
-        const statusText = document.getElementById('gps-status-text');
-        const alertBox = document.getElementById('gps-alert-box');
+        const buttonText = document.getElementById('btn-text');
 
-        if (!navigator.geolocation) {
-            statusText.innerText = 'Browser Anda tidak mendukung fitur Geolocation GPS.';
-            alertBox.className = 'alert alert-danger';
+        if (submitInProgress) {
             return;
         }
 
+        submitInProgress = true;
         submitBtn.disabled = true;
-        statusText.innerText = 'Mengambil lokasi terbaru untuk presensi...';
-        alertBox.className = 'alert alert-info';
+        submitBtn.setAttribute('aria-busy', 'true');
+        userLat = null;
+        userLng = null;
+        clearUserMarker();
 
-        navigator.geolocation.getCurrentPosition(
-            (position) => {
-                userLat = position.coords.latitude;
-                userLng = position.coords.longitude;
-                renderMap(userLat, userLng);
-                statusText.innerText = 'Lokasi terdeteksi. Mengirim koordinat untuk validasi server...';
-                sendPresensi(submitBtn);
-            },
-            (error) => {
-                statusText.innerText = geolocationError(error);
-                alertBox.className = 'alert alert-danger';
-                submitBtn.disabled = false;
-            },
-            { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
-        );
+        try {
+            if (!currentSessionId || !['datang', 'pulang'].includes(currentType)) {
+                throw new Error('Sesi atau jenis presensi tidak valid. Kembali ke jadwal dan coba lagi.');
+            }
+
+            setGPSStatus('Mengambil lokasi terbaru untuk presensi...', 'info');
+            buttonText.innerText = 'Mengambil lokasi...';
+            const position = await currentPosition(15000);
+            const latitude = position.coords.latitude;
+            const longitude = position.coords.longitude;
+
+            if (!validCoordinates(latitude, longitude)) {
+                throw new Error('Koordinat GPS tidak valid. Presensi tidak dapat dikirim.');
+            }
+
+            userLat = latitude;
+            userLng = longitude;
+            try {
+                await renderMap(latitude, longitude);
+            } catch (error) {
+                showMapStatus(error.message || 'Peta gagal dimuat. Periksa koneksi internet.');
+            }
+            setGPSStatus('Lokasi terdeteksi. Mengirim koordinat untuk validasi server...', 'success');
+            buttonText.innerText = 'Mengirim presensi...';
+
+            const result = await sendPresensi(latitude, longitude);
+            alert(result.message || 'Presensi berhasil disimpan!');
+            window.location.reload();
+        } catch (error) {
+            const message = error && typeof error.code === 'number'
+                ? geolocationError(error)
+                : error.message || 'Presensi gagal diproses. Silakan coba lagi.';
+            setGPSStatus(message, 'danger');
+        } finally {
+            submitInProgress = false;
+            submitBtn.disabled = false;
+            submitBtn.removeAttribute('aria-busy');
+            buttonText.innerText = currentType === 'datang' ? 'Check In Datang' : 'Check Out Pulang';
+        }
     }
 
-    function sendPresensi(submitBtn) {
+    async function sendPresensi(latitude, longitude) {
+        if (!validCoordinates(latitude, longitude)) {
+            throw new Error('Koordinat GPS tidak valid. Presensi tidak dapat dikirim.');
+        }
+
         const payload = {
             session_id: currentSessionId,
             type: currentType,
-            latitude: userLat,
-            longitude: userLng,
+            latitude,
+            longitude,
             csrf_token: document.getElementById('csrf-token').value
         };
 
-        fetch(PRESENSI_STORE_URL, {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 20000);
+
+        try {
+            const response = await fetch(PRESENSI_STORE_URL, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                     'Accept': 'application/json'
                 },
-                body: JSON.stringify(payload)
-            })
-            .then(async (res) => {
-                const data = await res.json();
-                if (!res.ok && data.status !== 'error') {
-                    throw new Error(data.message || 'Server gagal memproses presensi.');
-                }
-                return data;
-            })
-            .then(data => {
-                if (data.status === 'success') {
-                    alert(data.message || 'Presensi berhasil disimpan!');
-                    window.location.reload();
-                } else {
-                    alert('Gagal presensi: ' + data.message);
-                    submitBtn.disabled = false;
-                }
-            })
-            .catch(error => {
-                alert(error.message || 'Koneksi ke server gagal. Silakan coba lagi.');
-                submitBtn.disabled = false;
+                body: JSON.stringify(payload),
+                signal: controller.signal
             });
+
+            let result;
+            try {
+                result = await response.json();
+            } catch (error) {
+                throw new Error('Respons server tidak valid. Silakan coba lagi.');
+            }
+
+            if (!response.ok || !result || result.status !== 'success') {
+                throw new Error(result && result.message
+                    ? result.message
+                    : 'Server gagal memproses presensi.');
+            }
+
+            return result;
+        } catch (error) {
+            if (error.name === 'AbortError') {
+                throw new Error('Waktu koneksi ke server habis. Silakan coba lagi.');
+            }
+            if (error instanceof TypeError) {
+                throw new Error('Koneksi ke server gagal. Periksa jaringan internet lalu coba lagi.');
+            }
+            throw error;
+        } finally {
+            clearTimeout(timeoutId);
+        }
     }
 </script>

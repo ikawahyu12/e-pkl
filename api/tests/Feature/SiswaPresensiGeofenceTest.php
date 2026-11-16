@@ -125,6 +125,7 @@ class SiswaPresensiGeofenceTest extends TestCase
             $table->decimal('jarak_pulang_meter', 10, 2)->nullable();
             $table->string('status_pulang')->nullable();
             $table->string('status_harian')->default('belum_lengkap');
+            $table->text('catatan')->nullable();
             $table->timestamps();
             $table->unique(['sesi_id', 'penempatan_id']);
         });
@@ -251,6 +252,125 @@ class SiswaPresensiGeofenceTest extends TestCase
             'status_pulang' => 'sesuai',
             'status_harian' => 'hadir',
         ]);
+    }
+
+    public function test_student_check_in_and_check_out_are_returned_in_their_attendance_history(): void
+    {
+        foreach (['datang', 'pulang'] as $type) {
+            $this->postJson('/api/v1/siswa/presensi', [
+                'session_id' => $this->sessionId,
+                'type' => $type,
+                'latitude' => 0,
+                'longitude' => 0,
+            ])->assertOk();
+        }
+
+        $this->getJson('/api/v1/siswa/riwayat?tipe=presensi')
+            ->assertOk()
+            ->assertJsonCount(2, 'data')
+            ->assertJsonFragment([
+                'tipe' => 'presensi',
+                'jenis' => 'masuk',
+                'judul' => 'Presensi: Masuk',
+            ])
+            ->assertJsonFragment([
+                'tipe' => 'presensi',
+                'jenis' => 'pulang',
+                'judul' => 'Presensi: Pulang',
+            ]);
+    }
+
+    public function test_duplicate_attendance_is_blocked_per_session_but_distinct_daily_sessions_are_allowed(): void
+    {
+        $settingId = DB::table('sesi_presensi')
+            ->where('id', $this->sessionId)
+            ->value('pengaturan_id');
+        $now = now('Asia/Jakarta');
+        $secondSessionId = DB::table('sesi_presensi')->insertGetId([
+            'pengaturan_id' => $settingId,
+            'tanggal' => $now->toDateString(),
+            'nama_shift' => 'Sesi Tambahan',
+            'jam_masuk_mulai' => $now->copy()->subMinute()->format('H:i:s'),
+            'jam_masuk_selesai' => $now->copy()->addMinutes(5)->format('H:i:s'),
+            'jam_pulang_mulai' => $now->copy()->subMinute()->format('H:i:s'),
+            'jam_pulang_selesai' => $now->copy()->addMinutes(5)->format('H:i:s'),
+            'status' => 'dibuka',
+            'dibuat_oleh' => DB::table('sesi_presensi')
+                ->where('id', $this->sessionId)
+                ->value('dibuat_oleh'),
+        ]);
+        $payload = [
+            'type' => 'datang',
+            'latitude' => 0,
+            'longitude' => 0,
+        ];
+
+        $this->postJson('/api/v1/siswa/presensi', $payload + ['session_id' => $this->sessionId])
+            ->assertOk();
+        $this->postJson('/api/v1/siswa/presensi', $payload + ['session_id' => $secondSessionId])
+            ->assertOk();
+        $this->postJson('/api/v1/siswa/presensi', $payload + ['session_id' => $this->sessionId])
+            ->assertUnprocessable()
+            ->assertJsonPath('message', 'Presensi datang sudah tercatat pada sesi ini.');
+
+        $this->assertDatabaseCount('presensi', 2);
+    }
+
+    public function test_check_out_respects_geofence_and_cannot_overwrite_or_repeat_attendance(): void
+    {
+        $this->postJson('/api/v1/siswa/presensi', [
+            'session_id' => $this->sessionId,
+            'type' => 'datang',
+            'latitude' => 0,
+            'longitude' => 0,
+        ])->assertOk();
+
+        $this->postJson('/api/v1/siswa/presensi', [
+            'session_id' => $this->sessionId,
+            'type' => 'pulang',
+            'latitude' => 0.001,
+            'longitude' => 0,
+        ])
+            ->assertUnprocessable()
+            ->assertJsonPath('message', 'Anda berada di luar radius 100 meter dari lokasi instansi PKL.');
+
+        $beforeCheckOut = DB::table('presensi')->where('sesi_id', $this->sessionId)->firstOrFail();
+        $this->assertNull($beforeCheckOut->waktu_pulang);
+
+        $this->postJson('/api/v1/siswa/presensi', [
+            'session_id' => $this->sessionId,
+            'type' => 'pulang',
+            'latitude' => 0.0001,
+            'longitude' => 0,
+        ])->assertOk();
+
+        $savedAttendance = DB::table('presensi')->where('sesi_id', $this->sessionId)->firstOrFail();
+        $this->assertNotNull($savedAttendance->waktu_masuk);
+        $this->assertNotNull($savedAttendance->waktu_pulang);
+        $this->assertEquals(0, (float) $savedAttendance->latitude_masuk);
+        $this->assertEquals(0.0001, (float) $savedAttendance->latitude_pulang);
+
+        $this->postJson('/api/v1/siswa/presensi', [
+            'session_id' => $this->sessionId,
+            'type' => 'pulang',
+            'latitude' => 0.0002,
+            'longitude' => 0,
+        ])
+            ->assertUnprocessable()
+            ->assertJsonPath('message', 'Presensi pulang sudah tercatat pada sesi ini.');
+
+        $attendanceAfterDuplicate = DB::table('presensi')->where('sesi_id', $this->sessionId)->firstOrFail();
+        $this->assertSame($savedAttendance->waktu_masuk, $attendanceAfterDuplicate->waktu_masuk);
+        $this->assertSame($savedAttendance->waktu_pulang, $attendanceAfterDuplicate->waktu_pulang);
+        $this->assertEquals(
+            (float) $savedAttendance->latitude_masuk,
+            (float) $attendanceAfterDuplicate->latitude_masuk
+        );
+        $this->assertEquals(
+            (float) $savedAttendance->latitude_pulang,
+            (float) $attendanceAfterDuplicate->latitude_pulang
+        );
+        $this->assertDatabaseCount('presensi', 1);
     }
 
     public function test_geofence_uses_the_instance_assigned_to_the_student(): void
