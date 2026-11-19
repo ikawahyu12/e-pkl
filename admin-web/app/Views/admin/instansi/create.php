@@ -1,15 +1,9 @@
 <?php
 require_once dirname(__DIR__, 3) . '/Support/Csrf.php';
 $csrfToken = AdminCsrf::token();
-// Mengarah ke file koneksi.php (sesuai perbaikan path sebelumnya)
-require_once __DIR__ . '/../../../../../config/koneksi.php';
-
-    // ===== 1. BLOK PHP ATAS =====
 $activePage   = 'instansi-mitra';
 $pageTitle    = 'Tambah Instansi Mitra';
 $pageSubtitle = 'Formulir pendaftaran data instansi/perusahaan mitra baru untuk tempat PKL.';
-
-// Tombol Kembali di pojok kanan atas
 $pageHeaderActions = '
     <a href="?page=data-mitra" class="btn btn-sm sl-btn-back">
         <i class="fas fa-arrow-left mr-2"></i>Kembali ke Daftar
@@ -18,109 +12,10 @@ $pageHeaderActions = '
 $scriptDir    = rtrim(str_replace('\\', '/', dirname($_SERVER['SCRIPT_NAME'] ?? '/')), '/');
 $assetBaseUrl = $scriptDir . '/assets';
 $e            = static fn($v): string => htmlspecialchars((string) $v, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
-
-$pesanSukses = '';
-$pesanError  = '';
-
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    if (!AdminCsrf::verify($_POST['csrf_token'] ?? null)) {
-        http_response_code(419);
-        $pesanError = 'Sesi formulir tidak valid. Muat ulang halaman lalu coba kembali.';
-    } else {
-    $namaInstansi = trim($_POST['nama_instansi'] ?? '');
-    $jenis        = trim($_POST['jenis'] ?? '');
-    $pembimbing   = trim($_POST['pembimbing_lapangan'] ?? '');
-    $telepon      = trim($_POST['telepon'] ?? '');
-    $kuota        = filter_var($_POST['kuota'] ?? null, FILTER_VALIDATE_INT);
-    $alamat       = trim($_POST['alamat'] ?? '');
-
-$latitude  = filter_var($_POST['latitude'] ?? null, FILTER_VALIDATE_FLOAT);
-$longitude = filter_var($_POST['longitude'] ?? null, FILTER_VALIDATE_FLOAT);
-$radius    = filter_var($_POST['radius_geofence_meter'] ?? null, FILTER_VALIDATE_INT);
-
-if (
-    $namaInstansi === ''
-    || !in_array($jenis, ['internal', 'eksternal'], true)
-    || $pembimbing === ''
-    || $telepon === ''
-    || $alamat === ''
-    || $kuota === false
-    || $kuota === null
-    || $kuota <= 0
-    || $latitude === false
-    || $latitude === null
-    || $latitude < -90
-    || $latitude > 90
-    || $longitude === false
-    || $longitude === null
-    || $longitude < -180
-    || $longitude > 180
-    || $radius === false
-    || $radius === null
-    || $radius <= 0
-) {
-    $pesanError = 'Harap isi seluruh kolom formulir dengan benar.';
-} elseif (
-    mb_strlen($namaInstansi, 'UTF-8') > 160
-    || mb_strlen($jenis, 'UTF-8') > 80
-    || mb_strlen($pembimbing, 'UTF-8') > 120
-    || mb_strlen($telepon, 'UTF-8') > 25
-    || $kuota > 4294967295
-    || $radius > 4294967295
-) {
-    $pesanError = 'Panjang atau nilai salah satu isian melebihi batas database.';
-} else {
-    $status = 'aktif';
-
-    $stmt = mysqli_prepare(
-        $koneksi,
-        'INSERT INTO instansi (
-            nama,
-            jenis,
-            nama_penanggung_jawab,
-            telepon,
-            kuota_siswa,
-            alamat,
-            status,
-            latitude,
-            longitude,
-            radius_geofence_meter
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
-    );
-
-    if ($stmt === false) {
-        error_log('Gagal menyiapkan penyimpanan instansi: ' . mysqli_error($koneksi));
-        $pesanError = 'Data instansi belum dapat disimpan. Silakan coba kembali.';
-    } else {
-        mysqli_stmt_bind_param(
-            $stmt,
-            'ssssissddi',
-            $namaInstansi,
-            $jenis,
-            $pembimbing,
-            $telepon,
-            $kuota,
-            $alamat,
-            $status,
-            $latitude,
-            $longitude,
-            $radius
-        );
-
-        $saved = mysqli_stmt_execute($stmt);
-        mysqli_stmt_close($stmt);
-
-        if ($saved) {
-            $pesanSukses = 'Data instansi <strong>' . $e($namaInstansi) . '</strong> berhasil ditambahkan ke database!';
-            $_POST = [];
-        } else {
-            error_log('Gagal menyimpan instansi: ' . mysqli_error($koneksi));
-            $pesanError = 'Data instansi belum dapat disimpan. Silakan coba kembali.';
-        }
-    }
-}
-    }
-}
+$createForm = is_array($instanceInput ?? null) ? $instanceInput : [];
+$periods = is_array($periods ?? null) ? $periods : [];
+$pesanError = is_string($adminPageError ?? null) ? $adminPageError : null;
+$pesanSukses = is_string($adminPageSuccess ?? null) ? $adminPageSuccess : null;
 
 ob_start();
 ?>
@@ -284,8 +179,14 @@ ob_start();
                 <i class="fas fa-check-circle mr-2"></i><?= $pesanSukses ?>
             </div>
         <?php endif; ?>
+        <?php if ($periods === []): ?>
+            <div class="alert alert-warning border-0 rounded-lg p-3 mb-4 small">
+                Periode PKL belum tersedia. Buat Periode PKL terlebih dahulu sebelum menambahkan Instansi dan kuotanya.
+            </div>
+        <?php endif; ?>
 
         <form method="POST" action="">
+            <input type="hidden" name="action" value="master-instance-create">
             <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrfToken, ENT_QUOTES, 'UTF-8') ?>">
             <!-- Baris 1: Nama Instansi & Sektor -->
             <div class="row">
@@ -293,7 +194,7 @@ ob_start();
                     <label class="sl-form-label">Nama Lengkap Instansi / Perusahaan <span class="text-danger">*</span></label>
                     <div class="sl-input-group">
                         <i class="fas fa-building"></i>
-                        <input type="text" name="nama_instansi" class="sl-form-control" maxlength="160" placeholder="Contoh: PT Telkom Indonesia (Persero) Tbk" value="<?= $e($_POST['nama_instansi'] ?? '') ?>" required>
+                        <input type="text" name="nama_instansi" class="sl-form-control" maxlength="160" placeholder="Contoh: PT Telkom Indonesia (Persero) Tbk" value="<?= $e($createForm['nama_instansi'] ?? '') ?>" required>
                     </div>
                 </div>
 
@@ -303,8 +204,8 @@ ob_start();
                         <i class="fas fa-briefcase"></i>
                         <select name="jenis" class="sl-form-control" required>
                             <option value="">Pilih jenis instansi</option>
-                            <option value="internal" <?= (($_POST['jenis'] ?? '') === 'internal') ? 'selected' : '' ?>>Internal</option>
-                            <option value="eksternal" <?= (($_POST['jenis'] ?? '') === 'eksternal') ? 'selected' : '' ?>>Eksternal</option>
+                            <option value="internal" <?= (($createForm['jenis'] ?? '') === 'internal') ? 'selected' : '' ?>>Internal</option>
+                            <option value="eksternal" <?= (($createForm['jenis'] ?? '') === 'eksternal') ? 'selected' : '' ?>>Eksternal</option>
                         </select>
                     </div>
                 </div>
@@ -316,7 +217,7 @@ ob_start();
                     <label class="sl-form-label">Penanggung Jawab / Pembimbing <span class="text-danger">*</span></label>
                     <div class="sl-input-group">
                         <i class="fas fa-user-tie"></i>
-                        <input type="text" name="pembimbing_lapangan" class="sl-form-control" maxlength="120" placeholder="Contoh: Budi Santoso, S.Kom." value="<?= $e($_POST['pembimbing_lapangan'] ?? '') ?>" required>
+                        <input type="text" name="pembimbing_lapangan" class="sl-form-control" maxlength="120" placeholder="Contoh: Budi Santoso, S.Kom." value="<?= $e($createForm['pembimbing_lapangan'] ?? '') ?>" required>
                     </div>
                 </div>
 
@@ -324,7 +225,7 @@ ob_start();
                     <label class="sl-form-label">No. Kontak / WhatsApp Instansi <span class="text-danger">*</span></label>
                     <div class="sl-input-group">
                         <i class="fas fa-phone-alt"></i>
-                        <input type="text" name="telepon" class="sl-form-control" maxlength="25" placeholder="Contoh: 0812-xxxx-xxxx" value="<?= $e($_POST['telepon'] ?? '') ?>" required>
+                        <input type="text" name="telepon" class="sl-form-control" maxlength="25" placeholder="Contoh: 0812-xxxx-xxxx" value="<?= $e($createForm['telepon'] ?? '') ?>" required>
                     </div>
                 </div>
             </div>
@@ -334,85 +235,72 @@ ob_start();
                     <label class="sl-form-label">Alamat Instansi <span class="text-danger">*</span></label>
                     <div class="sl-input-group">
                         <i class="fas fa-map-marker-alt"></i>
-                        <textarea name="alamat" class="sl-form-control" rows="3" placeholder="Masukkan alamat lengkap instansi" required><?= $e($_POST['alamat'] ?? '') ?></textarea>
+                        <textarea name="alamat" class="sl-form-control" rows="3" placeholder="Masukkan alamat lengkap instansi" required><?= $e($createForm['alamat'] ?? '') ?></textarea>
                     </div>
                 </div>
             </div>
 
-            <!-- Baris: Radius dan Kuota PKL -->
-<div class="row">
-    <!-- Radius -->
-    <!-- Baris: Latitude dan Longitude -->
-<div class="row">
-    <div class="col-md-6 mb-3">
-        <label class="sl-form-label">
-            Latitude <span class="text-danger">*</span>
-        </label>
-        <div class="sl-input-group">
-            <i class="fas fa-map-marker-alt"></i>
-            <input type="number" name="latitude"
-                class="sl-form-control"
-                step="0.0000001"
-                placeholder="Contoh: -7.7543000"
-                value="<?= $e($_POST['latitude'] ?? '') ?>"
-                required>
-        </div>
-    </div>
+            <div class="row">
+                <div class="col-md-4 mb-3">
+                    <label class="sl-form-label">Latitude <span class="text-danger">*</span></label>
+                    <div class="sl-input-group">
+                        <i class="fas fa-map-marker-alt"></i>
+                        <input type="number" name="latitude" class="sl-form-control" step="0.0000001"
+                               min="-90" max="90" placeholder="Contoh: -7.7543000"
+                               value="<?= $e($createForm['latitude'] ?? '') ?>" required>
+                    </div>
+                </div>
+                <div class="col-md-4 mb-3">
+                    <label class="sl-form-label">Longitude <span class="text-danger">*</span></label>
+                    <div class="sl-input-group">
+                        <i class="fas fa-map-marker-alt"></i>
+                        <input type="number" name="longitude" class="sl-form-control" step="0.0000001"
+                               min="-180" max="180" placeholder="Contoh: 111.9025000"
+                               value="<?= $e($createForm['longitude'] ?? '') ?>" required>
+                    </div>
+                </div>
+                <div class="col-md-4 mb-3">
+                    <label class="sl-form-label">Radius Geofence (Meter) <span class="text-danger">*</span></label>
+                    <div class="sl-input-group">
+                        <i class="fas fa-location-crosshairs"></i>
+                        <input type="number" name="radius_geofence_meter" class="sl-form-control"
+                               min="1" step="1" placeholder="Contoh: 100"
+                               value="<?= $e($createForm['radius_geofence_meter'] ?? '') ?>" required>
+                    </div>
+                </div>
+            </div>
 
-    <div class="col-md-6 mb-3">
-        <label class="sl-form-label">
-            Longitude <span class="text-danger">*</span>
-        </label>
-        <div class="sl-input-group">
-            <i class="fas fa-map-marker-alt"></i>
-            <input type="number" name="longitude"
-                class="sl-form-control"
-                step="0.0000001"
-                placeholder="Contoh: 111.9025000"
-                value="<?= $e($_POST['longitude'] ?? '') ?>"
-                required>
-        </div>
-    </div>
-</div>
-
-<!-- Baris: Radius dan Kuota -->
-<div class="row">
-    <div class="col-md-6 mb-3">
-        <label class="sl-form-label">
-            Radius Geofence (Meter) <span class="text-danger">*</span>
-        </label>
-        <div class="sl-input-group">
-            <i class="fas fa-location-crosshairs"></i>
-            <input type="number" name="radius_geofence_meter"
-                class="sl-form-control"
-                min="1"
-                step="1"
-                placeholder="Contoh: 100"
-                value="<?= $e($_POST['radius_geofence_meter'] ?? '') ?>"
-                required>
-        </div>
-    </div>
-
-    <div class="col-md-6 mb-3">
-        <label class="sl-form-label">
-            Kuota Tempat (Siswa) <span class="text-danger">*</span>
-        </label>
-        <div class="sl-input-group">
-            <i class="fas fa-users"></i>
-            <input type="number" name="kuota"
-                class="sl-form-control"
-                min="1"
-                step="1"
-                placeholder="Contoh: 5"
-                value="<?= $e($_POST['kuota'] ?? '') ?>"
-                required>
-        </div>
-    </div>
-</div>
+            <div class="row">
+                <div class="col-md-6 mb-3">
+                    <label class="sl-form-label">Periode PKL <span class="text-danger">*</span></label>
+                    <div class="sl-input-group sl-select-wrapper">
+                        <i class="fas fa-calendar-alt"></i>
+                        <select name="periode_id" class="sl-form-control" required>
+                            <option value="">Pilih periode PKL</option>
+                            <?php foreach ($periods as $period): ?>
+                                <?php if (is_array($period)): ?>
+                                    <option value="<?= (int) ($period['id'] ?? 0) ?>" <?= (string) ($createForm['periode_id'] ?? '') === (string) ($period['id'] ?? '') ? 'selected' : '' ?>>
+                                        <?= $e($period['nama'] ?? 'Periode PKL') ?>
+                                    </option>
+                                <?php endif; ?>
+                            <?php endforeach; ?>
+                        </select>
+                    </div>
+                </div>
+                <div class="col-md-6 mb-3">
+                    <label class="sl-form-label">Kuota Tempat (Siswa) <span class="text-danger">*</span></label>
+                    <div class="sl-input-group">
+                        <i class="fas fa-users"></i>
+                        <input type="number" name="kuota_siswa" class="sl-form-control"
+                               min="0" step="1" placeholder="Contoh: 5"
+                               value="<?= $e($createForm['kuota_siswa'] ?? '') ?>" required>
+                    </div>
+                </div>
+            </div>
             <!-- Tombol Aksi -->
             <div class="d-flex justify-content-end" style="gap: .6rem;">
                 <a href="?page=data-mitra" class="sl-btn-cancel">Batal</a>
-                <button type="submit" class="sl-btn-submit">
+                <button type="submit" class="sl-btn-submit" <?= $periods === [] ? 'disabled' : '' ?>>
                     <i class="fas fa-save mr-2"></i>Simpan Data Instansi
                 </button>
             </div>

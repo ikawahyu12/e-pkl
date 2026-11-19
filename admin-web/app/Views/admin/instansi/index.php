@@ -1,8 +1,6 @@
 <?php
 require_once dirname(__DIR__, 3) . '/Support/Csrf.php';
 $csrfToken = AdminCsrf::token();
-// ===== 1. BLOK PHP ATAS =====
-require_once __DIR__ . '/../../../../../config/koneksi.php';
 
 $activePage   = 'instansi-mitra';
 $pageTitle    = 'Data Instansi Mitra';
@@ -15,169 +13,63 @@ $pageHeaderActions = '
 $scriptDir    = rtrim(str_replace('\\', '/', dirname($_SERVER['SCRIPT_NAME'] ?? '/')), '/');
 $assetBaseUrl = $scriptDir . '/assets';
 $e            = static fn($v): string => htmlspecialchars((string) $v, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
-
-// ==========================================
-// 1. KONFIGURASI PAGINATION
-// ==========================================
-$limit = 10;
-$page  = isset($_GET['hal']) ? (int)$_GET['hal'] : 1;
-if ($page < 1) $page = 1;
-$offset = ($page - 1) * $limit;
-
-// ==========================================
-// 2. Hitung total data dan statistik dengan skema database epkl.
-// ==========================================
-$totalQuery = mysqli_query($koneksi, "SELECT COUNT(*) AS total FROM instansi");
-if (!$totalQuery) {
-    error_log('Gagal menghitung data instansi: ' . mysqli_error($koneksi));
-    http_response_code(500);
-    exit('Data instansi tidak dapat dimuat.');
-}
-$totalMitra = (int) mysqli_fetch_assoc($totalQuery)['total'];
-
-$statQuery = mysqli_query($koneksi, "
-    SELECT COALESCE(SUM(kuota_siswa), 0) AS total_kuota
-    FROM instansi
-    WHERE status = 'aktif'
-");
-if (!$statQuery) {
-    error_log('Gagal memuat statistik instansi: ' . mysqli_error($koneksi));
-    http_response_code(500);
-    exit('Statistik instansi tidak dapat dimuat.');
-}
-$totalKuota = (int) mysqli_fetch_assoc($statQuery)['total_kuota'];
-
-$terisiQuery = mysqli_query($koneksi, "
-    SELECT COUNT(*) AS jml
-    FROM penempatan_pkl
-    WHERE status = 'aktif'
-");
-if (!$terisiQuery) {
-    error_log('Gagal menghitung penempatan aktif: ' . mysqli_error($koneksi));
-    http_response_code(500);
-    exit('Statistik penempatan tidak dapat dimuat.');
-}
-$terisi = (int) mysqli_fetch_assoc($terisiQuery)['jml'];
-$totalPages = max(1, (int) ceil($totalMitra / $limit));
-
-// 3. Ambil instansi aktif pada halaman yang diminta.
-$sql = "SELECT
-            i.id AS id_instansi,
-            i.nama AS nama_instansi,
-            i.alamat,
-            i.telepon AS no_telepon,
-            i.nama_penanggung_jawab AS nama_kontak,
-            i.email,
-            i.jenis AS jenis_instansi,
-            i.status,
-            i.kuota_siswa AS kuota,
-            COUNT(p.id) AS terisi
-        FROM instansi i
-        LEFT JOIN penempatan_pkl p
-            ON p.instansi_id = i.id
-            AND p.status = 'aktif'
-        GROUP BY
-            i.id,
-            i.nama,
-            i.alamat,
-            i.telepon,
-            i.nama_penanggung_jawab,
-            i.email,
-            i.jenis,
-            i.status,
-            i.kuota_siswa
-        ORDER BY i.nama ASC
-        LIMIT $limit OFFSET $offset";
-
-$result = mysqli_query($koneksi, $sql);
-
-if (!$result) {
-    error_log('Gagal memuat daftar instansi: ' . mysqli_error($koneksi));
-    http_response_code(500);
-    exit('Daftar instansi tidak dapat dimuat.');
-}
-
-$mitraList = [];
-
-while ($row = mysqli_fetch_assoc($result)) {
-    $mitraList[] = $row;
-}
-
-// 4. Daftar jenis instansi untuk filter.
-$jenisList = [];
-$jenisQuery = mysqli_query($koneksi, "
-    SELECT DISTINCT jenis
-    FROM instansi
-    WHERE jenis IS NOT NULL AND jenis <> ''
-    ORDER BY jenis ASC
-");
-
-if (!$jenisQuery) {
-    error_log('Gagal memuat jenis instansi: ' . mysqli_error($koneksi));
-    http_response_code(500);
-    exit('Filter instansi tidak dapat dimuat.');
-}
-
-while ($j = mysqli_fetch_assoc($jenisQuery)) {
-    $jenisList[] = $j['jenis'];
-}
+$mitraList = is_array($mitraList ?? null) ? $mitraList : [];
+$jenisList = is_array($jenisList ?? null) ? $jenisList : [];
+$totalMitra = max(0, (int) ($totalMitra ?? 0));
+$totalKuota = max(0, (int) ($totalKuota ?? 0));
+$terisi = max(0, (int) ($terisi ?? 0));
+$page = max(1, (int) ($page ?? 1));
+$offset = max(0, (int) ($offset ?? (($page - 1) * 10)));
+$totalPages = max(1, (int) ($totalPages ?? 1));
+$searchTerm = isset($_GET['search']) && is_string($_GET['search']) ? trim($_GET['search']) : '';
 
 ob_start();
 ?>
 <style>
-    /* ---- Tombol Header ---- */
     .sl-btn-export, .sl-btn-add { border: 0; border-radius: 8px; padding: .5rem .9rem; font-size: .78rem; font-weight: 600; }
     .sl-btn-export { background: #dbe7f6; color: #1e293b; }
     .sl-btn-export:hover { background: #cddff2; color: #1e293b; }
     .sl-btn-add { background: #2563eb; color: #fff; }
     .sl-btn-add:hover { background: #1d4ed8; color: #fff; }
-
-    /* ---- Kartu Statistik ---- */
     .sl-stat { display: flex; align-items: center; gap: .9rem; background: #fff; border-radius: 12px; padding: .9rem 1rem; box-shadow: 0 1px 3px rgba(16,24,40,.07); height: 100%; }
     .sl-stat-icon { width: 46px; height: 46px; border-radius: 10px; background: #eaf1fb; color: #0b5f8a; display: flex; align-items: center; justify-content: center; font-size: 1.05rem; flex-shrink: 0; }
     .sl-stat-label { font-size: .68rem; color: #475569; line-height: 1.2; }
     .sl-stat-value { font-size: 1.45rem; font-weight: 800; line-height: 1.15; }
-
-    /* ---- Toolbar & Filter ---- */
     .sl-toolbar { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: .6rem; background: #fff; border-radius: 12px; padding: .55rem; box-shadow: 0 1px 3px rgba(16,24,40,.07); }
     .sl-search { position: relative; flex: 0 1 230px; }
+    .sl-search-form { width: 100%; margin: 0; }
     .sl-search i { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: #64748b; font-size: .78rem; }
     .sl-field { height: 34px; border: 0; border-radius: 8px; background: #eaf1fb; font-size: .75rem; color: #3b4a5e; outline: 0; }
     .sl-search .sl-field { width: 100%; padding: 0 .75rem 0 34px; }
+    .sl-search .sl-field::placeholder { color: #64748b; }
     .sl-filters { display: flex; gap: .4rem; }
-    .sl-filters select.sl-field { appearance: none; -webkit-appearance: none; padding: 0 .9rem; cursor: pointer; }
-    .sl-filters .sl-sektor { width: 200px; }
-
-    /* ---- Tabel ---- */
+    .sl-filters select.sl-field { -webkit-appearance: none; -moz-appearance: none; appearance: none; padding: 0 .9rem; cursor: pointer; }
+    .sl-filters .sl-sektor { width: 175px; }
+    .sl-field:focus { box-shadow: 0 0 0 2px rgba(37,99,235,.25); }
     .sl-card { background: #fff; border-radius: 12px; box-shadow: 0 1px 3px rgba(16,24,40,.07); overflow: hidden; }
     .sl-table { width: 100%; min-width: 940px; table-layout: fixed; border-collapse: collapse; }
-    .sl-table th { background: #f1f5fb; color: #3b4a5e; font-size: .66rem; font-weight: 600; text-transform: uppercase; padding: .8rem .6rem; text-align: left; border: 0; }
+    .sl-table th { background: #f1f5fb; color: #3b4a5e; font-size: .66rem; font-weight: 600; text-transform: uppercase; letter-spacing: .02em; padding: .8rem .6rem; text-align: left; border: 0; }
     .sl-table td { padding: .85rem .6rem; font-size: .72rem; color: #4b586b; vertical-align: middle; border: 0; border-bottom: 1px solid #f0f3f8; }
+    .sl-table tr:last-child td { border-bottom: 0; }
     .sl-table .c-no { text-align: center; }
     .sl-nama { font-weight: 700; color: #0f1d3a; font-size: .82rem; }
-    .sl-nama small { display: block; font-weight: 400; color: #94a3b8; font-size: .65rem; margin-top: 2px; }
-
     .sl-badge { display: inline-block; padding: .12rem .6rem; border-radius: 999px; font-size: .62rem; font-weight: 500; }
     .sl-badge-tersedia { background: #dbe8fb; color: #2a5aa0; }
     .sl-badge-penuh { background: #fee2e2; color: #dc2626; }
     .sl-badge-internal { background: #fef3c7; color: #b45309; }
     .sl-badge-eksternal { background: #e0f2fe; color: #0369a1; }
-
     .sl-aksi { white-space: nowrap; }
     .sl-aksi a, .sl-aksi button { font-size: .66rem; margin-right: .45rem; padding: 0; border: 0; background: none; text-decoration: none; cursor: pointer; }
     .sl-aksi .a-detail { color: #1a2438; }
     .sl-aksi .a-edit { color: #2563eb; }
     .sl-aksi .a-hapus { color: #e0264a; }
-
-    /* ---- Footer & Pagination ---- */
     .sl-foot { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: .5rem; padding: .85rem 1rem; }
     .sl-info { font-size: .7rem; color: #6b7787; }
     .sl-pager { display: flex; align-items: center; gap: .35rem; margin: 0; padding: 0; list-style: none; }
     .sl-pager a { display: inline-flex; align-items: center; justify-content: center; min-width: 24px; height: 24px; padding: 0 .35rem; border-radius: 5px; font-size: .7rem; color: #3b4a5e; text-decoration: none; }
+    .sl-pager a:hover { background: #eef2f8; }
     .sl-pager .active a { background: #0b5f8a; color: #fff; }
-    .sl-pager .disabled a { color: #3b4a5e; pointer-events: none; opacity: 0.6; }
-
-    /* ---- Style Modal Hapus ---- */
+    .sl-pager .disabled a { color: #3b4a5e; pointer-events: none; }
     .sl-modal .modal-content { border: 0; border-radius: 16px; }
     .sl-modal .sl-trash { width: 44px; height: 44px; border-radius: 10px; background: #fee2e2; color: #dc2626; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
     .sl-modal .sl-ringkas { background: #f8fafc; border: 1px solid #eef2f7; border-radius: 10px; padding: .7rem 1rem; font-size: .78rem; }
@@ -185,9 +77,16 @@ ob_start();
     .sl-modal .sl-ringkas div span:first-child { color: #64748b; }
     .sl-modal .sl-ringkas div span:last-child { font-weight: 600; text-align: right; }
     .sl-modal .sl-warn { background: #fffbeb; border: 1px solid #fde68a; color: #b45309; border-radius: 10px; padding: .6rem .85rem; font-size: .76rem; }
+
 </style>
 
 <div class="mitra-list">
+    <?php if (is_string($adminPageError ?? null)): ?>
+        <div class="alert alert-danger"><?= $e($adminPageError) ?></div>
+    <?php endif; ?>
+    <?php if (is_string($adminPageSuccess ?? null)): ?>
+        <div class="alert alert-success"><?= $e($adminPageSuccess) ?></div>
+    <?php endif; ?>
 
     <!-- Statistik -->
     <div class="row mb-3">
@@ -221,10 +120,11 @@ ob_start();
     </div>
 
     <!-- Pencarian & Filter -->
-    <div class="sl-toolbar mb-3">
+    <form class="sl-toolbar mb-3" method="GET" action="">
+        <input type="hidden" name="page" value="data-mitra">
         <div class="sl-search">
             <i class="fas fa-search"></i>
-            <input type="search" id="slCari" class="sl-field" placeholder="Cari instansi atau alamat...">
+            <input type="search" id="slCari" name="search" class="sl-field" maxlength="100" placeholder="Cari instansi atau alamat..." value="<?= $e($searchTerm) ?>">
         </div>
         <div class="sl-filters">
             <select id="slJenis" class="sl-field sl-sektor">
@@ -233,8 +133,9 @@ ob_start();
                     <option value="<?= $e($jenis) ?>"><?= $e($jenis) ?></option>
                 <?php endforeach; ?>
             </select>
+            <button type="submit" class="btn btn-primary">Cari</button>
         </div>
-    </div>
+    </form>
 
     <!-- Tabel Data -->
     <div class="sl-card mb-4">
@@ -289,13 +190,22 @@ ob_start();
                                     <a class="a-detail" href="?page=detail-mitra&id=<?= (int)$m['id_instansi'] ?>">Detail</a>
                                     <a class="a-edit" href="?page=edit-mitra&id=<?= (int)$m['id_instansi'] ?>">Edit</a>
                                     <!-- TOMBOL DIUBAH MENJADI HAPUS -->
-                                    <button type="button" class="a-hapus sl-hapus"
-                                            data-id="<?= (int)$m['id_instansi'] ?>"
-                                            data-nama="<?= $e($m['nama_instansi']) ?>"
-                                            data-pembimbing="<?= $e($m['nama_kontak'] ?: '-') ?>"
-                                            data-telepon="<?= $e($m['no_telepon'] ?: '-') ?>"
-                                            data-kuota="<?= $kuotaMax ?>"
-                                            data-terisi="<?= $terisiSaatIni ?>">Hapus</button>
+                                    <?php if (($m['status'] ?? '') === 'nonaktif'): ?>
+                                        <form method="POST" action="?page=data-mitra" class="d-inline">
+                                            <input type="hidden" name="csrf_token" value="<?= $e($csrfToken) ?>">
+                                            <input type="hidden" name="action" value="master-instance-activate">
+                                            <input type="hidden" name="instansi_id" value="<?= (int) $m['id_instansi'] ?>">
+                                            <button type="submit" class="a-edit">Aktifkan</button>
+                                        </form>
+                                    <?php else: ?>
+                                        <button type="button" class="a-hapus sl-hapus"
+                                                data-id="<?= (int)$m['id_instansi'] ?>"
+                                                data-nama="<?= $e($m['nama_instansi']) ?>"
+                                                data-pembimbing="<?= $e($m['nama_kontak'] ?: '-') ?>"
+                                                data-telepon="<?= $e($m['no_telepon'] ?: '-') ?>"
+                                                data-kuota="<?= $kuotaMax ?>"
+                                                data-terisi="<?= $terisiSaatIni ?>">Hapus</button>
+                                    <?php endif; ?>
                                 </td>
                             </tr>
                         <?php endforeach; ?>
@@ -318,7 +228,7 @@ ob_start();
                 $prevClass = ($page <= 1) ? 'disabled' : '';
                 $prevHal   = max(1, $page - 1);
                 ?>
-                <li class="<?= $prevClass ?>"><a href="?page=data-mitra&hal=<?= $prevHal ?>">Sebelumnya</a></li>
+                <li class="<?= $prevClass ?>"><a href="?page=data-mitra&amp;hal=<?= $prevHal ?>&amp;search=<?= rawurlencode($searchTerm) ?>">Sebelumnya</a></li>
 
                 <?php
                 // Tampilkan maksimal 5 halaman
@@ -329,7 +239,7 @@ ob_start();
                 for ($p = $start; $p <= $end; $p++):
                     $activeClass = ($p == $page) ? 'active' : '';
                 ?>
-                    <li class="<?= $activeClass ?>"><a href="?page=data-mitra&hal=<?= $p ?>"><?= $p ?></a></li>
+                    <li class="<?= $activeClass ?>"><a href="?page=data-mitra&amp;hal=<?= $p ?>&amp;search=<?= rawurlencode($searchTerm) ?>"><?= $p ?></a></li>
                 <?php endfor; ?>
 
                 <?php
@@ -337,7 +247,7 @@ ob_start();
                 $nextClass = ($page >= $totalPages) ? 'disabled' : '';
                 $nextHal   = min($totalPages, $page + 1);
                 ?>
-                <li class="<?= $nextClass ?>"><a href="?page=data-mitra&hal=<?= $nextHal ?>">Selanjutnya</a></li>
+                <li class="<?= $nextClass ?>"><a href="?page=data-mitra&amp;hal=<?= $nextHal ?>&amp;search=<?= rawurlencode($searchTerm) ?>">Selanjutnya</a></li>
             </ul>
         </div>
     </div>
@@ -347,20 +257,20 @@ ob_start();
 <div class="modal fade sl-modal" id="slModalHapus" tabindex="-1" role="dialog" aria-labelledby="slModalHapusJudul" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered" role="document">
         <div class="modal-content p-2">
-            <form method="POST" action="?page=delete-mitra">
+            <form method="POST" action="?page=data-mitra">
                 <div class="modal-body">
                     <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrfToken, ENT_QUOTES, 'UTF-8') ?>">
-                    <input type="hidden" name="delete_id" id="slHId">
+                    <input type="hidden" name="action" value="master-instance-deactivate">
+                    <input type="hidden" name="instansi_id" id="slHId">
 
                     <!-- Header Modal -->
                     <div class="d-flex mb-3" style="gap:1rem;">
                         <div class="sl-trash"><i class="fas fa-trash-alt"></i></div>
                         <div>
-                            <h5 class="font-weight-bold mb-1 text-danger" id="slModalHapusJudul">Hapus Permanen Instansi?</h5>
+                            <h5 class="font-weight-bold mb-1 text-danger" id="slModalHapusJudul">Nonaktifkan Instansi?</h5>
                             <p class="small text-muted mb-0">
-                                Apakah Anda yakin ingin menghapus permanen instansi
-                                <strong id="slHNama">-</strong>? 
-                                <span class="text-danger font-weight-bold">Data yang dihapus tidak dapat dikembalikan.</span>
+                                Apakah Anda yakin ingin menonaktifkan instansi
+                                <strong id="slHNama">-</strong>? Data dan riwayat penempatan tetap disimpan.
                             </p>
                         </div>
                     </div>
@@ -376,14 +286,14 @@ ob_start();
                     <!-- Alert Peringatan -->
                     <div class="sl-warn d-flex mb-3" style="gap:.5rem;">
                         <i class="fas fa-exclamation-triangle mt-1"></i>
-                        <span>Menghapus instansi akan menghapus seluruh data terkait secara permanen. Pastikan tidak ada siswa PKL aktif di instansi ini.</span>
+                        <span>Instansi yang masih memiliki penempatan PKL aktif tidak dapat dinonaktifkan.</span>
                     </div>
 
                     <!-- Tombol Aksi -->
                     <div class="d-flex justify-content-end" style="gap:.5rem;">
                         <button type="button" class="btn btn-light border btn-sm px-4" data-dismiss="modal">Batal</button>
                         <button type="submit" class="btn btn-danger btn-sm px-3" id="slKonfirmasiHapus">
-                            <i class="fas fa-trash-alt mr-1"></i> Ya, Hapus Permanen
+                            <i class="fas fa-ban mr-1"></i> Ya, Nonaktifkan
                         </button>
                     </div>
                 </div>

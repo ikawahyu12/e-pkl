@@ -56,9 +56,19 @@ class AdminMasterDataTest extends TestCase
             'jenis' => 'Perusahaan',
             'telepon' => '08123456789',
             'status' => 'aktif',
+            'latitude' => -7.7543,
+            'longitude' => 111.9025,
+            'radius_geofence_meter' => 100,
         ])->assertCreated()
-            ->assertJsonPath('data.instansi.nama', 'Mitra Uji');
+            ->assertJsonPath('data.instansi.nama', 'Mitra Uji')
+            ->assertJsonPath('data.instansi.radius_geofence_meter', 100);
         $instanceId = $created->json('data.instansi.id');
+        $this->assertDatabaseHas('instansi', [
+            'id' => $instanceId,
+            'latitude' => -7.7543,
+            'longitude' => 111.9025,
+            'radius_geofence_meter' => 100,
+        ]);
 
         $year = $this->createYear();
         $period = $this->createPeriod($year->id);
@@ -91,6 +101,77 @@ class AdminMasterDataTest extends TestCase
             'status' => 'nonaktif',
         ])->assertOk();
         $this->assertDatabaseHas('instansi', ['id' => $instanceId, 'status' => 'nonaktif']);
+    }
+
+    public function test_geofence_coordinates_must_be_submitted_together(): void
+    {
+        $this->postJson('/api/v1/admin/master-data/instansi', [
+            'nama' => 'Instansi Koordinat Parsial',
+            'alamat' => 'Jalan Uji',
+            'latitude' => -7.7543,
+        ])->assertUnprocessable()
+            ->assertJsonValidationErrors(['longitude', 'radius_geofence_meter']);
+    }
+
+    public function test_instance_detail_endpoint_returns_instance_data(): void
+    {
+        $instance = $this->createInstance();
+
+        $this->getJson("/api/v1/admin/master-data/instansi/{$instance->id}")
+            ->assertOk()
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('data.instansi.id', $instance->id)
+            ->assertJsonPath('data.instansi.nama', 'Mitra Uji');
+    }
+
+    public function test_instance_detail_includes_active_students_from_api(): void
+    {
+        $instance = $this->createInstance();
+        $year = $this->createYear();
+        $period = $this->createPeriod($year->id);
+        $classId = \Illuminate\Support\Facades\DB::table('kelas')->insertGetId(['nama' => 'X RPL 1']);
+        $studentId = \Illuminate\Support\Facades\DB::table('siswa')->insertGetId([
+            'nis' => '12345',
+            'nisn' => '98765',
+            'nama_lengkap' => 'Siswa Uji',
+            'kelas_id' => $classId,
+            'no_hp' => '08123456789',
+            'status_siswa' => 'aktif',
+        ]);
+        \Illuminate\Support\Facades\DB::table('penempatan_pkl')->insert([
+            'periode_id' => $period->id,
+            'instansi_id' => $instance->id,
+            'siswa_id' => $studentId,
+            'tanggal_mulai' => '2026-08-01',
+            'tanggal_selesai' => '2026-11-30',
+            'status' => 'aktif',
+        ]);
+
+        $this->getJson("/api/v1/admin/master-data/instansi/{$instance->id}")
+            ->assertOk()
+            ->assertJsonPath('data.instansi.penempatan.0.siswa.nama_lengkap', 'Siswa Uji')
+            ->assertJsonPath('data.instansi.penempatan.0.siswa.kelas.nama', 'X RPL 1');
+    }
+
+    public function test_instance_index_returns_quota_statistics_and_filled_count(): void
+    {
+        $instance = $this->createInstance();
+        $period = $this->createPeriod($this->createYear()->id);
+        \Illuminate\Support\Facades\DB::table('kuota_instansi_periode')->insert([
+            'instansi_id' => $instance->id,
+            'periode_id' => $period->id,
+            'kuota_siswa' => 4,
+        ]);
+        $this->createPlacement($instance->id, $period->id, 'aktif');
+        $this->createPlacement($instance->id, $period->id, 'selesai');
+
+        $this->getJson('/api/v1/admin/master-data/instansi')
+            ->assertOk()
+            ->assertJsonPath('data.statistics.total_instansi', 1)
+            ->assertJsonPath('data.statistics.total_kuota', 4)
+            ->assertJsonPath('data.statistics.terisi', 1)
+            ->assertJsonPath('data.instansi.0.terisi', 1)
+            ->assertJsonPath('data.instansi.0.total_kuota_periode', 4);
     }
 
     public function test_year_and_period_dates_are_validated_against_each_other_and_placements(): void
@@ -255,6 +336,7 @@ class AdminMasterDataTest extends TestCase
             $table->id();
             $table->unsignedBigInteger('periode_id');
             $table->unsignedBigInteger('instansi_id');
+            $table->unsignedBigInteger('siswa_id')->nullable();
             $table->unsignedBigInteger('pic_instansi_id')->nullable();
             $table->date('tanggal_mulai');
             $table->date('tanggal_selesai');
@@ -266,6 +348,19 @@ class AdminMasterDataTest extends TestCase
             $table->unsignedBigInteger('periode_id');
             $table->unsignedInteger('kuota_siswa')->nullable();
             $table->timestamps();
+        });
+        Schema::create('kelas', function (Blueprint $table): void {
+            $table->id();
+            $table->string('nama', 100);
+        });
+        Schema::create('siswa', function (Blueprint $table): void {
+            $table->id();
+            $table->string('nis', 30)->nullable();
+            $table->string('nisn', 30)->nullable();
+            $table->string('nama_lengkap', 160);
+            $table->unsignedBigInteger('kelas_id')->nullable();
+            $table->string('no_hp', 25)->nullable();
+            $table->string('status_siswa', 30)->nullable();
         });
     }
 

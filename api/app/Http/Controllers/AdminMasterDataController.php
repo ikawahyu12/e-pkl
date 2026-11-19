@@ -38,10 +38,40 @@ class AdminMasterDataController extends Controller
                 });
             })
             ->when(isset($filters['status']), fn (Builder $query) => $query->where('status', $filters['status']))
+            ->withCount([
+                'penempatan as terisi' => fn (Builder $query) => $query->where('status', 'aktif'),
+            ])
+            ->withSum('kuotaPeriode as total_kuota_periode', 'kuota_siswa')
             ->orderBy('nama')
             ->paginate((int) ($filters['per_page'] ?? 15));
 
-        return $this->paginated('instansi', $instances);
+        $statistics = [
+            'total_instansi' => Instansi::query()->count(),
+            'total_kuota' => (int) DB::table('kuota_instansi_periode')
+                ->join('instansi', 'instansi.id', '=', 'kuota_instansi_periode.instansi_id')
+                ->where('instansi.status', 'aktif')
+                ->sum('kuota_instansi_periode.kuota_siswa'),
+            'terisi' => (int) DB::table('penempatan_pkl')
+                ->join('instansi', 'instansi.id', '=', 'penempatan_pkl.instansi_id')
+                ->where('instansi.status', 'aktif')
+                ->where('penempatan_pkl.status', 'aktif')
+                ->count(),
+        ];
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Data master berhasil diambil.',
+            'data' => [
+                'instansi' => $instances->items(),
+                'pagination' => [
+                    'current_page' => $instances->currentPage(),
+                    'per_page' => $instances->perPage(),
+                    'total' => $instances->total(),
+                    'last_page' => $instances->lastPage(),
+                ],
+                'statistics' => $statistics,
+            ],
+        ]);
     }
 
     public function instansiStore(Request $request): JsonResponse
@@ -57,12 +87,28 @@ class AdminMasterDataController extends Controller
     {
         $instance = Instansi::query()
             ->with([
-                'picInstansi' => fn (Builder $query) => $query->orderBy('nama'),
+                'picInstansi' => fn ($query) => $query->orderBy('nama'),
                 'kuotaPeriode.periode',
+                'penempatan' => fn ($query) => $query
+                    ->select(['id', 'instansi_id', 'siswa_id', 'status', 'tanggal_mulai', 'tanggal_selesai'])
+                    ->where('status', 'aktif')
+                    ->with([
+                        'siswa' => fn ($studentQuery) => $studentQuery->select([
+                            'id',
+                            'nis',
+                            'nisn',
+                            'nama_lengkap',
+                            'kelas_id',
+                            'no_hp',
+                            'status_siswa',
+                        ]),
+                        'siswa.kelas' => fn ($classQuery) => $classQuery->select(['id', 'nama']),
+                    ])
+                    ->orderBy('tanggal_mulai'),
             ])
             ->findOrFail($instansi);
 
-        return $this->success(['instansi' => $instance]);
+        return $this->success(['instansi' => $instance], 'Detail Instansi berhasil diambil.');
     }
 
     public function instansiUpdate(Request $request, int $instansi): JsonResponse
@@ -340,6 +386,9 @@ class AdminMasterDataController extends Controller
             'telepon' => ['sometimes', 'nullable', 'string', 'max:25'],
             'email' => ['sometimes', 'nullable', 'email', 'max:150'],
             'nama_penanggung_jawab' => ['sometimes', 'nullable', 'string', 'max:120'],
+            'latitude' => ['nullable', 'required_with:longitude,radius_geofence_meter', 'numeric', 'between:-90,90'],
+            'longitude' => ['nullable', 'required_with:latitude,radius_geofence_meter', 'numeric', 'between:-180,180'],
+            'radius_geofence_meter' => ['nullable', 'required_with:latitude,longitude', 'integer', 'min:1', 'max:4294967295'],
             'status' => ['sometimes', 'required', Rule::in(['aktif', 'nonaktif'])],
         ]);
     }

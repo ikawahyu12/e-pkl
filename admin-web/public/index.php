@@ -515,6 +515,8 @@ $masterDataActions = [
     'master-instance-create',
     'master-instance-update',
     'master-instance-status',
+    'master-instance-activate',
+    'master-instance-deactivate',
     'master-year-create',
     'master-year-update',
     'master-period-create',
@@ -542,7 +544,9 @@ if ($requestMethod === 'POST' && is_string($masterDataAction) && in_array($maste
     $input = [];
     foreach ([
         'nama', 'jenis', 'alamat', 'kota', 'provinsi', 'telepon', 'email',
-        'nama_penanggung_jawab', 'status', 'tanggal_mulai', 'tanggal_selesai',
+        'nama_penanggung_jawab', 'status', 'latitude', 'longitude', 'radius_geofence_meter',
+        'nama_instansi', 'pembimbing_lapangan', 'kuota', 'periode_id',
+        'tanggal_mulai', 'tanggal_selesai',
         'aktif', 'tahun_ajaran_id', 'jabatan', 'no_hp', 'kuota_siswa',
     ] as $field) {
         if (isset($_POST[$field]) && is_string($_POST[$field])) {
@@ -551,6 +555,7 @@ if ($requestMethod === 'POST' && is_string($masterDataAction) && in_array($maste
     }
 
     $destination = 'data-mitra';
+    $successMessageOverride = null;
     try {
         $token = $_SESSION['admin_token'] ?? '';
         if (!is_string($token) || $token === '') {
@@ -567,24 +572,105 @@ if ($requestMethod === 'POST' && is_string($masterDataAction) && in_array($maste
             }
             return $payload;
         };
+        $instancePayload = [];
+        foreach ([
+            'nama' => 'nama_instansi',
+            'jenis' => 'jenis',
+            'alamat' => 'alamat',
+            'kota' => 'kota',
+            'provinsi' => 'provinsi',
+            'telepon' => 'telepon',
+            'email' => 'email',
+            'nama_penanggung_jawab' => 'pembimbing_lapangan',
+            'status' => 'status',
+            'latitude' => 'latitude',
+            'longitude' => 'longitude',
+            'radius_geofence_meter' => 'radius_geofence_meter',
+        ] as $apiField => $legacyField) {
+            $sourceField = array_key_exists($legacyField, $_POST) ? $legacyField : $apiField;
+            if (array_key_exists($sourceField, $_POST) && is_string($_POST[$sourceField])) {
+                $value = trim($_POST[$sourceField]);
+                $instancePayload[$apiField] = $value === '' ? null : $value;
+            }
+        }
 
         switch ($masterDataAction) {
             case 'master-instance-create':
                 $destination = 'create-mitra';
-                $result = $api->createAdminMasterInstance($token, $payloadFor([
-                    'nama', 'jenis', 'alamat', 'kota', 'provinsi', 'telepon', 'email',
-                    'nama_penanggung_jawab', 'status',
-                ]));
+                $quotaPeriodId = filter_var($_POST['periode_id'] ?? null, FILTER_VALIDATE_INT, [
+                    'options' => ['min_range' => 1],
+                ]);
+                $quotaValue = $_POST['kuota_siswa'] ?? null;
+                if (
+                    array_key_exists('nama_instansi', $_POST)
+                    && ($quotaPeriodId === false || !is_string($quotaValue) || trim($quotaValue) === '')
+                ) {
+                    throw new InvalidArgumentException('Pilih Periode PKL dan isi kuota untuk instansi baru.');
+                }
+                $result = $api->createAdminMasterInstance($token, $instancePayload);
+                if ($result['status'] >= 200 && $result['status'] < 300 && ($result['body']['success'] ?? false) === true) {
+                    $createdId = filter_var(
+                        $result['body']['data']['instansi']['id'] ?? null,
+                        FILTER_VALIDATE_INT,
+                        ['options' => ['min_range' => 1]]
+                    );
+                    if ($createdId === false) {
+                        throw new RuntimeException('Instansi berhasil dibuat, tetapi respons API tidak menyertakan ID.');
+                    }
+                    $instanceId = $createdId;
+                    $destination = 'data-mitra';
+                    if ($quotaPeriodId !== false && is_string($quotaValue)) {
+                        $quotaResult = $api->saveAdminMasterQuota($token, $instanceId, $quotaPeriodId, [
+                            'kuota_siswa' => $quotaValue,
+                        ]);
+                        if (
+                            $quotaResult['status'] < 200
+                            || $quotaResult['status'] >= 300
+                            || ($quotaResult['body']['success'] ?? false) !== true
+                        ) {
+                            $result = $quotaResult;
+                            $destination = 'edit-mitra';
+                        } else {
+                            $successMessageOverride = 'Instansi dan kuota Periode PKL berhasil disimpan.';
+                        }
+                    }
+                } else {
+                    $destination = 'create-mitra';
+                }
                 break;
             case 'master-instance-update':
                 if ($instanceId === false) {
                     throw new InvalidArgumentException('ID Instansi tidak valid.');
                 }
                 $destination = 'edit-mitra';
-                $result = $api->updateAdminMasterInstance($token, $instanceId, $payloadFor([
-                    'nama', 'jenis', 'alamat', 'kota', 'provinsi', 'telepon', 'email',
-                    'nama_penanggung_jawab', 'status',
-                ]));
+                $quotaPeriodId = filter_var($_POST['periode_id'] ?? null, FILTER_VALIDATE_INT, [
+                    'options' => ['min_range' => 1],
+                ]);
+                $quotaValue = $_POST['kuota_siswa'] ?? null;
+                if (
+                    $quotaPeriodId === false
+                    && is_string($quotaValue)
+                    && trim($quotaValue) !== ''
+                ) {
+                    throw new InvalidArgumentException('Pilih Periode PKL sebelum mengisi kuota.');
+                }
+                $result = $api->updateAdminMasterInstance($token, $instanceId, $instancePayload);
+                if ($result['status'] >= 200 && $result['status'] < 300 && ($result['body']['success'] ?? false) === true) {
+                    if ($quotaPeriodId !== false && is_string($quotaValue)) {
+                        $quotaResult = $api->saveAdminMasterQuota($token, $instanceId, $quotaPeriodId, [
+                            'kuota_siswa' => trim($quotaValue) === '' ? null : $quotaValue,
+                        ]);
+                        if (
+                            $quotaResult['status'] < 200
+                            || $quotaResult['status'] >= 300
+                            || ($quotaResult['body']['success'] ?? false) !== true
+                        ) {
+                            $result = $quotaResult;
+                        } else {
+                            $successMessageOverride = 'Instansi dan kuota Periode PKL berhasil diperbarui.';
+                        }
+                    }
+                }
                 break;
             case 'master-instance-status':
                 if ($instanceId === false || !in_array($_POST['status'] ?? null, ['aktif', 'nonaktif'], true)) {
@@ -592,6 +678,20 @@ if ($requestMethod === 'POST' && is_string($masterDataAction) && in_array($maste
                 }
                 $destination = 'detail-mitra';
                 $result = $api->updateAdminMasterInstanceStatus($token, $instanceId, $_POST['status']);
+                break;
+            case 'master-instance-activate':
+                if ($instanceId === false) {
+                    throw new InvalidArgumentException('ID Instansi tidak valid.');
+                }
+                $destination = 'data-mitra';
+                $result = $api->updateAdminMasterInstanceStatus($token, $instanceId, 'aktif');
+                break;
+            case 'master-instance-deactivate':
+                if ($instanceId === false) {
+                    throw new InvalidArgumentException('ID Instansi tidak valid.');
+                }
+                $destination = 'data-mitra';
+                $result = $api->updateAdminMasterInstanceStatus($token, $instanceId, 'nonaktif');
                 break;
             case 'master-year-create':
                 $destination = 'create-tahun-ajaran';
@@ -683,7 +783,7 @@ if ($requestMethod === 'POST' && is_string($masterDataAction) && in_array($maste
         $_SESSION['admin_flash'] = [
             'type' => $success ? 'success' : 'danger',
             'message' => $success
-                ? ($result['body']['message'] ?? 'Data master berhasil disimpan.')
+                ? ($successMessageOverride ?? $result['body']['message'] ?? 'Data master berhasil disimpan.')
                 : ($message ?? $result['body']['message'] ?? 'Data master gagal disimpan.'),
             'input' => $success ? [] : $input,
         ];
@@ -967,7 +1067,9 @@ $adminUserName = is_array($adminUser)
 
 $adminUserRole = 'Administrator';
 $adminApiToken = $_SESSION['admin_token'] ?? '';
-$adminPageError = null;
+$adminPageError = is_array($adminFlash) && ($adminFlash['type'] ?? null) === 'danger'
+    ? ($adminFlash['message'] ?? null)
+    : null;
 $adminPageSuccess = is_array($adminFlash) && ($adminFlash['type'] ?? null) === 'success'
     ? ($adminFlash['message'] ?? null)
     : null;
@@ -1017,7 +1119,11 @@ $loadMasterCollection = static function (array $result, string $key): array {
         );
     }
 
-    return ['items' => $data[$key], 'pagination' => $data['pagination']];
+    return [
+        'items' => $data[$key],
+        'pagination' => $data['pagination'],
+        'statistics' => is_array($data['statistics'] ?? null) ? $data['statistics'] : [],
+    ];
 };
 $loadMasterRecord = static function (array $result, string $key): array {
     $record = $result['body']['data'][$key] ?? null;
@@ -1061,44 +1167,90 @@ switch ($routePage) {
         require $adminRoot . '/app/Views/auth/change-password.php';
         break;
 
-    case 'data-mitra':
     case 'create-mitra':
+    case 'data-mitra':
     case 'edit-mitra':
     case 'detail-mitra':
     case 'hapus-mitra':
+    case 'delete-mitra':
         $masterMode = match ($routePage) {
             'create-mitra' => 'create',
             'edit-mitra' => 'edit',
             'detail-mitra' => 'detail',
             default => 'list',
         };
-        $instance = is_array($adminFlash['input'] ?? null) ? $adminFlash['input'] : [];
+        $instanceInput = is_array($adminFlash['input'] ?? null) ? $adminFlash['input'] : [];
+        $instance = $instanceInput;
+        $instansi = [];
+        $siswaList = [];
         $instances = [];
         $pics = [];
         $picForEdit = [];
         $picInput = is_array($adminFlash['input'] ?? null) ? $adminFlash['input'] : [];
         $pagination = [];
-        if ($routePage === 'hapus-mitra') {
-            $adminPageError = 'Instansi tidak dihapus agar relasi dan riwayat penempatan tetap terjaga. Gunakan status nonaktif.';
+        $instanceStatistics = [];
+        $periods = [];
+        $mitraList = [];
+        $jenisList = [];
+        $totalMitra = 0;
+        $totalKuota = 0;
+        $terisi = 0;
+        $page = max(1, (int) ($_GET['hal'] ?? 1));
+        $offset = ($page - 1) * 10;
+        $totalPages = 1;
+        if (in_array($routePage, ['hapus-mitra', 'delete-mitra'], true)) {
+            $adminPageError = 'Instansi tidak dihapus permanen agar relasi dan riwayat penempatan tetap terjaga.';
         }
 
         try {
             if ($masterMode === 'list') {
                 $filters = [
                     'search' => isset($_GET['search']) && is_string($_GET['search']) ? trim($_GET['search']) : '',
-                    'status' => isset($_GET['status']) && in_array($_GET['status'], ['aktif', 'nonaktif'], true) ? $_GET['status'] : '',
-                    'page' => isset($_GET['list_page']) ? max(1, (int) $_GET['list_page']) : 1,
-                    'per_page' => 15,
+                    'page' => $page,
+                    'per_page' => 10,
                 ];
                 $filters = array_filter($filters, static fn ($value) => $value !== '');
                 $list = $loadMasterCollection($api->adminMasterInstances($adminApiToken, $filters), 'instansi');
                 $instances = $list['items'];
                 $pagination = $list['pagination'];
+                $instanceStatistics = $list['statistics'];
+                $page = max(1, (int) ($pagination['current_page'] ?? $page));
+                $offset = ($page - 1) * 10;
+                $totalPages = max(1, (int) ($pagination['last_page'] ?? 1));
+                $totalMitra = max(0, (int) ($pagination['total'] ?? 0));
+                $totalKuota = max(0, (int) ($instanceStatistics['total_kuota'] ?? 0));
+                $terisi = max(0, (int) ($instanceStatistics['terisi'] ?? 0));
+                foreach ($instances as $item) {
+                    if (!is_array($item)) {
+                        continue;
+                    }
+                    $jenis = (string) ($item['jenis'] ?? '');
+                    if ($jenis !== '' && !in_array($jenis, $jenisList, true)) {
+                        $jenisList[] = $jenis;
+                    }
+                    $mitraList[] = [
+                        'id_instansi' => (int) ($item['id'] ?? 0),
+                        'nama_instansi' => $item['nama'] ?? '',
+                        'alamat' => $item['alamat'] ?? '',
+                        'no_telepon' => $item['telepon'] ?? '',
+                        'nama_kontak' => $item['nama_penanggung_jawab'] ?? '',
+                        'email' => $item['email'] ?? '',
+                        'jenis_instansi' => $jenis,
+                        'status' => $item['status'] ?? '',
+                        'kuota' => (int) ($item['total_kuota_periode'] ?? 0),
+                        'terisi' => (int) ($item['terisi'] ?? 0),
+                    ];
+                }
             } elseif ($masterMode === 'create') {
                 $instance = array_merge([
                     'status' => 'aktif',
                     'alamat' => '',
                 ], $instance);
+                $periodList = $loadMasterCollection(
+                    $api->adminMasterPeriods($adminApiToken, ['per_page' => 100]),
+                    'periode_pkl'
+                );
+                $periods = $periodList['items'];
             } else {
                 $instanceId = isset($_GET['id']) && is_string($_GET['id'])
                     ? filter_var($_GET['id'], FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]])
@@ -1108,11 +1260,10 @@ switch ($routePage) {
                     throw new InvalidArgumentException('ID Instansi tidak valid.');
                 }
                 $instance = $loadMasterRecord($api->adminMasterInstance($adminApiToken, $instanceId), 'instansi');
-                if ($routePage === 'edit-mitra' && is_array($adminFlash['input'] ?? null)) {
-                    $instance = array_merge($instance, $adminFlash['input']);
-                }
                 if ($masterMode === 'detail') {
                     $pics = is_array($instance['pic_instansi'] ?? null) ? $instance['pic_instansi'] : [];
+                    $instansi = $instance;
+                    $siswaList = is_array($instance['penempatan'] ?? null) ? $instance['penempatan'] : [];
                     $picId = isset($_GET['pic_id']) && is_string($_GET['pic_id'])
                         ? filter_var($_GET['pic_id'], FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]])
                         : false;
@@ -1127,6 +1278,15 @@ switch ($routePage) {
                             $adminPageError = 'PIC tidak ditemukan pada Instansi ini.';
                         }
                     }
+                } elseif ($masterMode === 'edit') {
+                    $periodList = $loadMasterCollection(
+                        $api->adminMasterPeriods($adminApiToken, ['per_page' => 100]),
+                        'periode_pkl'
+                    );
+                    $periods = $periodList['items'];
+                    if ($instanceInput !== []) {
+                        $instance = array_merge($instance, $instanceInput);
+                    }
                 }
             }
         } catch (Throwable $exception) {
@@ -1135,7 +1295,15 @@ switch ($routePage) {
                 ? $exception->getMessage()
                 : 'Data Instansi tidak dapat dimuat. Periksa koneksi API.';
         }
-        require $adminRoot . '/app/Views/admin/master_data/instansi.php';
+        if ($routePage === 'create-mitra') {
+            require $adminRoot . '/app/Views/admin/instansi/create.php';
+        } elseif ($routePage === 'edit-mitra') {
+            require $adminRoot . '/app/Views/admin/instansi/edit.php';
+        } elseif ($routePage === 'detail-mitra') {
+            require $adminRoot . '/app/Views/admin/instansi/detail.php';
+        } else {
+            require $adminRoot . '/app/Views/admin/instansi/index.php';
+        }
         break;
 
     case 'tahun-ajaran':
@@ -1756,26 +1924,6 @@ switch ($routePage) {
 
         case 'detail':
         require $adminRoot . '/app/Views/admin/siswa/detail.php';
-        break;
-
-    // Rute Instansi milik tim (dari main). create/edit/detail-mitra sudah
-    // ditangani lebih dulu oleh blok master_data di atas, jadi tiga case ini
-    // tidak akan tercapai selama blok di atas ada. Pastikan dengan tim
-    // versi mana yang dipakai.
-    case 'create-mitra':
-        require $adminRoot . '/app/Views/admin/instansi/create.php';
-        break;
-
-    case 'edit-mitra':
-        require $adminRoot . '/app/Views/admin/instansi/edit.php';
-        break;
-
-    case 'detail-mitra':
-        require $adminRoot . '/app/Views/admin/instansi/detail.php';
-        break;
-
-    case 'delete-mitra':
-        require $adminRoot . '/app/Views/admin/instansi/delete.php';
         break;
 
     case 'laporan':

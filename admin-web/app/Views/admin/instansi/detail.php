@@ -4,119 +4,46 @@
  * Admin > Data Instansi > Detail Instansi Mitra
  * Letak file: app/Views/admin/instansi/detail.php
  */
-
-// 1. Panggil koneksi database
-require_once __DIR__ . '/../../../../../config/koneksi.php';
-
+$instance = is_array($instansi ?? null) ? $instansi : [];
+$instanceQuotas = is_array($instance['kuota_periode'] ?? null) ? $instance['kuota_periode'] : [];
+$placements = is_array($siswaList ?? null) ? $siswaList : [];
+$instansi = [
+    'id' => $instance['id'] ?? 0,
+    'nama_instansi' => $instance['nama'] ?? '',
+    'jenis_instansi' => $instance['jenis'] ?? '',
+    'alamat' => $instance['alamat'] ?? '',
+    'telepon' => $instance['telepon'] ?? '',
+    'email' => $instance['email'] ?? '',
+    'penanggung_jawab' => $instance['nama_penanggung_jawab'] ?? '',
+    'status' => $instance['status'] ?? '',
+    'latitude' => $instance['latitude'] ?? null,
+    'longitude' => $instance['longitude'] ?? null,
+    'radius_geofence_meter' => $instance['radius_geofence_meter'] ?? null,
+];
 $urlDaftar = '?page=data-mitra';
-$id_instansi = (int) ($_GET['id'] ?? 0);
-
-if ($id_instansi <= 0) {
-    echo "<script>alert('ID Instansi tidak valid!'); window.location='$urlDaftar';</script>";
-    exit;
-}
-
-// ==========================================
-// 2. AMBIL DATA INSTANSI
-// ==========================================
-$stmtInstansi = mysqli_prepare(
-    $koneksi,
-    'SELECT
-        id,
-        nama AS nama_instansi,
-        jenis AS jenis_instansi,
-        alamat,
-        telepon,
-        email,
-        nama_penanggung_jawab AS penanggung_jawab,
-        kuota_siswa AS kuota,
-        status,
-        latitude,
-        longitude,
-        radius_geofence_meter
-     FROM instansi
-     WHERE id = ?
-     LIMIT 1'
-);
-
-if ($stmtInstansi === false) {
-    error_log('Gagal menyiapkan detail instansi: ' . mysqli_error($koneksi));
-    http_response_code(500);
-    exit('Detail instansi tidak dapat dimuat.');
-}
-
-mysqli_stmt_bind_param($stmtInstansi, 'i', $id_instansi);
-
-$instansiQueryExecuted = mysqli_stmt_execute($stmtInstansi);
-$queryInstansi = $instansiQueryExecuted
-    ? mysqli_stmt_get_result($stmtInstansi)
-    : false;
-
-if (!$instansiQueryExecuted || !$queryInstansi) {
-    error_log('Gagal memuat detail instansi: ' . mysqli_stmt_error($stmtInstansi));
-    mysqli_stmt_close($stmtInstansi);
-    http_response_code(500);
-    exit('Detail instansi tidak dapat dimuat.');
-}
-
-if (mysqli_num_rows($queryInstansi) === 0) {
-    mysqli_stmt_close($stmtInstansi);
-    echo "<script>alert('Data instansi tidak ditemukan!'); window.location='$urlDaftar';</script>";
-    exit;
-}
-
-$instansi = mysqli_fetch_assoc($queryInstansi);
-mysqli_stmt_close($stmtInstansi);
-
-// ==========================================
-// 3. AMBIL DATA SISWA MAGANG DI INSTANSI INI
-// ==========================================
+$id_instansi = (int) ($instance['id'] ?? $_GET['id'] ?? 0);
 $siswaList = [];
-
-$sqlSiswa = "SELECT
-                s.id AS id_siswa,
-                COALESCE(s.nis, s.nisn) AS nis,
-                s.nama_lengkap AS nama_siswa,
-                k.nama AS kelas,
-                s.no_hp,
-                s.status_siswa AS status
-            FROM penempatan_pkl p
-            INNER JOIN siswa s ON s.id = p.siswa_id
-            LEFT JOIN kelas k ON k.id = s.kelas_id
-            WHERE p.instansi_id = ?
-                AND p.status = 'aktif'
-            ORDER BY s.nama_lengkap ASC";
-
-$stmtSiswa = mysqli_prepare($koneksi, $sqlSiswa);
-
-if ($stmtSiswa === false) {
-    error_log('Gagal menyiapkan daftar siswa instansi: ' . mysqli_error($koneksi));
-    http_response_code(500);
-    exit('Daftar siswa instansi tidak dapat dimuat.');
+foreach ($placements as $placement) {
+    if (!is_array($placement) || !is_array($placement['siswa'] ?? null)) {
+        continue;
+    }
+    $student = $placement['siswa'];
+    $siswaList[] = [
+        'id_siswa' => $student['id'] ?? '',
+        'nis' => $student['nis'] ?? $student['nisn'] ?? '',
+        'nama_siswa' => $student['nama_lengkap'] ?? '',
+        'kelas' => is_array($student['kelas'] ?? null) ? ($student['kelas']['nama'] ?? '') : '',
+        'no_hp' => $student['no_hp'] ?? '',
+        'status' => $student['status_siswa'] ?? '',
+    ];
 }
-
-mysqli_stmt_bind_param($stmtSiswa, 'i', $id_instansi);
-
-if (!mysqli_stmt_execute($stmtSiswa)) {
-    error_log('Gagal memuat daftar siswa instansi: ' . mysqli_stmt_error($stmtSiswa));
-    mysqli_stmt_close($stmtSiswa);
-    http_response_code(500);
-    exit('Daftar siswa instansi tidak dapat dimuat.');
-}
-
-$resultSiswa = mysqli_stmt_get_result($stmtSiswa);
-
-while ($row = mysqli_fetch_assoc($resultSiswa)) {
-    $siswaList[] = $row;
-}
-
-mysqli_stmt_close($stmtSiswa);
-
-// ==========================================
-// 4. HITUNG KUOTA SISWA
-// ==========================================
 $terisi = count($siswaList);
-$kuota = (int) ($instansi['kuota'] ?? 0);
+$kuota = 0;
+foreach ($instanceQuotas as $quotaRow) {
+    if (is_array($quotaRow) && is_numeric($quotaRow['kuota_siswa'] ?? null)) {
+        $kuota += (int) $quotaRow['kuota_siswa'];
+    }
+}
 $isPenuh = $kuota > 0 && $terisi >= $kuota;
 
 // ==========================================
@@ -400,6 +327,12 @@ ob_start();
 </style>
 
 <div class="dt">
+    <?php if (is_string($adminPageError ?? null)): ?>
+        <div class="alert alert-danger"><?= $e($adminPageError) ?></div>
+    <?php endif; ?>
+    <?php if (is_string($adminPageSuccess ?? null)): ?>
+        <div class="alert alert-success"><?= $e($adminPageSuccess) ?></div>
+    <?php endif; ?>
 
     <!-- HEADER -->
     <div class="dt-top">

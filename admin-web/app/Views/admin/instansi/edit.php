@@ -1,9 +1,6 @@
 <?php
 require_once dirname(__DIR__, 3) . '/Support/Csrf.php';
 $csrfToken = AdminCsrf::token();
-// ===== 1. BLOK PHP ATAS =====
-require_once __DIR__ . '/../../../../../config/koneksi.php';
-
 $activePage   = 'instansi-mitra';
 $pageTitle    = 'Edit Instansi Mitra';
 $pageSubtitle = 'Perbarui informasi instansi atau penyesuaian kuota penempatan PKL.';
@@ -16,216 +13,110 @@ $pageHeaderActions = '
 $scriptDir    = rtrim(str_replace('\\', '/', dirname($_SERVER['SCRIPT_NAME'] ?? '/')), '/');
 $assetBaseUrl = $scriptDir . '/assets';
 $e            = static fn($v): string => htmlspecialchars((string) $v, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
-
-// ==========================================
-// 1. AMBIL ID DARI URL
-// ==========================================
-$id = (int) ($_GET['id'] ?? 0);
-
-if ($id <= 0) {
-    header('Location: ?page=data-mitra&pesan=id_tidak_valid');
-    exit;
-}
-
-// ==========================================
-// 2. PROSES SIMPAN (POST) — UPDATE KE DATABASE
-// ==========================================
-$pesanSukses = '';
-$pesanError  = '';
-
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && !AdminCsrf::verify($_POST['csrf_token'] ?? null)) {
-    http_response_code(419);
-    $pesanError = 'Sesi formulir tidak valid. Muat ulang halaman lalu coba kembali.';
-} elseif ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $namaInstansi   = trim($_POST['nama_instansi'] ?? '');
-    $namaKontak     = trim($_POST['pembimbing_lapangan'] ?? '');
-    $noTelepon      = trim($_POST['telepon'] ?? '');
-    $email          = trim($_POST['email'] ?? '');
-    $kuota          = filter_var($_POST['kuota'] ?? null, FILTER_VALIDATE_INT);
-    $alamat         = trim($_POST['alamat'] ?? '');
-    $jenisInstansi  = $_POST['jenis'] ?? '';
-    $status         = $_POST['status'] ?? 'aktif';
-    $latitude      = filter_var($_POST['latitude'] ?? null, FILTER_VALIDATE_FLOAT);
-    $longitude     = filter_var($_POST['longitude'] ?? null, FILTER_VALIDATE_FLOAT);
-    $radius        = filter_var($_POST['radius_geofence_meter'] ?? null, FILTER_VALIDATE_INT);
-
-    if (
-        $namaInstansi === ''
-        || $namaKontak === ''
-        || $noTelepon === ''
-        || $alamat === ''
-        || $kuota === false
-        || $kuota === null
-        || $kuota <= 0
-        || $latitude === false
-        || $latitude === null
-        || $latitude < -90
-        || $latitude > 90
-        || $longitude === false
-        || $longitude === null
-        || $longitude < -180
-        || $longitude > 180
-        || $radius === false
-        || $radius === null
-        || $radius <= 0
-    ) {
-        $pesanError = 'Harap isi seluruh kolom formulir dengan benar.';
-    } elseif (!in_array($jenisInstansi, ['eksternal', 'internal'], true)) {
-        $pesanError = 'Jenis instansi tidak valid.';
-    } elseif (!in_array($status, ['aktif', 'nonaktif'], true)) {
-        $pesanError = 'Status instansi tidak valid.';
-    } elseif (
-        mb_strlen($namaInstansi, 'UTF-8') > 160
-        || mb_strlen($namaKontak, 'UTF-8') > 120
-        || mb_strlen($noTelepon, 'UTF-8') > 25
-        || mb_strlen($email, 'UTF-8') > 150
-        || mb_strlen($jenisInstansi, 'UTF-8') > 80
-        || $kuota > 4294967295
-        || $radius > 4294967295
-    ) {
-        $pesanError = 'Panjang salah satu isian melebihi batas kolom database.';
-    } elseif ($email !== '' && !filter_var($email, FILTER_VALIDATE_EMAIL)) {
-        $pesanError = 'Alamat email tidak valid.';
-    } else {
-        // Update ke database (prepared statement) — tanpa kolom sektor
-        $sql = "UPDATE instansi SET
-            nama = ?,
-            nama_penanggung_jawab = ?,
-            telepon = ?,
-            email = ?,
-            kuota_siswa = ?,
-            alamat = ?,
-            jenis = ?,
-            status = ?,
-            latitude = ?,
-            longitude = ?,
-            radius_geofence_meter = ?,
-            updated_at = CURRENT_TIMESTAMP
-        WHERE id = ?";
-
-        $stmt = mysqli_prepare($koneksi, $sql);
-
-        if ($stmt) {
-            $emailParam = ($email === '') ? null : $email;
-
-            mysqli_stmt_bind_param(
-                $stmt,
-                "ssssisssddii",
-                $namaInstansi,
-                $namaKontak,
-                $noTelepon,
-                $emailParam,
-                $kuota,
-                $alamat,
-                $jenisInstansi,
-                $status,
-                $latitude,
-                $longitude,
-                $radius,
-                $id
-            );
-
-            if (mysqli_stmt_execute($stmt)) {
-                $pesanSukses = 'Perubahan data instansi <strong>' . $e($namaInstansi) . '</strong> berhasil diperbarui!';
-            } else {
-                error_log('Gagal menyimpan perubahan instansi: ' . mysqli_stmt_error($stmt));
-                $pesanError = 'Data instansi belum dapat disimpan. Silakan coba kembali.';
-            }
-            mysqli_stmt_close($stmt);
-        } else {
-            error_log('Gagal menyiapkan perubahan instansi: ' . mysqli_error($koneksi));
-            $pesanError = 'Data instansi belum dapat disimpan. Silakan coba kembali.';
-        }
-    }
-}
-
-// ==========================================
-// 3. AMBIL DATA INSTANSI DARI DATABASE
-// ==========================================
-$stmtGet = mysqli_prepare($koneksi, "
-    SELECT
-        id AS id_instansi,
-        nama AS nama_instansi,
-        nama_penanggung_jawab AS nama_kontak,
-        telepon AS no_telepon,
-        email,
-        kuota_siswa AS kuota,
-        alamat,
-        jenis AS jenis_instansi,
-        status,
-        latitude,
-        longitude,
-        radius_geofence_meter
-    FROM instansi
-    WHERE id = ?
-");
-if ($stmtGet === false) {
-    error_log('Gagal menyiapkan data instansi: ' . mysqli_error($koneksi));
-    http_response_code(500);
-    exit('Data instansi tidak dapat dimuat.');
-}
-mysqli_stmt_bind_param($stmtGet, "i", $id);
-mysqli_stmt_execute($stmtGet);
-$resultGet = mysqli_stmt_get_result($stmtGet);
-$mitra     = mysqli_fetch_assoc($resultGet);
-mysqli_stmt_close($stmtGet);
-
-if (!$mitra) {
-    header('Location: ?page=data-mitra&pesan=tidak_ditemukan');
-    exit;
-}
-
+$instance = is_array($instance ?? null) ? $instance : [];
+$instanceInput = is_array($instanceInput ?? null) ? $instanceInput : [];
+$periods = is_array($periods ?? null) ? $periods : [];
+$quotaRows = is_array($instance['kuota_periode'] ?? null) ? $instance['kuota_periode'] : [];
 $form = [
-    'nama_instansi' => $mitra['nama_instansi'],
-    'pembimbing_lapangan' => $mitra['nama_kontak'],
-    'telepon' => $mitra['no_telepon'],
-    'email' => $mitra['email'],
-    'kuota' => $mitra['kuota'],
-    'alamat' => $mitra['alamat'],
-    'jenis' => $mitra['jenis_instansi'],
-    'status' => $mitra['status'],
-    'latitude' => $mitra['latitude'],
-    'longitude' => $mitra['longitude'],
-    'radius_geofence_meter' => $mitra['radius_geofence_meter'],
+    'nama_instansi' => $instance['nama'] ?? '',
+    'pembimbing_lapangan' => $instance['nama_penanggung_jawab'] ?? '',
+    'telepon' => $instance['telepon'] ?? '',
+    'email' => $instance['email'] ?? '',
+    'alamat' => $instance['alamat'] ?? '',
+    'jenis' => $instance['jenis'] ?? 'eksternal',
+    'status' => $instance['status'] ?? 'aktif',
+    'latitude' => $instance['latitude'] ?? '',
+    'longitude' => $instance['longitude'] ?? '',
+    'radius_geofence_meter' => $instance['radius_geofence_meter'] ?? '',
 ];
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    foreach ($form as $field => $value) {
-        if (isset($_POST[$field]) && is_scalar($_POST[$field])) {
-            $form[$field] = (string) $_POST[$field];
-        }
+$selectedPeriodId = '';
+$quotaValue = '';
+foreach ($quotaRows as $quotaRow) {
+    if (is_array($quotaRow) && isset($quotaRow['periode_id'])) {
+        $selectedPeriodId = (string) $quotaRow['periode_id'];
+        $quotaValue = (string) ($quotaRow['kuota_siswa'] ?? '');
+        break;
     }
 }
+foreach ($instanceInput as $field => $value) {
+    if (array_key_exists($field, $form) && is_scalar($value)) {
+        $form[$field] = (string) $value;
+    }
+}
+if (isset($instanceInput['periode_id']) && is_scalar($instanceInput['periode_id'])) {
+    $selectedPeriodId = (string) $instanceInput['periode_id'];
+}
+if (isset($instanceInput['kuota_siswa']) && is_scalar($instanceInput['kuota_siswa'])) {
+    $quotaValue = (string) $instanceInput['kuota_siswa'];
+}
+$id = (int) ($instance['id'] ?? $_GET['id'] ?? 0);
+$pesanError = is_string($adminPageError ?? null) ? $adminPageError : null;
+$pesanSukses = is_string($adminPageSuccess ?? null) ? $adminPageSuccess : null;
 
 ob_start();
 ?>
 <style>
-    .sl-btn-back { background: #dbe7f6; color: #1e293b; border: 0; border-radius: 8px; padding: .5rem .9rem; font-size: .78rem; font-weight: 600; }
-    .sl-btn-back:hover { background: #cddff2; color: #1e293b; }
-    .sl-card-form { background: #fff; border-radius: 16px; box-shadow: 0 1px 3px rgba(16, 24, 40, .07); padding: 1.8rem; }
-
-    .sl-form-label { font-size: .68rem; font-weight: 700; color: #1e293b; letter-spacing: .03em; text-transform: uppercase; margin-bottom: .45rem; display: block; }
-    .sl-input-group { position: relative; display: flex; align-items: center; }
-    .sl-input-group i { position: absolute; left: 14px; color: #94a3b8; font-size: .85rem; pointer-events: none; z-index: 2; }
-    .sl-form-control { width: 100%; height: 42px; border: 1px solid #e2e8f0; border-radius: 10px; background: #fff; font-size: .8rem; color: #1e293b; padding: 0 .9rem 0 38px; outline: 0; transition: all .2s ease; }
-    textarea.sl-form-control { height: auto; padding-top: .65rem; padding-bottom: .65rem; }
-    .sl-form-control:focus { border-color: #2563eb; box-shadow: 0 0 0 3px rgba(37, 99, 235, .12); }
-    select.sl-form-control { cursor: pointer; appearance: none; -webkit-appearance: none; }
-
-    .sl-select-wrapper { position: relative; }
-    .sl-select-wrapper::after { content: "\f0d7"; font-family: "Font Awesome 5 Free"; font-weight: 900; position: absolute; right: 14px; top: 50%; transform: translateY(-50%); color: #94a3b8; font-size: .8rem; pointer-events: none; }
-
-    .sl-btn-submit { background: #2563eb; color: #fff; border: 0; border-radius: 10px; padding: .65rem 1.6rem; font-size: .8rem; font-weight: 600; cursor: pointer; }
-    .sl-btn-submit:hover { background: #1d4ed8; color: #fff; }
-    .sl-btn-cancel { background: #f1f5f9; color: #475569; border: 0; border-radius: 10px; padding: .65rem 1.4rem; font-size: .8rem; font-weight: 600; text-decoration: none; display: inline-block; }
-    .sl-btn-cancel:hover { background: #e2e8f0; color: #475569; }
+    .instansi-edit { --instance-ink: #172b4d; --instance-muted: #8290a3; --instance-blue: #2563eb; }
+    .instansi-edit .sl-btn-back { display: inline-flex; align-items: center; background: #dbe7f6; color: var(--instance-ink); border: 0; border-radius: 11px; padding: .7rem 1rem; font-size: .88rem; font-weight: 600; }
+    .instansi-edit .sl-btn-back:hover { background: #cddff2; color: var(--instance-ink); text-decoration: none; }
+    .instansi-edit .edit-breadcrumb { margin-bottom: 1rem; color: var(--instance-muted); font-size: .9rem; }
+    .instansi-edit .edit-breadcrumb a { color: var(--instance-muted); text-decoration: none; }
+    .instansi-edit .edit-breadcrumb a:hover { color: var(--instance-blue); }
+    .instansi-edit .edit-breadcrumb-current { color: var(--instance-blue); font-weight: 600; }
+    .instansi-edit .sl-card-form { background: #fff; border: 1px solid #edf1f6; border-radius: 20px; box-shadow: 0 2px 8px rgba(16, 24, 40, .06); padding: 2rem; }
+    .instansi-edit .sl-card-form form { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); column-gap: 1.25rem; }
+    .instansi-edit .sl-card-form form > .alert { order: 0; grid-column: 1 / -1; }
+    .instansi-edit .sl-card-form form > .row { display: contents; }
+    .instansi-edit .sl-card-form form > .row > [class*="col-"] { width: auto; max-width: none; flex: none; padding-right: .25rem; padding-left: .25rem; }
+    .instansi-edit .sl-card-form form > .row:nth-child(2) > div { order: 1; grid-column: span 6; }
+    .instansi-edit .sl-card-form form > .row:nth-child(3) > div:first-child { order: 3; grid-column: span 6; }
+    .instansi-edit .sl-card-form form > .row:nth-child(3) > div:last-child { order: 4; grid-column: span 6; }
+    .instansi-edit .sl-card-form form > .row:nth-child(4) > div:first-child { order: 10; grid-column: span 6; }
+    .instansi-edit .sl-card-form form > .row:nth-child(4) > div:last-child { order: 9; grid-column: span 3; }
+    .instansi-edit .sl-card-form form > .row:nth-child(5) > div:first-child { order: 2; grid-column: span 6; }
+    .instansi-edit .sl-card-form form > .row:nth-child(5) > div:last-child { order: 11; grid-column: span 6; }
+    .instansi-edit .sl-card-form form > .mb-4 { order: 5; grid-column: 1 / -1; }
+    .instansi-edit .sl-card-form form > .row:nth-child(7) > div { order: 6; grid-column: span 4; }
+    .instansi-edit .sl-card-form form > .row:nth-child(7) > div:nth-child(2) { order: 7; }
+    .instansi-edit .sl-card-form form > .row:nth-child(7) > div:nth-child(3) { order: 8; }
+    .instansi-edit .sl-card-form form > .edit-form-actions { order: 12; grid-column: 1 / -1; justify-content: flex-start; margin-top: .25rem; padding-top: 0; border-top: 0; }
+    .instansi-edit .sl-form-label { display: block; margin-bottom: .55rem; color: var(--instance-ink); font-size: .78rem; font-weight: 700; letter-spacing: .025em; text-transform: uppercase; }
+    .instansi-edit .sl-input-group { position: relative; display: flex; align-items: center; }
+    .instansi-edit .sl-input-group i { position: absolute; z-index: 2; left: 16px; color: #94a3b8; font-size: .95rem; pointer-events: none; }
+    .instansi-edit .sl-form-control { width: 100%; height: 50px; border: 1px solid #dfe7f1; border-radius: 12px; background: #fff; color: var(--instance-ink); font-size: .9rem; padding: 0 1rem 0 45px; outline: 0; transition: border-color .2s ease, box-shadow .2s ease; }
+    .instansi-edit textarea.sl-form-control { min-height: 110px; height: auto; padding-top: .85rem; padding-bottom: .85rem; resize: vertical; }
+    .instansi-edit .sl-form-control:focus { border-color: var(--instance-blue); box-shadow: 0 0 0 3px rgba(37, 99, 235, .12); }
+    .instansi-edit .sl-form-control::placeholder { color: #9aa8ba; }
+    .instansi-edit select.sl-form-control { cursor: pointer; appearance: none; -webkit-appearance: none; }
+    .instansi-edit .sl-select-wrapper { position: relative; }
+    .instansi-edit .sl-select-wrapper::after { position: absolute; top: 50%; right: 16px; color: #94a3b8; font-family: "Font Awesome 5 Free"; font-size: .8rem; font-weight: 900; content: "\f0d7"; pointer-events: none; transform: translateY(-50%); }
+    .instansi-edit .alert { border-radius: 12px; font-size: .88rem; }
+    .instansi-edit .edit-form-actions { display: flex; gap: .75rem; }
+    .instansi-edit .sl-btn-submit, .instansi-edit .sl-btn-cancel { display: inline-flex; align-items: center; justify-content: center; min-height: 48px; border: 0; border-radius: 12px; padding: .75rem 1.35rem; font-size: .9rem; font-weight: 600; text-decoration: none; transition: background .2s ease, color .2s ease; }
+    .instansi-edit .sl-btn-submit { background: var(--instance-blue); color: #fff; cursor: pointer; }
+    .instansi-edit .sl-btn-submit:hover { background: #1d4ed8; color: #fff; }
+    .instansi-edit .sl-btn-cancel { background: #f1f5f9; color: #475569; }
+    .instansi-edit .sl-btn-cancel:hover { background: #e2e8f0; color: var(--instance-ink); }
+    @media (max-width: 767.98px) {
+        .instansi-edit .sl-card-form { padding: 1.2rem; border-radius: 16px; }
+        .instansi-edit .sl-card-form form { grid-template-columns: minmax(0, 1fr); }
+        .instansi-edit .sl-card-form form > .row > [class*="col-"],
+        .instansi-edit .sl-card-form form > .row:nth-child(2) > div,
+        .instansi-edit .sl-card-form form > .row:nth-child(3) > div,
+        .instansi-edit .sl-card-form form > .row:nth-child(4) > div,
+        .instansi-edit .sl-card-form form > .row:nth-child(5) > div,
+        .instansi-edit .sl-card-form form > .row:nth-child(7) > div { grid-column: 1 / -1; }
+        .instansi-edit .sl-card-form form > .edit-form-actions { flex-direction: column-reverse; }
+        .instansi-edit .sl-btn-submit, .instansi-edit .sl-btn-cancel { width: 100%; }
+    }
 </style>
 
 <div class="instansi-edit">
     <!-- Breadcrumb -->
-    <div class="mb-2" style="font-size: .78rem; color: #64748b;">
-        <a href="?page=data-mitra" style="color: #64748b; text-decoration: none;">Instansi Mitra</a>
+    <div class="edit-breadcrumb">
+        <a href="?page=data-mitra">Instansi Mitra</a>
         <span class="mx-1">&gt;</span>
-        <span style="color: #2563eb; font-weight: 600;">Edit Data Instansi</span>
+        <span class="edit-breadcrumb-current">Edit Data Instansi</span>
     </div>
 
     <!-- Container Form -->
@@ -242,9 +133,16 @@ ob_start();
                 <i class="fas fa-check-circle mr-2"></i><?= htmlspecialchars(strip_tags($pesanSukses), ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') ?>
             </div>
         <?php endif; ?>
+        <?php if ($periods === []): ?>
+            <div class="alert alert-warning border-0 rounded-lg p-3 mb-4 small">
+                Periode PKL belum tersedia. Data Instansi tetap dapat diperbarui, tetapi kuota per Periode PKL belum dapat diatur.
+            </div>
+        <?php endif; ?>
 
         <form method="POST" action="">
+            <input type="hidden" name="action" value="master-instance-update">
             <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrfToken, ENT_QUOTES, 'UTF-8') ?>">
+            <input type="hidden" name="instansi_id" value="<?= $id ?>">
             <!-- Nama Instansi -->
             <div class="row">
                 <div class="col-md-12 mb-3">
@@ -290,17 +188,43 @@ ob_start();
                 </div>
 
                 <div class="col-md-6 mb-3">
-                    <label class="sl-form-label">Kuota Tempat (Siswa) <span class="text-danger">*</span></label>
-                    <div class="sl-input-group">
-                        <i class="fas fa-users"></i>
-                        <input type="number" name="kuota" class="sl-form-control" min="1"
-                               value="<?= $e($form['kuota']) ?>" required>
+                    <label class="sl-form-label">Periode PKL untuk Kuota</label>
+                    <div class="sl-input-group sl-select-wrapper">
+                        <i class="fas fa-calendar-alt"></i>
+                        <select name="periode_id" id="editPeriodeId" class="sl-form-control">
+                            <option value="">Pilih periode (opsional)</option>
+                            <?php foreach ($periods as $period): ?>
+                                <?php if (is_array($period)): ?>
+                                    <?php
+                                    $periodId = (string) ($period['id'] ?? '');
+                                    $periodQuota = '';
+                                    foreach ($quotaRows as $quotaRow) {
+                                        if (is_array($quotaRow) && (string) ($quotaRow['periode_id'] ?? '') === $periodId) {
+                                            $periodQuota = (string) ($quotaRow['kuota_siswa'] ?? '');
+                                            break;
+                                        }
+                                    }
+                                    ?>
+                                    <option value="<?= $e($periodId) ?>" data-quota="<?= $e($periodQuota) ?>" <?= $selectedPeriodId === $periodId ? 'selected' : '' ?>>
+                                        <?= $e($period['nama'] ?? 'Periode PKL') ?>
+                                    </option>
+                                <?php endif; ?>
+                            <?php endforeach; ?>
+                        </select>
                     </div>
                 </div>
             </div>
 
             <!-- Jenis & Status -->
             <div class="row">
+                <div class="col-md-6 mb-3">
+                    <label class="sl-form-label">Kuota Tempat (Siswa)</label>
+                    <div class="sl-input-group">
+                        <i class="fas fa-users"></i>
+                        <input type="number" name="kuota_siswa" id="editKuotaSiswa" class="sl-form-control" min="0"
+                               value="<?= $e($quotaValue) ?>">
+                    </div>
+                </div>
                 <div class="col-md-6 mb-3">
                     <label class="sl-form-label">Jenis Instansi <span class="text-danger">*</span></label>
                     <div class="sl-input-group sl-select-wrapper">
@@ -361,7 +285,7 @@ ob_start();
             </div>
 
             <!-- Tombol Aksi -->
-            <div class="d-flex justify-content-end" style="gap: .6rem;">
+            <div class="edit-form-actions">
                 <a href="?page=data-mitra" class="sl-btn-cancel">Batal</a>
                 <button type="submit" class="sl-btn-submit">
                     <i class="fas fa-sync-alt mr-2"></i>Perbarui Data Instansi
@@ -370,6 +294,19 @@ ob_start();
         </form>
     </div>
 </div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        var period = document.getElementById('editPeriodeId');
+        var quota = document.getElementById('editKuotaSiswa');
+        if (period && quota) {
+            period.addEventListener('change', function () {
+                var option = period.options[period.selectedIndex];
+                quota.value = option ? option.getAttribute('data-quota') || '' : '';
+            });
+        }
+    });
+</script>
 
 <?php
 $content = ob_get_clean();
