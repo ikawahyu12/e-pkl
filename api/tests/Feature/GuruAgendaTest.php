@@ -61,6 +61,7 @@ class GuruAgendaTest extends TestCase
             $table->id();
             $table->unsignedBigInteger('user_id')->nullable();
             $table->string('nisn');
+            $table->string('nis')->nullable();
             $table->string('nama_lengkap');
             $table->unsignedBigInteger('kelas_id')->nullable();
             $table->string('status_siswa')->default('aktif');
@@ -103,6 +104,40 @@ class GuruAgendaTest extends TestCase
             $table->unsignedBigInteger('siswa_id');
             $table->primary(['agenda_kunjungan_id', 'siswa_id']);
         });
+        Schema::create('pengaturan_presensi', function (Blueprint $table): void {
+            $table->id();
+            $table->unsignedBigInteger('instansi_id');
+            $table->string('nama_shift')->default('Reguler');
+            $table->time('jam_masuk_mulai');
+            $table->time('jam_masuk_selesai');
+            $table->time('batas_toleransi')->nullable();
+            $table->time('jam_pulang_mulai');
+            $table->time('jam_pulang_selesai');
+            $table->unsignedInteger('radius_meter')->default(100);
+            $table->boolean('aktif')->default(true);
+            $table->unsignedBigInteger('created_by')->nullable();
+            $table->timestamps();
+        });
+        Schema::create('sesi_presensi', function (Blueprint $table): void {
+            $table->id();
+            $table->unsignedBigInteger('pengaturan_id');
+            $table->date('tanggal');
+            $table->string('nama_shift');
+            $table->time('jam_masuk_mulai');
+            $table->time('jam_masuk_selesai');
+            $table->time('batas_toleransi')->nullable();
+            $table->time('jam_pulang_mulai');
+            $table->time('jam_pulang_selesai');
+            $table->string('status');
+            $table->unsignedBigInteger('dibuat_oleh')->nullable();
+            $table->timestamps();
+            $table->unique(['pengaturan_id', 'tanggal', 'nama_shift']);
+        });
+        Schema::create('sesi_presensi_penempatan', function (Blueprint $table): void {
+            $table->unsignedBigInteger('sesi_id');
+            $table->unsignedBigInteger('penempatan_id');
+            $table->primary(['sesi_id', 'penempatan_id']);
+        });
 
         $role = Role::query()->create(['nama' => 'guru']);
         $this->guruUser = User::query()->forceCreate([
@@ -121,6 +156,7 @@ class GuruAgendaTest extends TestCase
         $kelasId = DB::table('kelas')->insertGetId(['nama' => 'XI RPL']);
         $this->siswa = Siswa::query()->forceCreate([
             'nisn' => 'nisn-uji',
+            'nis' => 'nis-uji',
             'nama_lengkap' => 'Siswa Uji',
             'kelas_id' => $kelasId,
             'status_siswa' => 'aktif',
@@ -140,6 +176,99 @@ class GuruAgendaTest extends TestCase
         ]);
 
         $this->actingAs($this->guruUser, 'sanctum');
+    }
+
+    public function test_guru_can_load_active_instansi_from_master_data(): void
+    {
+        $inactiveInstance = Instansi::query()->forceCreate([
+            'nama' => 'Instansi Nonaktif',
+            'alamat' => 'Jalan Nonaktif',
+            'status' => 'nonaktif',
+        ]);
+        Instansi::query()->forceCreate([
+            'nama' => 'Instansi Admin Lain',
+            'alamat' => 'Jalan Admin',
+            'status' => 'aktif',
+        ]);
+
+        $response = $this->getJson('/api/v1/guru/instansi')
+            ->assertOk()
+            ->assertJsonPath('success', true)
+            ->assertJsonCount(2, 'data')
+            ->assertJsonPath('data.0.nama', 'Instansi Admin Lain')
+            ->assertJsonPath('data.1.id', $this->instansi->id)
+            ->assertJsonPath('data.1.nama', 'Instansi Uji');
+
+        $this->assertNotContains(
+            $inactiveInstance->id,
+            collect($response->json('data'))->pluck('id')->all(),
+        );
+    }
+
+    public function test_guest_cannot_load_master_instansi(): void
+    {
+        $this->app['auth']->forgetGuards();
+
+        $this->getJson('/api/v1/guru/instansi')->assertUnauthorized();
+    }
+
+    public function test_agenda_options_include_student_details_for_selected_date(): void
+    {
+        $tanggal = CarbonImmutable::now('Asia/Jakarta')->toDateString();
+
+        $this->getJson('/api/v1/guru/agenda/opsi?tanggal='.$tanggal)
+            ->assertOk()
+            ->assertJsonPath('data.0.instansi_id', $this->instansi->id)
+            ->assertJsonPath('data.0.siswa.0.id', $this->siswa->id)
+            ->assertJsonPath('data.0.siswa.0.nama', 'Siswa Uji')
+            ->assertJsonPath('data.0.siswa.0.nis', 'nis-uji')
+            ->assertJsonPath('data.0.siswa.0.kelas', 'XI RPL');
+    }
+
+    public function test_guru_can_open_presensi_session_for_selected_students(): void
+    {
+        $settingsId = DB::table('pengaturan_presensi')->insertGetId([
+            'instansi_id' => $this->instansi->id,
+            'nama_shift' => 'Shift Pagi Reguler',
+            'jam_masuk_mulai' => '07:00',
+            'jam_masuk_selesai' => '09:00',
+            'jam_pulang_mulai' => '12:00',
+            'jam_pulang_selesai' => '16:00',
+            'radius_meter' => 100,
+            'aktif' => true,
+        ]);
+        $tanggal = CarbonImmutable::now('Asia/Jakarta')->toDateString();
+
+        $response = $this->postJson('/api/v1/guru/presensi/sesi', [
+            'instansi_id' => $this->instansi->id,
+            'siswa_ids' => [$this->siswa->id],
+            'tanggal' => $tanggal,
+            'jam_masuk_mulai' => '07:00',
+            'jam_masuk_selesai' => '09:00',
+            'jam_pulang_mulai' => '12:00',
+            'jam_pulang_selesai' => '16:00',
+        ])->assertCreated()
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('data.nama_shift', 'Reguler')
+            ->assertJsonPath('data.status', 'dibuka')
+            ->assertJsonPath('data.jumlah_siswa', 1);
+
+        $sessionId = $response->json('data.id');
+        $this->assertDatabaseHas('sesi_presensi', [
+            'id' => $sessionId,
+            'pengaturan_id' => $settingsId,
+            'tanggal' => $tanggal,
+            'jam_masuk_mulai' => '07:00:00',
+            'jam_masuk_selesai' => '09:00:00',
+            'batas_toleransi' => '09:00:00',
+            'jam_pulang_mulai' => '12:00:00',
+            'jam_pulang_selesai' => '16:00:00',
+            'dibuat_oleh' => $this->guruUser->id,
+        ]);
+        $this->assertDatabaseHas('sesi_presensi_penempatan', [
+            'sesi_id' => $sessionId,
+            'penempatan_id' => 1,
+        ]);
     }
 
     public function test_agenda_is_created_and_cancellation_is_recorded_without_deleting_it(): void

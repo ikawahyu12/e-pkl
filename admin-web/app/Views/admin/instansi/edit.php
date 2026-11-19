@@ -2,7 +2,7 @@
 require_once dirname(__DIR__, 3) . '/Support/Csrf.php';
 $csrfToken = AdminCsrf::token();
 $activePage   = 'instansi-mitra';
-$pageTitle    = 'Edit Instansi Mitra';
+$pageTitle    = 'Edit Instansi Mitra'; // Bisa disesuaikan menjadi Tambah jika mode tambah
 $pageSubtitle = 'Perbarui informasi instansi atau penyesuaian kuota penempatan PKL.';
 
 $pageHeaderActions = '
@@ -19,15 +19,15 @@ $periods = is_array($periods ?? null) ? $periods : [];
 $quotaRows = is_array($instance['kuota_periode'] ?? null) ? $instance['kuota_periode'] : [];
 $form = [
     'nama_instansi' => $instance['nama'] ?? '',
+    'jenis' => $instance['jenis'] ?? 'eksternal',
     'pembimbing_lapangan' => $instance['nama_penanggung_jawab'] ?? '',
     'telepon' => $instance['telepon'] ?? '',
-    'email' => $instance['email'] ?? '',
     'alamat' => $instance['alamat'] ?? '',
-    'jenis' => $instance['jenis'] ?? 'eksternal',
-    'status' => $instance['status'] ?? 'aktif',
     'latitude' => $instance['latitude'] ?? '',
     'longitude' => $instance['longitude'] ?? '',
     'radius_geofence_meter' => $instance['radius_geofence_meter'] ?? '',
+    'status' => $instance['status'] ?? 'aktif',
+    'email' => $instance['email'] ?? '',
 ];
 $selectedPeriodId = '';
 $quotaValue = '';
@@ -64,22 +64,8 @@ ob_start();
     .instansi-edit .edit-breadcrumb a:hover { color: var(--instance-blue); }
     .instansi-edit .edit-breadcrumb-current { color: var(--instance-blue); font-weight: 600; }
     .instansi-edit .sl-card-form { background: #fff; border: 1px solid #edf1f6; border-radius: 20px; box-shadow: 0 2px 8px rgba(16, 24, 40, .06); padding: 2rem; }
-    .instansi-edit .sl-card-form form { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); column-gap: 1.25rem; }
-    .instansi-edit .sl-card-form form > .alert { order: 0; grid-column: 1 / -1; }
-    .instansi-edit .sl-card-form form > .row { display: contents; }
-    .instansi-edit .sl-card-form form > .row > [class*="col-"] { width: auto; max-width: none; flex: none; padding-right: .25rem; padding-left: .25rem; }
-    .instansi-edit .sl-card-form form > .row:nth-child(2) > div { order: 1; grid-column: span 6; }
-    .instansi-edit .sl-card-form form > .row:nth-child(3) > div:first-child { order: 3; grid-column: span 6; }
-    .instansi-edit .sl-card-form form > .row:nth-child(3) > div:last-child { order: 4; grid-column: span 6; }
-    .instansi-edit .sl-card-form form > .row:nth-child(4) > div:first-child { order: 10; grid-column: span 6; }
-    .instansi-edit .sl-card-form form > .row:nth-child(4) > div:last-child { order: 9; grid-column: span 3; }
-    .instansi-edit .sl-card-form form > .row:nth-child(5) > div:first-child { order: 2; grid-column: span 6; }
-    .instansi-edit .sl-card-form form > .row:nth-child(5) > div:last-child { order: 11; grid-column: span 6; }
-    .instansi-edit .sl-card-form form > .mb-4 { order: 5; grid-column: 1 / -1; }
-    .instansi-edit .sl-card-form form > .row:nth-child(7) > div { order: 6; grid-column: span 4; }
-    .instansi-edit .sl-card-form form > .row:nth-child(7) > div:nth-child(2) { order: 7; }
-    .instansi-edit .sl-card-form form > .row:nth-child(7) > div:nth-child(3) { order: 8; }
-    .instansi-edit .sl-card-form form > .edit-form-actions { order: 12; grid-column: 1 / -1; justify-content: flex-start; margin-top: .25rem; padding-top: 0; border-top: 0; }
+    
+    /* Form Labels & Inputs */
     .instansi-edit .sl-form-label { display: block; margin-bottom: .55rem; color: var(--instance-ink); font-size: .78rem; font-weight: 700; letter-spacing: .025em; text-transform: uppercase; }
     .instansi-edit .sl-input-group { position: relative; display: flex; align-items: center; }
     .instansi-edit .sl-input-group i { position: absolute; z-index: 2; left: 16px; color: #94a3b8; font-size: .95rem; pointer-events: none; }
@@ -91,22 +77,16 @@ ob_start();
     .instansi-edit .sl-select-wrapper { position: relative; }
     .instansi-edit .sl-select-wrapper::after { position: absolute; top: 50%; right: 16px; color: #94a3b8; font-family: "Font Awesome 5 Free"; font-size: .8rem; font-weight: 900; content: "\f0d7"; pointer-events: none; transform: translateY(-50%); }
     .instansi-edit .alert { border-radius: 12px; font-size: .88rem; }
-    .instansi-edit .edit-form-actions { display: flex; gap: .75rem; }
+    .instansi-edit .edit-form-actions { display: flex; gap: .75rem; margin-top: 1rem; }
     .instansi-edit .sl-btn-submit, .instansi-edit .sl-btn-cancel { display: inline-flex; align-items: center; justify-content: center; min-height: 48px; border: 0; border-radius: 12px; padding: .75rem 1.35rem; font-size: .9rem; font-weight: 600; text-decoration: none; transition: background .2s ease, color .2s ease; }
     .instansi-edit .sl-btn-submit { background: var(--instance-blue); color: #fff; cursor: pointer; }
     .instansi-edit .sl-btn-submit:hover { background: #1d4ed8; color: #fff; }
     .instansi-edit .sl-btn-cancel { background: #f1f5f9; color: #475569; }
     .instansi-edit .sl-btn-cancel:hover { background: #e2e8f0; color: var(--instance-ink); }
+    
     @media (max-width: 767.98px) {
         .instansi-edit .sl-card-form { padding: 1.2rem; border-radius: 16px; }
-        .instansi-edit .sl-card-form form { grid-template-columns: minmax(0, 1fr); }
-        .instansi-edit .sl-card-form form > .row > [class*="col-"],
-        .instansi-edit .sl-card-form form > .row:nth-child(2) > div,
-        .instansi-edit .sl-card-form form > .row:nth-child(3) > div,
-        .instansi-edit .sl-card-form form > .row:nth-child(4) > div,
-        .instansi-edit .sl-card-form form > .row:nth-child(5) > div,
-        .instansi-edit .sl-card-form form > .row:nth-child(7) > div { grid-column: 1 / -1; }
-        .instansi-edit .sl-card-form form > .edit-form-actions { flex-direction: column-reverse; }
+        .instansi-edit .edit-form-actions { flex-direction: column-reverse; }
         .instansi-edit .sl-btn-submit, .instansi-edit .sl-btn-cancel { width: 100%; }
     }
 </style>
@@ -133,6 +113,7 @@ ob_start();
                 <i class="fas fa-check-circle mr-2"></i><?= htmlspecialchars(strip_tags($pesanSukses), ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') ?>
             </div>
         <?php endif; ?>
+        
         <?php if ($periods === []): ?>
             <div class="alert alert-warning border-0 rounded-lg p-3 mb-4 small">
                 Periode PKL belum tersedia. Data Instansi tetap dapat diperbarui, tetapi kuota per Periode PKL belum dapat diatur.
@@ -143,52 +124,109 @@ ob_start();
             <input type="hidden" name="action" value="master-instance-update">
             <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrfToken, ENT_QUOTES, 'UTF-8') ?>">
             <input type="hidden" name="instansi_id" value="<?= $id ?>">
-            <!-- Nama Instansi -->
+            
+            <!-- BARIS 1: Nama Instansi & Jenis Instansi (Sesuai Desain) -->
             <div class="row">
-                <div class="col-md-12 mb-3">
+                <div class="col-md-6 mb-4">
                     <label class="sl-form-label">Nama Lengkap Instansi / Perusahaan <span class="text-danger">*</span></label>
                     <div class="sl-input-group">
                         <i class="fas fa-building"></i>
                         <input type="text" name="nama_instansi" class="sl-form-control" maxlength="160"
+                               placeholder="Contoh: PT Telkom Indonesia (Persero) Tbk"
                                value="<?= $e($form['nama_instansi']) ?>" required>
+                    </div>
+                </div>
+                <div class="col-md-6 mb-4">
+                    <label class="sl-form-label">Jenis Instansi <span class="text-danger">*</span></label>
+                    <div class="sl-input-group sl-select-wrapper">
+                        <i class="fas fa-briefcase"></i>
+                        <select name="jenis" class="sl-form-control" required>
+                            <option value="" disabled <?= $form['jenis'] === '' ? 'selected' : '' ?>>Pilih jenis instansi</option>
+                            <option value="eksternal" <?= $form['jenis'] === 'eksternal' ? 'selected' : '' ?>>Eksternal</option>
+                            <option value="internal"  <?= $form['jenis'] === 'internal' ? 'selected' : '' ?>>Internal (Sekolah)</option>
+                        </select>
                     </div>
                 </div>
             </div>
 
-            <!-- Penanggung Jawab & Kontak -->
+            <!-- BARIS 2: Penanggung Jawab & No Kontak -->
             <div class="row">
-                <div class="col-md-6 mb-3">
+                <div class="col-md-6 mb-4">
                     <label class="sl-form-label">Penanggung Jawab / Pembimbing <span class="text-danger">*</span></label>
                     <div class="sl-input-group">
                         <i class="fas fa-user-tie"></i>
                         <input type="text" name="pembimbing_lapangan" class="sl-form-control" maxlength="120"
+                               placeholder="Contoh: Budi Santoso, S.Kom."
                                value="<?= $e($form['pembimbing_lapangan']) ?>" required>
                     </div>
                 </div>
-
-                <div class="col-md-6 mb-3">
+                <div class="col-md-6 mb-4">
                     <label class="sl-form-label">No. Kontak / WhatsApp Instansi <span class="text-danger">*</span></label>
                     <div class="sl-input-group">
                         <i class="fas fa-phone-alt"></i>
                         <input type="text" name="telepon" class="sl-form-control" maxlength="25"
+                               placeholder="Contoh: 0812-xxxx-xxxx"
                                value="<?= $e($form['telepon']) ?>" required>
                     </div>
                 </div>
             </div>
 
-            <!-- Email & Kuota -->
+            <!-- BARIS 3: Alamat Instansi (Full Width) -->
             <div class="row">
-                <div class="col-md-6 mb-3">
-                    <label class="sl-form-label">Email Instansi (Opsional)</label>
+                <div class="col-md-12 mb-4">
+                    <label class="sl-form-label">Alamat Instansi <span class="text-danger">*</span></label>
                     <div class="sl-input-group">
-                        <i class="fas fa-envelope"></i>
-                        <input type="email" name="email" class="sl-form-control" maxlength="150"
-                               value="<?= $e($form['email']) ?>">
+                        <i class="fas fa-map-marker-alt" style="top: 14px;"></i>
+                        <textarea name="alamat" class="sl-form-control" rows="3" placeholder="Masukkan alamat lengkap instansi" required><?= $e($form['alamat']) ?></textarea>
                     </div>
                 </div>
+            </div>
 
-                <div class="col-md-6 mb-3">
-                    <label class="sl-form-label">Periode PKL untuk Kuota</label>
+            <!-- BARIS 4: Latitude, Longitude, Radius, Kuota (Sesuai Desain 4 Kolom Sejajar) -->
+            <div class="row">
+                <div class="col-md-3 mb-4">
+                    <label class="sl-form-label">Latitude <span class="text-danger">*</span></label>
+                    <div class="sl-input-group">
+                        <i class="fas fa-map-marker-alt"></i>
+                        <input type="number" name="latitude" class="sl-form-control" step="0.0000001"
+                               min="-90" max="90" placeholder="Contoh: -7.7543"
+                               value="<?= $e($form['latitude']) ?>" required>
+                    </div>
+                </div>
+                <div class="col-md-3 mb-4">
+                    <label class="sl-form-label">Longitude <span class="text-danger">*</span></label>
+                    <div class="sl-input-group">
+                        <i class="fas fa-map-marker-alt"></i>
+                        <input type="number" name="longitude" class="sl-form-control" step="0.0000001"
+                               min="-180" max="180" placeholder="Contoh: 111.9025"
+                               value="<?= $e($form['longitude']) ?>" required>
+                    </div>
+                </div>
+                <div class="col-md-3 mb-4">
+                    <label class="sl-form-label">Radius Geofence (Meter) <span class="text-danger">*</span></label>
+                    <div class="sl-input-group">
+                        <i class="fas fa-location-crosshairs"></i>
+                        <input type="number" name="radius_geofence_meter" class="sl-form-control"
+                               min="1" step="1" placeholder="Contoh: 100"
+                               value="<?= $e($form['radius_geofence_meter']) ?>" required>
+                    </div>
+                </div>
+                <div class="col-md-3 mb-4">
+                    <label class="sl-form-label">Kuota Tempat (Siswa) <span class="text-danger">*</span></label>
+                    <div class="sl-input-group">
+                        <i class="fas fa-users"></i>
+                        <input type="number" name="kuota_siswa" id="editKuotaSiswa" class="sl-form-control" min="0"
+                               placeholder="Contoh: 5"
+                               value="<?= $e($quotaValue) ?>" required>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Field Tambahan yang Tidak Ada di Gambar tapi Ada di Sistem (Disembunyikan / Ditata Rapi) -->
+            <!-- Saya asumsikan Periode & Status tetap ada karena dibutuhkan oleh sistem backend -->
+            <div class="row mt-2 pt-3 border-top">
+                <div class="col-md-6 mb-4">
+                    <label class="sl-form-label">Periode PKL (Opsional)</label>
                     <div class="sl-input-group sl-select-wrapper">
                         <i class="fas fa-calendar-alt"></i>
                         <select name="periode_id" id="editPeriodeId" class="sl-form-control">
@@ -213,30 +251,7 @@ ob_start();
                         </select>
                     </div>
                 </div>
-            </div>
-
-            <!-- Jenis & Status -->
-            <div class="row">
-                <div class="col-md-6 mb-3">
-                    <label class="sl-form-label">Kuota Tempat (Siswa)</label>
-                    <div class="sl-input-group">
-                        <i class="fas fa-users"></i>
-                        <input type="number" name="kuota_siswa" id="editKuotaSiswa" class="sl-form-control" min="0"
-                               value="<?= $e($quotaValue) ?>">
-                    </div>
-                </div>
-                <div class="col-md-6 mb-3">
-                    <label class="sl-form-label">Jenis Instansi <span class="text-danger">*</span></label>
-                    <div class="sl-input-group sl-select-wrapper">
-                        <i class="fas fa-tag"></i>
-                        <select name="jenis" class="sl-form-control" required>
-                            <option value="eksternal" <?= $form['jenis'] === 'eksternal' ? 'selected' : '' ?>>Eksternal</option>
-                            <option value="internal"  <?= $form['jenis'] === 'internal' ? 'selected' : '' ?>>Internal (Sekolah)</option>
-                        </select>
-                    </div>
-                </div>
-
-                <div class="col-md-6 mb-3">
+                <div class="col-md-6 mb-4">
                     <label class="sl-form-label">Status <span class="text-danger">*</span></label>
                     <div class="sl-input-group sl-select-wrapper">
                         <i class="fas fa-toggle-on"></i>
@@ -248,47 +263,11 @@ ob_start();
                 </div>
             </div>
 
-            <!-- Alamat -->
-            <div class="mb-4">
-                <label class="sl-form-label">Alamat Lengkap Instansi <span class="text-danger">*</span></label>
-                <div class="sl-input-group">
-                    <i class="fas fa-map-marker-alt" style="top: 14px;"></i>
-                    <textarea name="alamat" class="sl-form-control" rows="3" required><?= $e($form['alamat']) ?></textarea>
-                </div>
-            </div>
-
-            <div class="row">
-                <div class="col-md-6 mb-3">
-                    <label class="sl-form-label">Latitude <span class="text-danger">*</span></label>
-                    <div class="sl-input-group">
-                        <i class="fas fa-map-marker-alt"></i>
-                        <input type="number" name="latitude" class="sl-form-control" step="0.0000001"
-                               min="-90" max="90" value="<?= $e($form['latitude']) ?>" required>
-                    </div>
-                </div>
-                <div class="col-md-6 mb-3">
-                    <label class="sl-form-label">Longitude <span class="text-danger">*</span></label>
-                    <div class="sl-input-group">
-                        <i class="fas fa-map-marker-alt"></i>
-                        <input type="number" name="longitude" class="sl-form-control" step="0.0000001"
-                               min="-180" max="180" value="<?= $e($form['longitude']) ?>" required>
-                    </div>
-                </div>
-                <div class="col-md-6 mb-3">
-                    <label class="sl-form-label">Radius Geofence (Meter) <span class="text-danger">*</span></label>
-                    <div class="sl-input-group">
-                        <i class="fas fa-location-crosshairs"></i>
-                        <input type="number" name="radius_geofence_meter" class="sl-form-control"
-                               min="1" step="1" value="<?= $e($form['radius_geofence_meter']) ?>" required>
-                    </div>
-                </div>
-            </div>
-
             <!-- Tombol Aksi -->
             <div class="edit-form-actions">
                 <a href="?page=data-mitra" class="sl-btn-cancel">Batal</a>
                 <button type="submit" class="sl-btn-submit">
-                    <i class="fas fa-sync-alt mr-2"></i>Perbarui Data Instansi
+                    <i class="fas fa-save mr-2"></i>Simpan Data Instansi
                 </button>
             </div>
         </form>

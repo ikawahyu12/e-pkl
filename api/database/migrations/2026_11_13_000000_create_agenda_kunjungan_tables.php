@@ -14,6 +14,10 @@ return new class extends Migration
 {
     public function up(): void
     {
+        if (Schema::hasTable('agenda_kunjungan')) {
+            return;
+        }
+
         Schema::create('agenda_kunjungan', function (Blueprint $table) {
             $table->id();
             $table->unsignedBigInteger('guru_id')->index();
@@ -21,7 +25,7 @@ return new class extends Migration
             $table->date('tanggal')->index();
             $table->time('jam_mulai');
             $table->time('jam_selesai');
-            $table->string('status', 20)->default('terjadwal'); // terjadwal | selesai
+            $table->string('status', 20)->default('terjadwal');
             $table->text('catatan')->nullable();
             $table->timestamps();
         });

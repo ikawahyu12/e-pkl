@@ -238,6 +238,18 @@ class PresensiController extends Controller
             ->where('pengaturan_presensi.aktif', true)
             ->where('sesi_presensi.dibuat_oleh', $penempatan->guru->user_id)
             ->where('sesi_presensi.tanggal', $today)
+            ->where(function ($query) use ($penempatan): void {
+                $query->whereNotExists(function ($subquery): void {
+                    $subquery->selectRaw('1')
+                        ->from('sesi_presensi_penempatan as assigned')
+                        ->whereColumn('assigned.sesi_id', 'sesi_presensi.id');
+                })->orWhereExists(function ($subquery) use ($penempatan): void {
+                    $subquery->selectRaw('1')
+                        ->from('sesi_presensi_penempatan as assigned')
+                        ->whereColumn('assigned.sesi_id', 'sesi_presensi.id')
+                        ->where('assigned.penempatan_id', $penempatan->id);
+                });
+            })
             ->orderBy('sesi_presensi.id')
             ->select('sesi_presensi.*');
 

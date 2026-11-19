@@ -10,6 +10,8 @@ use App\Http\Controllers\Api\V1\Admin\GuruController as AdminGuruController;
 use App\Http\Controllers\Api\V1\Admin\LaporanController;
 use App\Http\Controllers\Api\V1\Guru\AgendaController;
 use App\Http\Controllers\Api\V1\Guru\EmailChangeController;
+use App\Http\Controllers\Api\V1\Guru\InstansiController as GuruInstansiController;
+use App\Http\Controllers\Api\V1\Guru\PresensiController as GuruPresensiController;
 use App\Http\Controllers\Api\V1\Guru\JurnalController as GuruJurnalController;
 use App\Http\Controllers\Api\V1\Guru\ProfilController as GuruProfilController;
 use App\Http\Controllers\Api\V1\NotifikasiController;
@@ -107,6 +109,7 @@ Route::prefix('v1/guru')->middleware([
     Route::patch('/profil', [GuruProfilController::class, 'update']);
     Route::post('/profil/email-change', [EmailChangeController::class, 'request']);
 
+    Route::get('/instansi', [GuruInstansiController::class, 'index']);
     Route::get('/agenda', [AgendaController::class, 'index']);
     Route::get('/agenda/opsi', [AgendaController::class, 'options']);
     Route::post('/agenda', [AgendaController::class, 'store']);
@@ -114,6 +117,8 @@ Route::prefix('v1/guru')->middleware([
         ->whereNumber('id');
     Route::delete('/agenda/{id}', [AgendaController::class, 'destroy'])
         ->whereNumber('id');
+
+    Route::post('/presensi/sesi', [GuruPresensiController::class, 'store']);
 
     Route::get('/jurnal', [GuruJurnalController::class, 'index']);
     Route::get('/jurnal/{jurnal}', [GuruJurnalController::class, 'show'])

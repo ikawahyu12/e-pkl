@@ -370,6 +370,7 @@ class AgendaController extends Controller
                         ->map(fn (PenempatanPkl $placement): array => [
                             'id' => (int) $placement->siswa->id,
                             'nama' => $placement->siswa->nama_lengkap,
+                            'nis' => $placement->siswa->nis,
                             'kelas' => $placement->siswa->kelas?->nama,
                         ])
                         ->unique('id')
