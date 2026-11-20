@@ -9,7 +9,7 @@ require_once dirname(__DIR__, 3) . '/Models/LaporanData.php';
 
 $activePage        = 'laporan';
 $pageTitle         = 'Laporan & Rekapitulasi';
-$hidePageHeading   = true;
+$pageSubtitle      = 'Unduh dan cetak rekapitulasi data PKL siswa SMK secara efisien, terpusat, dan terverifikasi berkala.';
 $searchPlaceholder = 'Cari siswa, guru, institusi mitra, atau dokumen...';
 
 $e = static fn ($v): string => htmlspecialchars((string) $v, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
@@ -108,22 +108,6 @@ ob_start();
             <strong>Data laporan belum bisa dimuat.</strong> <?= $e(LaporanData::lastError()) ?>
         </div>
     <?php endif; ?>
-
-    <!-- ============================ HEADER ============================ -->
-    <header class="lp-head lp-rise">
-        <div>
-            <span class="lp-eyebrow"><i class="far fa-folder-open" aria-hidden="true"></i> Dokumentasi Administrasi</span>
-            <h1 class="lp-title">Laporan &amp; Rekapitulasi</h1>
-            <p class="lp-lead">Unduh dan cetak rekapitulasi data PKL siswa SMK secara efisien, terpusat, dan terverifikasi berkala.</p>
-        </div>
-        <div class="lp-verified">
-            <span class="lp-verified__icon"><i class="fas fa-shield-alt" aria-hidden="true"></i></span>
-            <div>
-                <strong>Data Terverifikasi Server</strong>
-                <span>Sinkronisasi Otomatis • Aman</span>
-            </div>
-        </div>
-    </header>
 
     <!-- ========================= KARTU LAPORAN ======================== -->
     <section class="lp-grid" aria-label="Jenis laporan">

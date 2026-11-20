@@ -46,7 +46,7 @@ $e = static fn ($value): string => htmlspecialchars((string) $value, ENT_QUOTES 
 
         .sidebar-epkl {
             background-color: #fff;
-            border-right: 1px solid #e8edf2;
+            border-right: 0;
         }
 
         .sidebar-epkl .sidebar-brand,
@@ -161,7 +161,6 @@ $e = static fn ($value): string => htmlspecialchars((string) $value, ENT_QUOTES 
                 </main>
             </div>
 
-            <?php require __DIR__ . '/footer.php'; ?>
         </div>
     </div>
 
