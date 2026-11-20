@@ -1,6 +1,7 @@
 <?php
 $pageTitle = 'Manajemen Admin';
 $activePage = 'user-admin';
+$hidePageHeading = true;
 $users = is_array($adminUsers ?? null) ? $adminUsers : [];
 $search = is_string($_GET['search'] ?? null) ? $_GET['search'] : '';
 $statusFilter = is_string($_GET['status'] ?? null) ? $_GET['status'] : '';
@@ -29,6 +30,7 @@ ob_start();
     .status-inactive { color: #dc3545; background: #fdebec; }
     .status-suspended { color: #8a5a00; background: #fff3cd; }
     .search-box { max-width: 320px; }
+    .user-card-heading { padding: 1rem 1.25rem; background: #edf7fa; border: 1px solid #d8eaf0; border-left: 4px solid #24b7c5; border-radius: .65rem; }
 
     /* Style Aksi Teks / Tombol */
     .sl-aksi { white-space: nowrap; }
@@ -43,9 +45,9 @@ ob_start();
 
 <div class="card card-user mb-4">
     <div class="card-body">
-        <div class="d-flex align-items-center justify-content-between flex-wrap mb-4">
+        <div class="user-card-heading d-flex align-items-center justify-content-between flex-wrap mb-4">
             <div>
-                <h5 class="font-weight-bold text-dark mb-1">Akun Admin</h5>
+                <h5 class="font-weight-bold text-dark mb-1">Manajemen Admin</h5>
                 <p class="text-muted small mb-0">Kelola username, password, dan status akun administrator.</p>
             </div>
             <!-- TAMBAH AKUN: Disesuaikan menggunakan ?page=create-admin -->

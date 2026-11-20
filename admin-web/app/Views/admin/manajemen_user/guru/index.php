@@ -1,6 +1,7 @@
 <?php
 $pageTitle = 'Manajemen Guru';
 $activePage = 'user-guru';
+$hidePageHeading = true;
 
 $users = is_array($teacherUsers ?? null) ? $teacherUsers : [];
 $search = is_string($_GET['search'] ?? null) ? $_GET['search'] : '';
@@ -27,6 +28,7 @@ ob_start();
     .status-active { color: #198754; background: #e8f7ef; }
     .status-inactive { color: #dc3545; background: #fdebec; }
     .search-box { max-width: 320px; }
+    .user-card-heading { padding: 1rem 1.25rem; background: #edf7fa; border: 1px solid #d8eaf0; border-left: 4px solid #24b7c5; border-radius: .65rem; }
 
     /* Style Tautan Aksi */
     .sl-aksi { white-space: nowrap; }
@@ -41,9 +43,9 @@ ob_start();
 
 <div class="card card-user mb-4">
     <div class="card-body">
-        <div class="d-flex align-items-center justify-content-between flex-wrap mb-4">
+        <div class="user-card-heading d-flex align-items-center justify-content-between flex-wrap mb-4">
             <div>
-                <h5 class="font-weight-bold text-dark mb-1">Akun Guru</h5>
+                <h5 class="font-weight-bold text-dark mb-1">Manajemen Guru</h5>
                 <p class="text-muted small mb-0">Kelola username, password, dan status akun guru pembimbing.</p>
             </div>
             <!-- TAMBAH AKUN: Disesuaikan menggunakan ?page=create-guru -->
