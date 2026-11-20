@@ -16,6 +16,12 @@ class SiswaPresensiGeofenceTest extends TestCase
 {
     private int $sessionId;
 
+    private int $placementId;
+
+    private int $guruUserId;
+
+    private int $instansiId;
+
     protected function setUp(): void
     {
         parent::setUp();
@@ -108,6 +114,11 @@ class SiswaPresensiGeofenceTest extends TestCase
             $table->unsignedBigInteger('dibuat_oleh')->nullable();
             $table->timestamps();
         });
+        Schema::create('sesi_presensi_penempatan', function (Blueprint $table): void {
+            $table->unsignedBigInteger('sesi_id');
+            $table->unsignedBigInteger('penempatan_id');
+            $table->primary(['sesi_id', 'penempatan_id']);
+        });
 
         Schema::create('presensi', function (Blueprint $table): void {
             $table->id();
@@ -156,9 +167,12 @@ class SiswaPresensiGeofenceTest extends TestCase
             'user_id' => $guruUser->id,
             'nama_lengkap' => 'Guru Uji',
         ]);
+        $this->guruUserId = $guruUser->id;
 
         $instansi = $this->createInstansi('Instansi Penempatan', 0, 0);
+        $this->instansiId = $instansi->id;
         $penempatan = $this->createPenempatan($siswa->id, $instansi->id, $guruId);
+        $this->placementId = $penempatan->id;
         $pengaturan = DB::table('pengaturan_presensi')->insertGetId([
             'instansi_id' => $instansi->id,
             'aktif' => true,
@@ -199,6 +213,35 @@ class SiswaPresensiGeofenceTest extends TestCase
             'longitude_masuk' => 0,
             'status_harian' => 'hadir',
         ]);
+    }
+
+    public function test_assigned_session_is_not_visible_to_other_students(): void
+    {
+        $otherUser = User::query()->forceCreate([
+            'role_id' => Role::query()->where('nama', 'siswa')->value('id'),
+            'username' => 'siswa-lain',
+            'email' => 'siswa-lain@example.test',
+            'nama_tampilan' => 'Siswa Lain',
+            'status' => 'aktif',
+        ]);
+        $otherStudent = Siswa::query()->create([
+            'user_id' => $otherUser->id,
+            'nisn' => 'siswa-lain',
+            'nama_lengkap' => 'Siswa Lain',
+        ]);
+        $otherPlacement = $this->createPenempatan(
+            $otherStudent->id,
+            $this->instansiId,
+            DB::table('guru')->where('user_id', $this->guruUserId)->value('id'),
+        );
+        DB::table('sesi_presensi_penempatan')->insert([
+            'sesi_id' => $this->sessionId,
+            'penempatan_id' => $otherPlacement->id,
+        ]);
+
+        $this->getJson('/api/v1/siswa/presensi')
+            ->assertOk()
+            ->assertJsonCount(0, 'data.sesi');
     }
 
     public function test_student_attendance_is_rejected_when_more_than_100_meters_away(): void

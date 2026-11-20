@@ -17,13 +17,84 @@ $e = static fn ($v): string => htmlspecialchars((string) $v, ENT_QUOTES | ENT_SU
 
 require_once dirname(__DIR__, 3) . '/Support/AdminHttp.php';
 
+if (session_status() !== PHP_SESSION_ACTIVE) {
+    session_start();
+}
+
+$configuredApiUrl = null;
+foreach ([$_ENV['EPKL_API_URL'] ?? null, $_SERVER['EPKL_API_URL'] ?? null, getenv('EPKL_API_URL')] as $candidate) {
+    if (is_string($candidate) && trim($candidate) !== '') {
+        $configuredApiUrl = trim($candidate);
+        break;
+    }
+}
+
+if ($configuredApiUrl === null) {
+    $scriptPath = str_replace('\\', '/', $_SERVER['SCRIPT_NAME'] ?? '');
+    $adminPath = '/admin-web/public/';
+    $adminPathPosition = strpos($scriptPath, $adminPath);
+    $host = $_SERVER['HTTP_HOST'] ?? 'localhost';
+    $scheme = (!empty($_SERVER['HTTPS']) && strtolower((string) $_SERVER['HTTPS']) !== 'off')
+        ? 'https'
+        : 'http';
+
+    if ($adminPathPosition !== false) {
+        $projectPath = rtrim(substr($scriptPath, 0, $adminPathPosition), '/');
+        $configuredApiUrl = $scheme . '://' . $host . $projectPath . '/api/public';
+    } else {
+        $configuredApiUrl = 'http://127.0.0.1:8000';
+    }
+}
+
+$apiBase = rtrim($configuredApiUrl, '/') . '/api/v1';
+$token = $_SESSION['admin_token'] ?? '';
+$apiRequest = static function (string $method, string $path, array $query = []) use ($apiBase, $token): array {
+    $url = $apiBase . $path . ($query !== [] ? '?' . http_build_query($query) : '');
+    $headers = ['Accept: application/json'];
+
+    if (is_string($token) && $token !== '') {
+        $headers[] = 'Authorization: Bearer ' . $token;
+    }
+
+    $ch = curl_init($url);
+    if ($ch === false) {
+        return [
+            'status' => 0,
+            'body' => [],
+            'error' => 'Tidak dapat memulai koneksi ke API.',
+        ];
+    }
+
+    curl_setopt_array($ch, [
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_CONNECTTIMEOUT => 5,
+        CURLOPT_TIMEOUT => 15,
+        CURLOPT_CUSTOMREQUEST => $method,
+        CURLOPT_HTTPHEADER => $headers,
+    ]);
+
+    $body = curl_exec($ch);
+    $status = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    $error = curl_error($ch);
+    curl_close($ch);
+    $json = is_string($body) ? json_decode($body, true) : null;
+
+    return [
+        'status' => $status,
+        'body' => is_array($json) ? $json : [],
+        'error' => $error !== ''
+            ? $error
+            : (is_array($json) ? '' : 'Respons API bukan JSON yang valid.'),
+    ];
+};
+
 // Proses hapus (POST)
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['aksi'] ?? '') === 'hapus-guru') {
     if (!guru_csrf_ok()) {
         admin_flash_set('error', 'Sesi formulir tidak valid. Coba lagi.');
     } else {
-        $r = admin_api('DELETE', '/admin/guru/' . (int) ($_POST['id'] ?? 0));
-        $r['status'] === 200
+        $r = $apiRequest('DELETE', '/admin/guru/' . (int) ($_POST['id'] ?? 0));
+        $r['status'] >= 200 && $r['status'] < 300
             ? admin_flash_set('success', 'Guru berhasil dihapus.')
             : admin_flash_set('error', admin_errors($r));
     }
@@ -33,45 +104,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['aksi'] ?? '') === 'hapus-g
 
 $flash = admin_flash_get();
 // ===== 2. AMBIL DATA DARI API LARAVEL =====
-if (session_status() !== PHP_SESSION_ACTIVE) {
-    session_start();
-}
-
-$apiBase = 'http://127.0.0.1:8000/api/v1';
-$token   = $_SESSION['admin_token'] ?? '';
-
-$apiGet = static function (string $path, array $query = []) use ($apiBase, $token): array {
-    $url = $apiBase . $path . ($query ? '?' . http_build_query($query) : '');
-    $ch  = curl_init($url);
-
-    curl_setopt_array($ch, [
-        CURLOPT_RETURNTRANSFER => true,
-        CURLOPT_TIMEOUT        => 10,
-        CURLOPT_HTTPHEADER     => [
-            'Accept: application/json',
-            'Authorization: Bearer ' . $token
-        ],
-    ]);
-
-    $body = curl_exec($ch);
-    $code = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
-    $err  = curl_error($ch);
-    curl_close($ch);
-
-    $json = is_string($body) ? json_decode($body, true) : null;
-
-    return [
-        'ok'    => $code === 200 && is_array($json),
-        'code'  => $code,
-        'json'  => $json ?? [],
-        'error' => $err
-    ];
-};
-
 $currentPage = max(1, (int) ($_GET['p'] ?? 1));
 $perPage     = 5;
 
-$resGuru = $apiGet('/admin/guru', [
+$resGuru = $apiRequest('GET', '/admin/guru', [
     'page'       => $currentPage,
     'per_page'   => $perPage,
     'search'     => $_GET['q'] ?? '',
@@ -79,22 +115,32 @@ $resGuru = $apiGet('/admin/guru', [
     'status'     => $_GET['status'] ?? '',
 ]);
 
-$resJurusan = $apiGet('/admin/jurusan');
+$resJurusan = $apiRequest('GET', '/admin/jurusan');
 
-$apiError = $resGuru['ok']
-    ? null
-    : ('Gagal mengambil data dari API (kode ' . $resGuru['code'] . ') ' . $resGuru['error']);
+$guruData = $resGuru['body']['data'] ?? null;
+$apiErrors = [];
+if ($resGuru['status'] !== 200 || !is_array($guruData)) {
+    $apiErrors[] = 'Gagal mengambil data dari API (kode ' . $resGuru['status'] . '): '
+        . ($resGuru['body']['message'] ?? $resGuru['error']);
+}
 
-$jurusanList = $resJurusan['json']['data'] ?? [];
+$jurusanList = $resJurusan['body']['data'] ?? [];
+if ($resJurusan['status'] !== 200 || !is_array($jurusanList)) {
+    $apiErrors[] = 'Gagal mengambil daftar jurusan dari API (kode ' . $resJurusan['status'] . '): '
+        . ($resJurusan['body']['message'] ?? $resJurusan['error']);
+    $jurusanList = [];
+}
 
-$meta = $resGuru['json']['meta'] ?? [
+$apiError = $apiErrors !== [] ? implode(' ', $apiErrors) : null;
+
+$meta = $resGuru['body']['meta'] ?? [
     'page'      => 1,
     'per_page'  => $perPage,
     'total'     => 0,
     'last_page' => 1
 ];
 
-$stats = $resGuru['json']['stats'] ?? [
+$stats = $resGuru['body']['stats'] ?? [
     'total_guru'       => 0,
     'pembimbing_aktif' => 0,
     'total_kuota'      => 0
@@ -114,7 +160,7 @@ $guruList = array_map(static fn ($g) => [
     'status'          => ($g['status_bimbingan'] ?? '') === 'aktif'
         ? 'Aktif'
         : 'Non-Aktif',
-], $resGuru['json']['data'] ?? []);
+], is_array($guruData) ? $guruData : []);
 
 $totalGuru   = (int) ($meta['total'] ?? 0);
 $totalPages  = max(1, (int) ($meta['last_page'] ?? 1));

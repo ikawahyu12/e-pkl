@@ -25,7 +25,7 @@ class PresensiController extends Controller
             'instansi_id' => ['required', 'integer', 'min:1'],
             'siswa_ids' => ['required', 'array', 'min:1', 'max:100'],
             'siswa_ids.*' => ['required', 'integer', 'min:1', 'distinct'],
-            'tanggal' => ['required', 'date_format:Y-m-d', 'after_or_equal:today'],
+            'tanggal' => ['required', 'date_format:Y-m-d'],
             'jam_masuk_mulai' => ['required', 'date_format:H:i'],
             'jam_masuk_selesai' => ['required', 'date_format:H:i', 'after:jam_masuk_mulai'],
             'jam_pulang_mulai' => [

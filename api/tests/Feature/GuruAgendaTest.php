@@ -25,6 +25,8 @@ class GuruAgendaTest extends TestCase
 
     private Siswa $siswa;
 
+    private int $penempatanId;
+
     protected function setUp(): void
     {
         parent::setUp();
@@ -166,7 +168,7 @@ class GuruAgendaTest extends TestCase
             'alamat' => 'Jalan Uji',
             'status' => 'aktif',
         ]);
-        PenempatanPkl::query()->forceCreate([
+        $placement = PenempatanPkl::query()->forceCreate([
             'guru_id' => $this->guru->id,
             'instansi_id' => $this->instansi->id,
             'siswa_id' => $this->siswa->id,
@@ -174,6 +176,7 @@ class GuruAgendaTest extends TestCase
             'tanggal_selesai' => CarbonImmutable::now('Asia/Jakarta')->addDays(30)->toDateString(),
             'status' => 'aktif',
         ]);
+        $this->penempatanId = $placement->id;
 
         $this->actingAs($this->guruUser, 'sanctum');
     }
@@ -258,22 +261,22 @@ class GuruAgendaTest extends TestCase
             'id' => $sessionId,
             'pengaturan_id' => $settingsId,
             'tanggal' => $tanggal,
-            'jam_masuk_mulai' => '07:00:00',
-            'jam_masuk_selesai' => '09:00:00',
-            'batas_toleransi' => '09:00:00',
-            'jam_pulang_mulai' => '12:00:00',
-            'jam_pulang_selesai' => '16:00:00',
+            'jam_masuk_mulai' => '07:00',
+            'jam_masuk_selesai' => '09:00',
+            'batas_toleransi' => '09:00',
+            'jam_pulang_mulai' => '12:00',
+            'jam_pulang_selesai' => '16:00',
             'dibuat_oleh' => $this->guruUser->id,
         ]);
         $this->assertDatabaseHas('sesi_presensi_penempatan', [
             'sesi_id' => $sessionId,
-            'penempatan_id' => 1,
+            'penempatan_id' => $this->penempatanId,
         ]);
     }
 
     public function test_agenda_is_created_and_cancellation_is_recorded_without_deleting_it(): void
     {
-        $date = now()->toDateString();
+        $date = now('Asia/Jakarta')->toDateString();
         $response = $this->postJson('/api/v1/guru/agenda', [
             'instansi_id' => $this->instansi->id,
             'siswa_ids' => [$this->siswa->id],
@@ -308,7 +311,7 @@ class GuruAgendaTest extends TestCase
 
     public function test_overlapping_agenda_for_the_same_student_is_rejected(): void
     {
-        $date = now()->toDateString();
+        $date = now('Asia/Jakarta')->toDateString();
         $this->postJson('/api/v1/guru/agenda', [
             'instansi_id' => $this->instansi->id,
             'siswa_ids' => [$this->siswa->id],
@@ -333,7 +336,7 @@ class GuruAgendaTest extends TestCase
         $response = $this->postJson('/api/v1/guru/agenda', [
             'instansi_id' => $this->instansi->id,
             'siswa_ids' => [$this->siswa->id],
-            'tanggal' => now()->toDateString(),
+            'tanggal' => now('Asia/Jakarta')->toDateString(),
             'jam_mulai' => '09:00',
             'jam_selesai' => '10:00',
         ])->assertCreated();
@@ -390,7 +393,7 @@ class GuruAgendaTest extends TestCase
     public function test_student_placement_must_cover_the_agenda_date(): void
     {
         DB::table('penempatan_pkl')->update([
-            'tanggal_mulai' => now()->addDay()->toDateString(),
+            'tanggal_mulai' => now('Asia/Jakarta')->addDay()->toDateString(),
         ]);
 
         $this->postJson('/api/v1/guru/agenda', $this->agendaPayload())
