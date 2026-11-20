@@ -247,6 +247,25 @@ class AdminPenempatanPklTest extends TestCase
             ->assertJsonPath('data.penempatan.0.guru.id', $this->guru->id);
     }
 
+    public function test_list_search_matches_nis_and_named_related_filters(): void
+    {
+        $this->actingAs($this->admin, 'sanctum');
+        $placement = $this->createPlacement($this->siswa, $this->instansi);
+
+        $this->getJson('/api/v1/admin/penempatan-pkl?search=nis-10001&periode_search=Periode&instansi_search=Instansi&guru_search=Guru')
+            ->assertOk()
+            ->assertJsonPath('data.pagination.total', 1)
+            ->assertJsonPath('data.penempatan.0.id', $placement->id);
+
+        $this->getJson('/api/v1/admin/penempatan-pkl?instansi_search=Tidak%20Ada')
+            ->assertOk()
+            ->assertJsonPath('data.pagination.total', 0);
+
+        $this->getJson('/api/v1/admin/penempatan-pkl?guru_search=20001')
+            ->assertOk()
+            ->assertJsonPath('data.pagination.total', 1);
+    }
+
     public function test_list_paginates_and_caps_page_size_at_100(): void
     {
         $this->actingAs($this->admin, 'sanctum');
@@ -318,6 +337,56 @@ class AdminPenempatanPklTest extends TestCase
             'admin_user_id' => $this->admin->id,
             'status' => 'dibatalkan',
         ]))->assertUnprocessable();
+    }
+
+    public function test_admin_can_update_placement_dates_and_pic_with_audit_history(): void
+    {
+        $this->actingAs($this->admin, 'sanctum');
+        $pic = PicInstansi::query()->forceCreate([
+            'instansi_id' => $this->instansi->id,
+            'nama' => 'PIC Baru',
+            'aktif' => true,
+        ]);
+        $placement = $this->createPlacement($this->siswa, $this->instansi);
+        $newStart = CarbonImmutable::today('Asia/Jakarta')->subDays(2)->toDateString();
+        $newEnd = CarbonImmutable::today('Asia/Jakarta')->addDays(3)->toDateString();
+
+        $this->patchJson('/api/v1/admin/penempatan-pkl/'.$placement->id, [
+            'pic_instansi_id' => $pic->id,
+            'tanggal_mulai' => $newStart,
+            'tanggal_selesai' => $newEnd,
+            'alasan' => 'Jadwal dan PIC dikonfirmasi ulang',
+        ])
+            ->assertOk()
+            ->assertJsonPath('data.penempatan.pic.id', $pic->id)
+            ->assertJsonPath('data.penempatan.tanggal_selesai', $newEnd)
+            ->assertJsonPath('data.penempatan.riwayat_perubahan.0.alasan', 'Jadwal dan PIC dikonfirmasi ulang');
+
+        $this->assertDatabaseHas('riwayat_perubahan_penempatan', [
+            'penempatan_id' => $placement->id,
+            'admin_user_id' => $this->admin->id,
+            'alasan' => 'Jadwal dan PIC dikonfirmasi ulang',
+        ]);
+    }
+
+    public function test_update_rejects_dates_outside_period_without_changing_placement(): void
+    {
+        $this->actingAs($this->admin, 'sanctum');
+        $placement = $this->createPlacement($this->siswa, $this->instansi);
+
+        $this->patchJson('/api/v1/admin/penempatan-pkl/'.$placement->id, [
+            'tanggal_mulai' => CarbonImmutable::parse($this->periode->tanggal_mulai)->subDay()->toDateString(),
+            'tanggal_selesai' => CarbonImmutable::parse($placement->tanggal_selesai)->toDateString(),
+            'alasan' => 'Koreksi tanggal',
+        ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('tanggal_mulai');
+
+        $this->assertSame(
+            CarbonImmutable::today()->subDay()->toDateString(),
+            CarbonImmutable::parse($placement->fresh()->tanggal_mulai)->toDateString()
+        );
+        $this->assertDatabaseCount('riwayat_perubahan_penempatan', 0);
     }
 
     public function test_admin_can_cancel_placement_and_reason_is_logged(): void
@@ -425,6 +494,13 @@ class AdminPenempatanPklTest extends TestCase
             ->assertExactJson($expected);
         $this->postJson('/api/v1/admin/penempatan-pkl/999/aktifkan-kembali', [
             'alasan' => 'Alasan reaktivasi',
+        ])
+            ->assertNotFound()
+            ->assertExactJson($expected);
+        $this->patchJson('/api/v1/admin/penempatan-pkl/999', [
+            'tanggal_mulai' => CarbonImmutable::today()->toDateString(),
+            'tanggal_selesai' => CarbonImmutable::today()->addDay()->toDateString(),
+            'alasan' => 'Koreksi data',
         ])
             ->assertNotFound()
             ->assertExactJson($expected);
@@ -545,7 +621,15 @@ class AdminPenempatanPklTest extends TestCase
             $table->string('status_baru', 20);
             $table->string('alasan_kode', 60);
             $table->text('alasan_detail')->nullable();
+            $table->unsignedBigInteger('admin_user_id')->nullable();
+            $table->timestamp('created_at');
+        });
+        Schema::create('riwayat_perubahan_penempatan', function (Blueprint $table): void {
+            $table->id();
+            $table->unsignedBigInteger('penempatan_id');
             $table->unsignedBigInteger('admin_user_id');
+            $table->json('perubahan');
+            $table->text('alasan');
             $table->timestamp('created_at');
         });
         Schema::create('riwayat_pergantian_guru', function (Blueprint $table): void {

@@ -329,6 +329,7 @@ $redirectToAdminPage = static function (string $page, array $parameters = []) us
 $placementAction = $_POST['action'] ?? null;
 $placementActions = [
     'placement-create',
+    'placement-update',
     'placement-cancel',
     'placement-reactivate',
     'placement-move',
@@ -401,6 +402,18 @@ if ($requestMethod === 'POST' && is_string($placementAction) && in_array($placem
                 $formInput,
                 array_flip(['alasan'])
             ));
+        } elseif ($placementAction === 'placement-update') {
+            $payload = array_intersect_key($formInput, array_flip([
+                'tanggal_mulai',
+                'tanggal_selesai',
+                'alasan',
+            ]));
+            if (($formInput['pic_instansi_id'] ?? '') !== '') {
+                $payload['pic_instansi_id'] = $formInput['pic_instansi_id'];
+            } else {
+                $payload['pic_instansi_id'] = null;
+            }
+            $result = $api->updateAdminPlacement($token, $placementId, $payload);
         } else {
             $payload = array_intersect_key($formInput, array_flip([
                 'instansi_id',
@@ -1472,10 +1485,10 @@ switch ($routePage) {
     case 'manajemen-pkl':
         $placementFilters = [
             'search' => isset($_GET['search']) && is_string($_GET['search']) ? trim($_GET['search']) : '',
-            'periode_id' => isset($_GET['periode_id']) && is_string($_GET['periode_id']) ? $_GET['periode_id'] : '',
+            'periode_search' => isset($_GET['periode_search']) && is_string($_GET['periode_search']) ? trim($_GET['periode_search']) : '',
             'status' => isset($_GET['status']) && is_string($_GET['status']) ? $_GET['status'] : '',
-            'instansi_id' => isset($_GET['instansi_id']) && is_string($_GET['instansi_id']) ? $_GET['instansi_id'] : '',
-            'guru_id' => isset($_GET['guru_id']) && is_string($_GET['guru_id']) ? $_GET['guru_id'] : '',
+            'instansi_search' => isset($_GET['instansi_search']) && is_string($_GET['instansi_search']) ? trim($_GET['instansi_search']) : '',
+            'guru_search' => isset($_GET['guru_search']) && is_string($_GET['guru_search']) ? trim($_GET['guru_search']) : '',
         ];
         $listPage = isset($_GET['list_page']) && is_string($_GET['list_page'])
             ? filter_var($_GET['list_page'], FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]])
@@ -1574,7 +1587,7 @@ switch ($routePage) {
                 try {
                     $placementReferences = $loadPlacementReferences([
                         'per_page' => 20,
-                        'instansi_id' => $placementInput['instansi_id'] ?? '',
+                        'instansi_id' => $placementInput['instansi_id'] ?? $placement['instansi']['id'] ?? '',
                         'periode_id' => $placement['periode']['id'] ?? '',
                         'guru_search' => $placementInput['guru_search'] ?? '',
                         'guru_id' => $placementInput['guru_id'] ?? '',

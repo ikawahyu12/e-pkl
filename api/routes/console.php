@@ -13,3 +13,8 @@ Artisan::command('inspire', function () {
 Schedule::command('epkl:cleanup-pending-accounts')
     ->daily()
     ->withoutOverlapping();
+
+Schedule::command('epkl:sync-placement-statuses')
+    ->dailyAt('00:10')
+    ->timezone('Asia/Jakarta')
+    ->withoutOverlapping();

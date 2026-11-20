@@ -14,6 +14,7 @@ use App\Models\User;
 use App\Services\PenempatanPklService;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Validation\ValidationException;
 use Tests\TestCase;
@@ -370,6 +371,46 @@ class PenempatanPklServiceTest extends TestCase
         }
     }
 
+    public function test_scheduled_status_sync_starts_and_completes_placements_with_system_history(): void
+    {
+        $today = CarbonImmutable::today('Asia/Jakarta');
+        $starting = $this->createPlacement($this->siswa, $this->instansi, 'belum_mulai', [
+            'tanggal_mulai' => $today->toDateString(),
+            'tanggal_selesai' => $today->addDays(3)->toDateString(),
+        ]);
+        $expired = $this->createPlacement($this->createSiswa(), $this->createInstansi('Instansi Kedua'), 'aktif', [
+            'tanggal_mulai' => $today->subDays(3)->toDateString(),
+            'tanggal_selesai' => $today->subDay()->toDateString(),
+        ]);
+        $future = $this->createPlacement($this->createSiswa(), $this->createInstansi('Instansi Ketiga'), 'belum_mulai', [
+            'tanggal_mulai' => $today->addDay()->toDateString(),
+            'tanggal_selesai' => $today->addDays(4)->toDateString(),
+        ]);
+
+        Artisan::call('epkl:sync-placement-statuses');
+
+        $this->assertSame('aktif', $starting->fresh()->status);
+        $this->assertSame('selesai', $expired->fresh()->status);
+        $this->assertSame('belum_mulai', $future->fresh()->status);
+        $this->assertDatabaseHas('riwayat_status_penempatan', [
+            'penempatan_id' => $starting->id,
+            'status_lama' => 'belum_mulai',
+            'status_baru' => 'aktif',
+            'alasan_kode' => 'otomatis_mulai',
+            'admin_user_id' => null,
+        ]);
+        $this->assertDatabaseHas('riwayat_status_penempatan', [
+            'penempatan_id' => $expired->id,
+            'status_lama' => 'aktif',
+            'status_baru' => 'selesai',
+            'alasan_kode' => 'otomatis_selesai',
+            'admin_user_id' => null,
+        ]);
+
+        Artisan::call('epkl:sync-placement-statuses');
+        $this->assertDatabaseCount('riwayat_status_penempatan', 2);
+    }
+
     public function test_non_admin_cannot_manage_placements(): void
     {
         $siswaUser = $this->createUser('siswa');
@@ -458,7 +499,15 @@ class PenempatanPklServiceTest extends TestCase
             $table->string('status_baru', 20);
             $table->string('alasan_kode', 60);
             $table->text('alasan_detail')->nullable();
+            $table->unsignedBigInteger('admin_user_id')->nullable();
+            $table->timestamp('created_at');
+        });
+        Schema::create('riwayat_perubahan_penempatan', function (Blueprint $table): void {
+            $table->id();
+            $table->unsignedBigInteger('penempatan_id');
             $table->unsignedBigInteger('admin_user_id');
+            $table->json('perubahan');
+            $table->text('alasan');
             $table->timestamp('created_at');
         });
     }

@@ -237,6 +237,7 @@ Route::prefix('v1/admin/penempatan-pkl')->middleware([
     Route::get('/', [AdminPenempatanPklController::class, 'index']);
     Route::post('/', [AdminPenempatanPklController::class, 'store']);
     Route::get('/{id}', [AdminPenempatanPklController::class, 'show'])->whereNumber('id');
+    Route::patch('/{id}', [AdminPenempatanPklController::class, 'update'])->whereNumber('id');
     Route::post('/{id}/batalkan', [AdminPenempatanPklController::class, 'cancel'])->whereNumber('id');
     Route::post('/{id}/aktifkan-kembali', [AdminPenempatanPklController::class, 'reactivate'])->whereNumber('id');
     Route::post('/{id}/pindahkan', [AdminPenempatanPklController::class, 'move'])->whereNumber('id');

@@ -13,7 +13,7 @@ $offset = ($currentPage - 1) * $perPage;
 $references = is_array($placementReferences ?? null) ? $placementReferences : [];
 $queryForPage = static function (int $page): string {
     $params = ['page' => 'manajemen-pkl'];
-    foreach (['search', 'periode_id', 'status', 'instansi_id', 'guru_id'] as $key) {
+    foreach (['search', 'periode_search', 'status', 'instansi_search', 'guru_search'] as $key) {
         if (isset($_GET[$key]) && is_string($_GET[$key]) && $_GET[$key] !== '') {
             $params[$key] = $_GET[$key];
         }
@@ -39,12 +39,12 @@ ob_start();
             <input type="hidden" name="page" value="manajemen-pkl">
             <div class="form-row align-items-end">
                 <div class="form-group col-lg-3">
-                    <label for="placement-search">Nama Siswa / NISN</label>
+                    <label for="placement-search">Nama Siswa / NISN / NIS</label>
                     <input class="form-control" id="placement-search" name="search" value="<?= $e($filterValue('search')) ?>" maxlength="100">
                 </div>
                 <div class="form-group col-lg-2">
-                    <label for="period-filter">ID Periode</label>
-                    <input class="form-control" id="period-filter" name="periode_id" type="number" min="1" value="<?= $e($filterValue('periode_id')) ?>">
+                    <label for="period-filter">Periode</label>
+                    <input class="form-control" id="period-filter" name="periode_search" maxlength="100" value="<?= $e($filterValue('periode_search')) ?>">
                 </div>
                 <div class="form-group col-lg-2">
                     <label for="status-filter">Status</label>
@@ -56,12 +56,12 @@ ob_start();
                     </select>
                 </div>
                 <div class="form-group col-lg-2">
-                    <label for="instance-filter">ID Instansi</label>
-                    <input class="form-control" id="instance-filter" name="instansi_id" type="number" min="1" value="<?= $e($filterValue('instansi_id')) ?>">
+                    <label for="instance-filter">Instansi</label>
+                    <input class="form-control" id="instance-filter" name="instansi_search" maxlength="100" value="<?= $e($filterValue('instansi_search')) ?>">
                 </div>
                 <div class="form-group col-lg-2">
-                    <label for="teacher-filter">ID Profil Guru</label>
-                    <input class="form-control" id="teacher-filter" name="guru_id" type="number" min="1" value="<?= $e($filterValue('guru_id')) ?>">
+                    <label for="teacher-filter">Guru Pembimbing (nama/NIP)</label>
+                    <input class="form-control" id="teacher-filter" name="guru_search" maxlength="100" value="<?= $e($filterValue('guru_search')) ?>">
                 </div>
                 <div class="form-group col-lg-1">
                     <button class="btn btn-outline-primary btn-block" type="submit">Filter</button>

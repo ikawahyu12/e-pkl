@@ -9,6 +9,7 @@ $isOpen = in_array($placement['status'] ?? null, ['belum_mulai', 'aktif'], true)
 $isCanceled = ($placement['status'] ?? null) === 'dibatalkan';
 $periodAcceptsPlacements = in_array($placement['periode']['status'] ?? null, ['persiapan', 'berjalan'], true);
 $canMove = $isOpen && $periodAcceptsPlacements;
+$canEdit = $canMove;
 $canReactivate = $isCanceled && $periodAcceptsPlacements;
 $placementFormMode = 'move';
 $cancellationReasons = [
@@ -22,6 +23,9 @@ $cancellationReasons = [
 ];
 $placementInput['tanggal_mulai'] ??= $placement['tanggal_mulai'] ?? '';
 $placementInput['tanggal_selesai'] ??= $placement['tanggal_selesai'] ?? '';
+$selectedPicId = array_key_exists('pic_instansi_id', $placementInput)
+    ? (string) $placementInput['pic_instansi_id']
+    : (string) ($placement['pic']['id'] ?? '');
 ob_start();
 ?>
 <div class="mb-3">
@@ -73,6 +77,67 @@ ob_start();
     </div>
 
     <?php if ($isOpen): ?>
+        <?php if ($canEdit): ?>
+            <?php
+            $editReferences = is_array($placementReferences ?? null) ? $placementReferences : [];
+            $editPics = is_array($editReferences['pic_instansi'] ?? null) ? $editReferences['pic_instansi'] : [];
+            $currentPic = is_array($placement['pic'] ?? null) ? $placement['pic'] : null;
+            $currentPicListed = $currentPic !== null && array_filter(
+                $editPics,
+                static fn ($pic): bool => (string) ($pic['id'] ?? '') === (string) ($currentPic['id'] ?? '')
+            ) !== [];
+            ?>
+            <div class="card shadow-sm mb-4">
+                <div class="card-header bg-white"><strong>Ubah Data Penempatan</strong></div>
+                <div class="card-body">
+                    <p class="small text-muted">Siswa, periode, dan instansi tetap. Guru dapat dialihkan melalui menu manajemen Guru.</p>
+                    <form method="post" action="?page=detail-penempatan-pkl&amp;id=<?= (int) $placement['id'] ?>">
+                        <input type="hidden" name="action" value="placement-update">
+                        <input type="hidden" name="csrf_token" value="<?= $e($csrfToken) ?>">
+                        <input type="hidden" name="placement_id" value="<?= (int) $placement['id'] ?>">
+                        <div class="form-group">
+                            <label for="edit-pic-select">PIC Instansi</label>
+                            <select class="form-control" id="edit-pic-select" name="pic_instansi_id">
+                                <option value="" <?= $selectedPicId === '' ? 'selected' : '' ?>>Tanpa PIC</option>
+                                <?php if ($currentPic !== null && !$currentPicListed): ?>
+                                    <option value="<?= (int) $currentPic['id'] ?>" <?= $selectedPicId === (string) $currentPic['id'] ? 'selected' : '' ?>>
+                                        <?= $e($currentPic['nama'] ?? 'PIC saat ini') ?> (tidak aktif)
+                                    </option>
+                                <?php endif; ?>
+                                <?php foreach ($editPics as $pic): ?>
+                                    <option value="<?= (int) ($pic['id'] ?? 0) ?>" <?= $selectedPicId === (string) ($pic['id'] ?? '') ? 'selected' : '' ?>>
+                                        <?= $e($pic['nama'] ?? '-') ?><?= !empty($pic['jabatan']) ? ' · ' . $e($pic['jabatan']) : '' ?>
+                                    </option>
+                                <?php endforeach; ?>
+                            </select>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group col-md-6">
+                                <label for="edit-placement-start">Tanggal mulai</label>
+                                <input class="form-control" type="date" id="edit-placement-start" name="tanggal_mulai"
+                                    value="<?= $e($placementInput['tanggal_mulai']) ?>"
+                                    min="<?= $e($placement['periode']['tanggal_mulai'] ?? '') ?>"
+                                    max="<?= $e($placement['periode']['tanggal_selesai'] ?? '') ?>" required>
+                            </div>
+                            <div class="form-group col-md-6">
+                                <label for="edit-placement-end">Tanggal selesai</label>
+                                <input class="form-control" type="date" id="edit-placement-end" name="tanggal_selesai"
+                                    value="<?= $e($placementInput['tanggal_selesai']) ?>"
+                                    min="<?= $e($placement['periode']['tanggal_mulai'] ?? '') ?>"
+                                    max="<?= $e($placement['periode']['tanggal_selesai'] ?? '') ?>" required>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label for="placement-update-reason">Alasan perubahan</label>
+                            <textarea class="form-control" id="placement-update-reason" name="alasan" maxlength="5000" required><?= $e($placementInput['alasan'] ?? '') ?></textarea>
+                        </div>
+                        <button class="btn btn-primary" type="submit" <?= ($placementReferencesLoaded ?? false) ? '' : 'disabled' ?>>
+                            Simpan Perubahan
+                        </button>
+                    </form>
+                </div>
+            </div>
+        <?php endif; ?>
         <div class="card shadow-sm mb-4">
             <div class="card-header bg-white"><strong>Aksi Penempatan</strong></div>
             <div class="card-body">
@@ -167,7 +232,7 @@ ob_start();
                             <td><?= $e($history['status_lama'] ?? '-') ?></td>
                             <td><?= $e($history['status_baru'] ?? '-') ?></td>
                             <td><?= $e($history['alasan_kode'] ?? '-') ?><?= !empty($history['alasan_detail']) ? '<br>' . $e($history['alasan_detail']) : '' ?></td>
-                            <td><?= $e($history['admin']['nama_tampilan'] ?? $history['admin']['username'] ?? '-') ?></td>
+                            <td><?= $e($history['admin']['nama_tampilan'] ?? $history['admin']['username'] ?? 'Sistem') ?></td>
                         </tr>
                     <?php endforeach; endif; ?>
                 </tbody>
@@ -187,6 +252,39 @@ ob_start();
                             <td><?= $e($history['created_at'] ?? '-') ?></td>
                             <td><?= $e($history['guru_lama']['nama_lengkap'] ?? '-') ?></td>
                             <td><?= $e($history['guru_baru']['nama_lengkap'] ?? '-') ?></td>
+                            <td><?= $e($history['alasan'] ?? '-') ?></td>
+                            <td><?= $e($history['admin']['nama_tampilan'] ?? $history['admin']['username'] ?? '-') ?></td>
+                        </tr>
+                    <?php endforeach; endif; ?>
+                </tbody>
+            </table>
+        </div>
+    </div>
+    <div class="card shadow-sm mt-4">
+        <div class="card-header bg-white"><strong>Riwayat Perubahan Data</strong></div>
+        <div class="table-responsive">
+            <table class="table table-sm mb-0">
+                <thead class="thead-light"><tr><th>Waktu</th><th>Perubahan</th><th>Alasan</th><th>Admin</th></tr></thead>
+                <tbody>
+                    <?php if (($placement['riwayat_perubahan'] ?? []) === []): ?>
+                        <tr><td colspan="4" class="text-center text-muted">Belum ada perubahan data.</td></tr>
+                    <?php else: foreach ($placement['riwayat_perubahan'] as $history): ?>
+                        <?php
+                        $fieldLabels = [
+                            'tanggal_mulai' => 'Tanggal mulai',
+                            'tanggal_selesai' => 'Tanggal selesai',
+                            'pic_instansi_id' => 'PIC Instansi',
+                        ];
+                        ?>
+                        <tr>
+                            <td><?= $e($history['created_at'] ?? '-') ?></td>
+                            <td>
+                                <?php foreach (($history['perubahan'] ?? []) as $field => $change): ?>
+                                    <div><?= $e($fieldLabels[$field] ?? $field) ?>:
+                                        <?= $e($change['lama'] ?? '-') ?> → <?= $e($change['baru'] ?? '-') ?>
+                                    </div>
+                                <?php endforeach; ?>
+                            </td>
                             <td><?= $e($history['alasan'] ?? '-') ?></td>
                             <td><?= $e($history['admin']['nama_tampilan'] ?? $history['admin']['username'] ?? '-') ?></td>
                         </tr>

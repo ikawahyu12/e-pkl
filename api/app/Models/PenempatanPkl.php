@@ -49,4 +49,9 @@ class PenempatanPkl extends Model
     {
         return $this->hasMany(RiwayatPergantianGuru::class, 'penempatan_id');
     }
+
+    public function riwayatPerubahan(): HasMany
+    {
+        return $this->hasMany(RiwayatPerubahanPenempatan::class, 'penempatan_id');
+    }
 }

@@ -233,6 +233,11 @@ final class AdminApiClient
         return $this->request('POST', '/api/v1/admin/penempatan-pkl', $data, $token);
     }
 
+    public function updateAdminPlacement(string $token, int $id, array $data): array
+    {
+        return $this->request('PATCH', '/api/v1/admin/penempatan-pkl/' . $id, $data, $token);
+    }
+
     public function cancelAdminPlacement(string $token, int $id, array $data): array
     {
         return $this->request('POST', '/api/v1/admin/penempatan-pkl/' . $id . '/batalkan', $data, $token);

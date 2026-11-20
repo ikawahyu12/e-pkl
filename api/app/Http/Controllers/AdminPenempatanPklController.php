@@ -28,6 +28,7 @@ class AdminPenempatanPklController extends Controller
         'riwayatGuru.guruLama',
         'riwayatGuru.guruBaru',
         'riwayatGuru.admin',
+        'riwayatPerubahan.admin',
     ];
 
     public function index(Request $request): JsonResponse
@@ -43,6 +44,9 @@ class AdminPenempatanPklController extends Controller
             'instansi_id' => ['sometimes', 'nullable', 'integer', 'min:1'],
             'guru_id' => ['sometimes', 'nullable', 'integer', 'min:1'],
             'search' => ['sometimes', 'nullable', 'string', 'max:100'],
+            'periode_search' => ['sometimes', 'nullable', 'string', 'max:100'],
+            'instansi_search' => ['sometimes', 'nullable', 'string', 'max:100'],
+            'guru_search' => ['sometimes', 'nullable', 'string', 'max:100'],
             'per_page' => ['sometimes', 'integer', 'min:1', 'max:100'],
             'page' => ['sometimes', 'integer', 'min:1'],
         ]);
@@ -59,8 +63,26 @@ class AdminPenempatanPklController extends Controller
             $search = trim($filters['search']);
             $query->whereHas('siswa', function ($studentQuery) use ($search): void {
                 $studentQuery->where('nama_lengkap', 'like', '%'.$search.'%')
-                    ->orWhere('nisn', 'like', '%'.$search.'%');
+                    ->orWhere('nisn', 'like', '%'.$search.'%')
+                    ->orWhere('nis', 'like', '%'.$search.'%');
             });
+        }
+
+        foreach ([
+            'periode_search' => ['periode', 'nama'],
+            'instansi_search' => ['instansi', 'nama'],
+        ] as $filter => [$relation, $column]) {
+            if (! empty($filters[$filter])) {
+                $search = trim($filters[$filter]);
+                $query->whereHas($relation, fn ($relatedQuery) => $relatedQuery
+                    ->where($column, 'like', '%'.$search.'%'));
+            }
+        }
+        if (! empty($filters['guru_search'])) {
+            $search = trim($filters['guru_search']);
+            $query->whereHas('guru', fn ($teacherQuery) => $teacherQuery
+                ->where('nama_lengkap', 'like', '%'.$search.'%')
+                ->orWhere('nip', 'like', '%'.$search.'%'));
         }
 
         $placements = $query
@@ -244,6 +266,43 @@ class AdminPenempatanPklController extends Controller
         return response()->json([
             'success' => true,
             'message' => 'Detail penempatan PKL berhasil diambil.',
+            'data' => ['penempatan' => $this->placementData($placement)],
+        ]);
+    }
+
+    public function update(Request $request, int $id, PenempatanPklService $service): JsonResponse
+    {
+        $data = $request->validate([
+            'pic_instansi_id' => ['sometimes', 'nullable', 'integer', 'min:1'],
+            'tanggal_mulai' => ['required', 'date_format:Y-m-d'],
+            'tanggal_selesai' => ['required', 'date_format:Y-m-d'],
+            'alasan' => ['required', 'string', 'max:5000'],
+        ] + $this->prohibitedFields() + [
+            'siswa_id' => ['prohibited'],
+            'periode_id' => ['prohibited'],
+            'instansi_id' => ['prohibited'],
+        ]);
+
+        try {
+            $placement = $service->update(
+                $this->admin($request),
+                $id,
+                array_intersect_key($data, array_flip([
+                    'pic_instansi_id',
+                    'tanggal_mulai',
+                    'tanggal_selesai',
+                ])),
+                $data['alasan'],
+            );
+        } catch (ModelNotFoundException) {
+            return $this->notFound();
+        }
+
+        $placement->load(self::RELATIONS);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Data penempatan PKL berhasil diperbarui.',
             'data' => ['penempatan' => $this->placementData($placement)],
         ]);
     }
@@ -506,6 +565,21 @@ class AdminPenempatanPklController extends Controller
                         'nama_lengkap' => $history->guruBaru->nama_lengkap,
                         'nip' => $history->guruBaru->nip,
                     ] : null,
+                    'alasan' => $history->alasan,
+                    'admin' => $history->admin ? [
+                        'id' => $history->admin->id,
+                        'nama_tampilan' => $history->admin->nama_tampilan,
+                        'username' => $history->admin->username,
+                    ] : null,
+                    'created_at' => $history->created_at?->toISOString(),
+                ])
+                ->all(),
+            'riwayat_perubahan' => $placement->riwayatPerubahan
+                ->sortBy('created_at')
+                ->values()
+                ->map(fn ($history): array => [
+                    'id' => $history->id,
+                    'perubahan' => $history->perubahan,
                     'alasan' => $history->alasan,
                     'admin' => $history->admin ? [
                         'id' => $history->admin->id,

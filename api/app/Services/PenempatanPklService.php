@@ -8,6 +8,7 @@ use App\Models\KuotaInstansiPeriode;
 use App\Models\PenempatanPkl;
 use App\Models\PeriodePkl;
 use App\Models\PicInstansi;
+use App\Models\RiwayatPerubahanPenempatan;
 use App\Models\RiwayatStatusPenempatan;
 use App\Models\Siswa;
 use App\Models\User;
@@ -143,9 +144,9 @@ class PenempatanPklService
                 'tanggal_selesai' => CarbonImmutable::parse($locked->tanggal_selesai)->toDateString(),
             ], $periode);
 
-            $today = CarbonImmutable::today();
-            $start = CarbonImmutable::parse($locked->tanggal_mulai)->startOfDay();
-            $end = CarbonImmutable::parse($locked->tanggal_selesai)->startOfDay();
+            $today = CarbonImmutable::today('Asia/Jakarta');
+            $start = CarbonImmutable::parse($locked->tanggal_mulai, 'Asia/Jakarta')->startOfDay();
+            $end = CarbonImmutable::parse($locked->tanggal_selesai, 'Asia/Jakarta')->startOfDay();
             if ($today->gt($end)) {
                 $this->fail('penempatan', 'Penempatan tidak dapat diaktifkan kembali setelah tanggal selesai.');
             }
@@ -233,6 +234,98 @@ class PenempatanPklService
     }
 
     /**
+     * @param array{pic_instansi_id?: int|string|null, tanggal_mulai: string, tanggal_selesai: string} $data
+     */
+    public function update(
+        User $admin,
+        int|PenempatanPkl $placement,
+        array $data,
+        string $reason
+    ): PenempatanPkl {
+        $this->authorizeAdmin($admin);
+        $data = $this->validatePlacementUpdateData($data);
+        $reason = trim($reason);
+        if ($reason === '') {
+            $this->fail('alasan', 'Alasan perubahan wajib diisi.');
+        }
+
+        $snapshot = $this->placementSnapshot($placement);
+
+        return DB::transaction(function () use ($admin, $snapshot, $data, $reason): PenempatanPkl {
+            $periode = $this->lockPeriode($snapshot->periode_id);
+            $instansi = Instansi::query()->lockForUpdate()->find($snapshot->instansi_id);
+            if (! $instansi) {
+                $this->fail('instansi_id', 'Instansi penempatan tidak ditemukan.');
+            }
+            $oldPicId = $this->nullableId($snapshot->pic_instansi_id);
+            $newPicId = array_key_exists('pic_instansi_id', $data)
+                ? $data['pic_instansi_id']
+                : $oldPicId;
+            if ($newPicId !== $oldPicId) {
+                $this->lockPic($newPicId, $instansi->id);
+            }
+
+            $locked = $this->lockPlacement($snapshot);
+            if (! $this->usesQuota($locked->status)) {
+                $this->fail('penempatan', 'Hanya penempatan yang belum dimulai atau aktif yang dapat diubah.');
+            }
+            if (! in_array($periode->status, ['persiapan', 'berjalan'], true)) {
+                $this->fail('periode_id', 'Periode PKL tidak menerima perubahan penempatan.');
+            }
+
+            $this->assertDatesWithinPeriod($data, $periode);
+
+            $oldStart = CarbonImmutable::parse($locked->tanggal_mulai)->toDateString();
+            $oldEnd = CarbonImmutable::parse($locked->tanggal_selesai)->toDateString();
+            $oldPicId = $this->nullableId($locked->pic_instansi_id);
+
+            $changes = [];
+            foreach ([
+                'tanggal_mulai' => [$oldStart, $data['tanggal_mulai']],
+                'tanggal_selesai' => [$oldEnd, $data['tanggal_selesai']],
+                'pic_instansi_id' => [$oldPicId, $newPicId],
+            ] as $field => [$oldValue, $newValue]) {
+                if ($oldValue !== $newValue) {
+                    $changes[$field] = ['lama' => $oldValue, 'baru' => $newValue];
+                }
+            }
+
+            if ($changes === []) {
+                $this->fail('penempatan', 'Tidak ada perubahan data penempatan.');
+            }
+
+            $oldStatus = $locked->status;
+            $newStatus = $this->initialStatus($data['tanggal_mulai'], $data['tanggal_selesai']);
+            $locked->tanggal_mulai = $data['tanggal_mulai'];
+            $locked->tanggal_selesai = $data['tanggal_selesai'];
+            $locked->pic_instansi_id = $newPicId;
+            $locked->status = $newStatus;
+            $locked->save();
+
+            if ($oldStatus !== $newStatus) {
+                $this->recordStatus(
+                    $locked,
+                    $oldStatus,
+                    $newStatus,
+                    'tanggal_penempatan_diubah',
+                    $reason,
+                    $admin
+                );
+            }
+
+            RiwayatPerubahanPenempatan::query()->create([
+                'penempatan_id' => $locked->id,
+                'admin_user_id' => $admin->id,
+                'perubahan' => $changes,
+                'alasan' => $reason,
+                'created_at' => now(),
+            ]);
+
+            return $locked;
+        }, 3);
+    }
+
+    /**
      * @param array<string, mixed> $data
      * @return array{siswa_id: int, periode_id: int, instansi_id: int, guru_id: int, pic_instansi_id: int|null, tanggal_mulai: string, tanggal_selesai: string}
      */
@@ -261,6 +354,35 @@ class PenempatanPklService
             'tanggal_mulai' => $validated['tanggal_mulai'],
             'tanggal_selesai' => $validated['tanggal_selesai'],
         ];
+    }
+
+    /**
+     * @param array<string, mixed> $data
+     * @return array{pic_instansi_id?: int|null, tanggal_mulai: string, tanggal_selesai: string}
+     */
+    private function validatePlacementUpdateData(array $data): array
+    {
+        $validated = Validator::make($data, [
+            'pic_instansi_id' => ['sometimes', 'nullable', 'integer', 'min:1'],
+            'tanggal_mulai' => ['required', 'date_format:Y-m-d'],
+            'tanggal_selesai' => ['required', 'date_format:Y-m-d'],
+        ])->validate();
+
+        if ($validated['tanggal_mulai'] > $validated['tanggal_selesai']) {
+            $this->fail('tanggal_selesai', 'Tanggal selesai harus sama atau setelah tanggal mulai.');
+        }
+
+        $result = [
+            'tanggal_mulai' => $validated['tanggal_mulai'],
+            'tanggal_selesai' => $validated['tanggal_selesai'],
+        ];
+        if (array_key_exists('pic_instansi_id', $validated)) {
+            $result['pic_instansi_id'] = isset($validated['pic_instansi_id'])
+                ? (int) $validated['pic_instansi_id']
+                : null;
+        }
+
+        return $result;
     }
 
     private function validateCancellationReason(string $reasonCode, ?string $reasonDetail): void
@@ -426,11 +548,11 @@ class PenempatanPklService
 
     private function initialStatus(string $startDate, string $endDate): string
     {
-        $today = CarbonImmutable::today();
-        if ($today->lt(CarbonImmutable::createFromFormat('!Y-m-d', $startDate))) {
+        $today = CarbonImmutable::today('Asia/Jakarta');
+        if ($today->lt(CarbonImmutable::createFromFormat('!Y-m-d', $startDate, 'Asia/Jakarta'))) {
             return self::STATUS_BELUM_MULAI;
         }
-        if ($today->lte(CarbonImmutable::createFromFormat('!Y-m-d', $endDate))) {
+        if ($today->lte(CarbonImmutable::createFromFormat('!Y-m-d', $endDate, 'Asia/Jakarta'))) {
             return self::STATUS_AKTIF;
         }
 
