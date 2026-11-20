@@ -26,7 +26,7 @@
         <?= $content ?>
     </main>
 
-    <footer class="footer">Direktorat Pembinaan SMK &copy; <?= date('Y') ?></footer>
+    <footer class="footer">&copy; <?= date('Y') ?> E-PKL</footer>
 </div>
 <script src="<?= asset('js/app.js') ?>?v=<?= filemtime(dirname(APP_PATH) . '/public/assets/js/app.js') ?>"></script>
 </body>

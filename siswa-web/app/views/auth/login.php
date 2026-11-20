@@ -40,6 +40,8 @@
         }
 
         .login-brand {
+            position: relative;
+            z-index: 3;
             display: flex;
             align-items: center;
             width: fit-content;
@@ -58,9 +60,56 @@
         }
 
         .login-intro-copy {
+            position: absolute;
+            z-index: 3;
+            top: 132px;
+            left: 42px;
             max-width: 360px;
-            margin: auto 0;
-            padding: 48px 0;
+            margin: 0;
+            padding: 0;
+            text-shadow: 0 2px 12px rgba(8, 73, 156, .18);
+        }
+
+        .login-vector {
+            position: absolute;
+            z-index: 1;
+            right: 0;
+            bottom: 0;
+            width: 100%;
+            height: 54%;
+            object-fit: cover;
+            object-position: center bottom;
+            pointer-events: none;
+            -webkit-mask-image: linear-gradient(to bottom, transparent 0%, rgba(0, 0, 0, .18) 8%, #000 34%, #000 100%);
+            mask-image: linear-gradient(to bottom, transparent 0%, rgba(0, 0, 0, .18) 8%, #000 34%, #000 100%);
+        }
+
+        .login-intro {
+            position: relative;
+            overflow: hidden;
+        }
+
+        .login-intro::before,
+        .login-intro::after {
+            content: "";
+            position: absolute;
+            border: 1px solid rgba(255, 255, 255, .15);
+            border-radius: 50%;
+            pointer-events: none;
+        }
+
+        .login-intro::before {
+            width: 210px;
+            height: 210px;
+            top: -125px;
+            right: -65px;
+        }
+
+        .login-intro::after {
+            width: 180px;
+            height: 180px;
+            bottom: -125px;
+            left: -95px;
         }
 
         .login-eyebrow {
@@ -75,10 +124,11 @@
         }
 
         .login-intro h1 {
-            font-size: clamp(30px, 4vw, 42px);
+            font-size: clamp(22px, 2.2vw, 30px);
             font-weight: 800;
             line-height: 1.15;
             letter-spacing: -.03em;
+            white-space: normal;
         }
 
         .login-intro p {
@@ -237,6 +287,40 @@
             text-align: center;
         }
 
+        .login-help-actions {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-top: 16px;
+        }
+
+        .login-help-button {
+            display: flex;
+            min-height: 42px;
+            align-items: center;
+            justify-content: center;
+            padding: 8px 10px;
+            border: 1px solid #d7e5ff;
+            border-radius: 10px;
+            background: #f4f8ff;
+            color: var(--blue-2);
+            font-size: 12px;
+            font-weight: 700;
+            text-align: center;
+            transition: transform .2s, border-color .2s, background .2s;
+        }
+
+        .login-help-button:hover {
+            transform: translateY(-1px);
+            border-color: #bdd2fb;
+            background: #edf4ff;
+        }
+
+        .login-help-button-primary {
+            border-color: transparent;
+            background: #e4efff;
+        }
+
         @media (max-width: 700px) {
             .login-page {
                 padding: 18px 14px;
@@ -250,15 +334,19 @@
 
             .login-intro {
                 min-height: 0;
+                height: 430px;
                 padding: 24px;
             }
 
             .login-intro-copy {
-                padding: 30px 0 10px;
+                top: 112px;
+                left: 24px;
+                right: 24px;
+                padding: 0;
             }
 
             .login-intro h1 {
-                font-size: 29px;
+                font-size: 24px;
             }
 
             .login-intro p {
@@ -270,8 +358,19 @@
                 display: none;
             }
 
+            .login-vector {
+                right: 0;
+                bottom: 0;
+                width: 100%;
+                height: 58%;
+            }
+
             .login-panel {
                 padding: 28px 24px 30px;
+            }
+
+            .login-help-actions {
+                grid-template-columns: 1fr;
             }
         }
 
@@ -307,10 +406,9 @@
             </div>
             <div class="login-intro-copy">
                 <span class="login-eyebrow">PORTAL SISWA</span>
-                <h1>Pantau perjalanan PKL-mu.</h1>
-                <p>Masuk untuk melihat informasi dan aktivitas Praktik Kerja Lapangan dalam satu tempat.</p>
+                <h1>Pantau<br>perjalanan PKL-mu.</h1>
             </div>
-            <p class="login-intro-foot">Direktorat Pembinaan SMK</p>
+            <img class="login-vector" src="<?= e(asset('img/login-siswa-vector.png')) ?>" alt="" aria-hidden="true">
         </section>
 
         <section class="login-panel" aria-labelledby="loginTitle">
@@ -365,8 +463,10 @@
                 </div>
 
                 <button class="login-submit" id="loginSubmit" type="submit">Masuk</button>
-                <p class="login-help"><a href="<?= e(url('auth/lupaPassword')) ?>">Lupa kata sandi?</a></p>
-                <p class="login-help"><a href="<?= e(url('auth/register')) ?>">Belum punya akun? Daftar Siswa</a></p>
+                <div class="login-help-actions">
+                    <a class="login-help-button" href="<?= e(url('auth/lupaPassword')) ?>">Lupa kata sandi?</a>
+                    <a class="login-help-button login-help-button-primary" href="<?= e(url('auth/register')) ?>">Belum punya akun? Daftar</a>
+                </div>
 
                 <?php if (!empty($error)): ?>
                     <p class="login-message" role="alert"><?= e($error) ?></p>
