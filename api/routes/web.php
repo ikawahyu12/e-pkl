@@ -3,6 +3,10 @@
 use App\Http\Controllers\JurnalNativeController;
 use Illuminate\Support\Facades\Route;
 
+Route::get('/cek-koneksi', function () {
+    return response('Laravel berhasil diakses!');
+});
+
 Route::get('/', function () {
     return view('welcome');
 });

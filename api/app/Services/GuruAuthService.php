@@ -6,6 +6,7 @@ use App\Exceptions\TokenStorageUnavailable;
 use App\Models\User;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Str;
 
 class GuruAuthService
 {
@@ -14,11 +15,14 @@ class GuruAuthService
      */
     public function login(string $login, string $password): ?array
     {
+        $login = trim($login);
+        $emailLogin = str_contains($login, '@') ? Str::lower($login) : $login;
+
         $user = User::query()
             ->with(['role', 'guru'])
-            ->where(function ($query) use ($login): void {
+            ->where(function ($query) use ($login, $emailLogin): void {
                 $query->where('username', $login)
-                    ->orWhere('email', $login)
+                    ->orWhere('email', $emailLogin)
                     ->orWhereHas('guru', function ($guruQuery) use ($login): void {
                         $guruQuery->where('nip', $login);
                     });

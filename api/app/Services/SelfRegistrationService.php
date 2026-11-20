@@ -161,6 +161,7 @@ class SelfRegistrationService
                 || ! $this->pendingProfileMatches($pending, $roleName, $profile->getKey())
                 || ($profile->user_id !== null && (int) $profile->user_id !== (int) $user->getKey())
                 || ($roleName === 'siswa' && $profile->status_siswa !== 'aktif')
+                || ($roleName === 'guru' && $profile->status_bimbingan !== 'aktif')
                 || trim((string) $user->username) !== trim((string) ($roleName === 'siswa' ? $profile->nisn : $profile->nip))
                 || ! $this->sameMasterName($user->nama_tampilan, $profile->nama_lengkap)
             ) {
@@ -236,6 +237,7 @@ class SelfRegistrationService
                     ! $profile
                     || $pending->siswa_id !== null
                     || ($profile->user_id !== null && (int) $profile->user_id !== (int) $user->getKey())
+                    || $profile->status_bimbingan !== 'aktif'
                     || trim((string) $user->username) !== trim((string) $profile->nip)
                     || ! $this->sameMasterName($user->nama_tampilan, $profile->nama_lengkap)
                 ) {
@@ -352,6 +354,7 @@ class SelfRegistrationService
             $profile = Guru::query()
                 ->where('nip', trim($input['nip']))
                 ->whereRaw('LOWER(TRIM(nama_lengkap)) = ?', [Str::lower(trim($input['nama_lengkap']))])
+                ->where('status_bimbingan', 'aktif')
                 ->lockForUpdate()
                 ->first();
         }
@@ -391,6 +394,18 @@ class SelfRegistrationService
         }
         if (str_starts_with($verificationUrl, '/')) {
             $verificationUrl = url($verificationUrl);
+        }
+
+        if (
+            app()->environment('production')
+            && parse_url($verificationUrl, PHP_URL_SCHEME) !== 'https'
+        ) {
+            Log::error('Self-registration verification URL must use HTTPS in production.', [
+                'role' => $roleName,
+            ]);
+            throw new VerificationEmailDeliveryFailed(
+                'URL verifikasi produksi harus menggunakan HTTPS.'
+            );
         }
 
         if (app()->environment('production') && $this->mailerCanLog((string) config('mail.default'))) {

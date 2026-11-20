@@ -187,6 +187,35 @@ class SelfRegistrationTest extends TestCase
         }
     }
 
+    public function test_production_registration_rejects_non_https_verification_urls(): void
+    {
+        Mail::fake();
+        $this->app->detectEnvironment(fn (): string => 'production');
+        config([
+            'mail.default' => 'array',
+            'self_registration.verification_url' => 'http://localhost/verify-account',
+        ]);
+        DB::table('guru')->insert([
+            'nip' => '198201012010019006',
+            'nama_lengkap' => 'Guru Uji HTTPS',
+            'status_bimbingan' => 'aktif',
+        ]);
+
+        $this->postJson('/api/v1/guru/auth/register', [
+            'nip' => '198201012010019006',
+            'nama_lengkap' => 'Guru Uji HTTPS',
+            'email' => 'guru-http@example.test',
+            'password' => 'SecurePassword123',
+            'password_confirmation' => 'SecurePassword123',
+        ])->assertServiceUnavailable();
+
+        $this->assertDatabaseHas('users', [
+            'email' => 'guru-http@example.test',
+            'status' => 'pending',
+        ]);
+        Mail::assertNothingSent();
+    }
+
     public function test_registration_does_not_create_account_when_master_identity_and_name_do_not_match(): void
     {
         Mail::fake();
@@ -271,6 +300,58 @@ class SelfRegistrationTest extends TestCase
 
         $this->assertDatabaseCount('pending_account_verifications', 0);
         Mail::assertNothingSent();
+    }
+
+    public function test_guru_registration_rejects_nonactive_mentoring_profiles(): void
+    {
+        Mail::fake();
+        DB::table('guru')->insert([
+            'nip' => '198201012010019004',
+            'nama_lengkap' => 'Guru Nonaktif',
+            'status_bimbingan' => 'nonaktif',
+        ]);
+
+        $this->postJson('/api/v1/guru/auth/register', [
+            'nip' => '198201012010019004',
+            'nama_lengkap' => 'Guru Nonaktif',
+            'email' => 'nonactive-guru@example.test',
+            'password' => 'SecurePassword123',
+            'password_confirmation' => 'SecurePassword123',
+        ])->assertAccepted()->assertJsonPath('success', true);
+
+        $this->assertDatabaseMissing('users', ['email' => 'nonactive-guru@example.test']);
+        $this->assertDatabaseCount('pending_account_verifications', 0);
+        Mail::assertNothingSent();
+    }
+
+    public function test_guru_verification_and_resend_require_active_mentoring_status(): void
+    {
+        Mail::fake();
+        $registration = $this->registerPendingProfile(
+            'guru',
+            '198201012010019005',
+            'Guru Uji',
+            'pending-guru@example.test',
+        );
+        DB::table('guru')
+            ->where('id', $registration['profile_id'])
+            ->update(['status_bimbingan' => 'nonaktif']);
+
+        $this->postJson('/api/v1/guru/auth/resend-verification', [
+            'email' => 'pending-guru@example.test',
+        ])->assertAccepted();
+        Mail::assertSent(AccountVerificationMail::class, 1);
+
+        $this->postJson('/api/v1/guru/auth/verify-email', [
+            'token' => $registration['token'],
+        ])->assertUnprocessable();
+        $this->assertDatabaseHas('users', [
+            'id' => $registration['user_id'],
+            'status' => 'pending',
+        ]);
+        $this->assertNull(
+            DB::table('guru')->where('id', $registration['profile_id'])->value('user_id'),
+        );
     }
 
     public function test_register_rejects_invalid_role_before_database_access(): void
@@ -791,6 +872,27 @@ class SelfRegistrationTest extends TestCase
             'password' => 'LegacyPassword123',
         ])->assertUnauthorized()
             ->assertJsonPath('success', false);
+    }
+
+    public function test_guru_can_login_with_nip_or_case_insensitive_email(): void
+    {
+        $teacher = $this->createAccount('guru', '198201012010019007', 'Guru Login');
+        $teacher->email = 'guru.login@example.test';
+        $teacher->email_terverifikasi_at = now();
+        $teacher->save();
+        DB::table('guru')->insert([
+            'user_id' => $teacher->id,
+            'nip' => '198201012010019007',
+            'nama_lengkap' => 'Guru Login',
+            'status_bimbingan' => 'aktif',
+        ]);
+
+        foreach (['198201012010019007', 'GURU.LOGIN@EXAMPLE.TEST'] as $identifier) {
+            $this->postJson('/api/v1/guru/auth/login', [
+                'login' => $identifier,
+                'password' => 'LegacyPassword123',
+            ])->assertOk()->assertJsonPath('success', true);
+        }
     }
 
     public function test_pending_accounts_cannot_login_and_resend_response_is_generic(): void

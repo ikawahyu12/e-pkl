@@ -7,6 +7,21 @@
 <a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
 </p>
 
+## Guru self-registration and login
+
+The mobile app uses these endpoints under `/api/v1/guru/auth`:
+
+| Method | Path | Purpose |
+|---|---|---|
+| `POST` | `/register` | Submit NIP, master-data name, personal email, and password. A `202` response is generic and does not reveal whether the NIP matched. |
+| `POST` | `/resend-verification` | Request another verification email for a pending account. A `202` response is generic. |
+| `POST` | `/verify-email` | Verify the one-time token from the email link. |
+| `POST` | `/login` | Authenticate with `login` set to the Guru NIP, username, or email, and `password`. |
+
+Registration links the account to one active Guru master record only after email
+verification. The API and database enforce the one-account-per-NIP relationship;
+pending accounts cannot log in. Email login is case-insensitive.
+
 ## Admin User Management API
 
 All endpoints below require an active Admin bearer token:
