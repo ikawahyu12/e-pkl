@@ -223,7 +223,7 @@ class AuthController extends Controller
                 $password = $_POST['password'] ?? '';
 
                 if ($identifier === '' || $password === '') {
-                    $error = 'NIS, email, atau username dan password wajib diisi.';
+                    $error = 'Username dan password wajib diisi.';
                 } else {
                     $api = new ApiClient();
 
@@ -259,7 +259,7 @@ class AuthController extends Controller
 
                         if (in_array($status, [401, 403, 422], true)) {
                             $error = $response['message']
-                                ?? 'NIS, email, username, atau password salah.';
+                                ?? 'Username atau password salah.';
                         } else {
                             $error = 'Server autentikasi tidak dapat dihubungi. Coba lagi.';
                         }

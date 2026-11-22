@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 1000" fill="none">
+  <defs>
+    <linearGradient id="topWave" x1="836" y1="0" x2="1507" y2="332" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#DDEBFF" stop-opacity=".52"/>
+      <stop offset="1" stop-color="#A9CCFF" stop-opacity=".28"/>
+    </linearGradient>
+    <linearGradient id="bottomWave" x1="0" y1="793" x2="635" y2="1000" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#CFE2FF" stop-opacity=".42"/>
+      <stop offset="1" stop-color="#8DBBFA" stop-opacity=".2"/>
+    </linearGradient>
+  </defs>
+  <path d="M714-95h1010v354c-155 63-280 47-401-17-111-59-207-153-365-145-108 5-192 54-279 117L714-95Z" fill="url(#topWave)"/>
+  <path d="M1000-75c164 91 257 224 429 247 103 14 190-11 295-74v111c-158 82-295 76-422 14-148-72-245-204-413-213-106-6-202 30-306 103v-83c151-111 285-168 417-105Z" fill="#D6E7FF" fill-opacity=".34"/>
+  <path d="M-108 784c176-54 310-62 444-16 154 52 264 174 423 207 111 23 217 3 356-68v177H-108V784Z" fill="url(#bottomWave)"/>
+  <path d="M-78 855c174-47 305-38 432 16 153 65 278 167 426 180 109 10 227-24 361-100" stroke="#78A9EE" stroke-opacity=".2" stroke-width="2"/>
+  <g fill="#4B91EB" fill-opacity=".28">
+    <circle cx="1426" cy="398" r="3"/><circle cx="1450" cy="398" r="3"/><circle cx="1474" cy="398" r="3"/><circle cx="1498" cy="398" r="3"/>
+    <circle cx="1426" cy="422" r="3"/><circle cx="1450" cy="422" r="3"/><circle cx="1474" cy="422" r="3"/><circle cx="1498" cy="422" r="3"/>
+    <circle cx="1426" cy="446" r="3"/><circle cx="1450" cy="446" r="3"/><circle cx="1474" cy="446" r="3"/><circle cx="1498" cy="446" r="3"/>
+  </g>
+  <circle cx="1434" cy="713" r="74" stroke="#5B9AEA" stroke-opacity=".15" stroke-width="2"/>
+  <circle cx="1434" cy="713" r="99" stroke="#5B9AEA" stroke-opacity=".1" stroke-width="2"/>
+</svg>

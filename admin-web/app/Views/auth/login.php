@@ -369,9 +369,280 @@ $e = static fn ($value): string => htmlspecialchars((string) $value, ENT_QUOTES 
                 font-size: .66rem;
             }
         }
+
+        body.login-page {
+            background:
+                radial-gradient(ellipse at 12% 15%, rgba(212, 236, 255, .95), transparent 35%),
+                linear-gradient(145deg, #e8f5ff 0%, #eaf1fc 52%, #dcecff 100%);
+        }
+
+        .login-stage {
+            padding: 28px 20px;
+        }
+
+        .login-card {
+            grid-template-columns: 1fr 1fr;
+            width: min(100%, 960px);
+            min-height: 540px;
+            border: 1px solid rgba(220, 232, 247, .9);
+            border-radius: 22px;
+            box-shadow: 0 20px 50px rgba(48, 86, 139, .16);
+        }
+
+        .login-brand-panel {
+            position: relative;
+            display: block;
+            min-width: 0;
+            padding: 34px;
+            overflow: hidden;
+            color: #fff;
+            background:
+                radial-gradient(circle at 90% 8%, rgba(255, 255, 255, .2), transparent 25%),
+                linear-gradient(135deg, #0d58d2 0%, #1677f5 58%, #2598ff 100%);
+        }
+
+        .login-brand-panel::before,
+        .login-brand-panel::after {
+            position: absolute;
+            border: 1px solid rgba(255, 255, 255, .14);
+            border-radius: 50%;
+            content: "";
+            pointer-events: none;
+        }
+
+        .login-brand-panel::before {
+            top: -110px;
+            right: -52px;
+            width: 230px;
+            height: 230px;
+        }
+
+        .login-brand-panel::after {
+            bottom: -155px;
+            left: -74px;
+            width: 250px;
+            height: 250px;
+        }
+
+        .login-brand {
+            position: relative;
+            z-index: 2;
+            display: inline-flex;
+            min-height: 36px;
+            align-items: center;
+            padding: 2px 6px;
+            background: rgba(255, 255, 255, .96);
+            border-radius: 12px;
+        }
+
+        .app-logo {
+            display: block;
+            width: 78px;
+            height: 30px;
+            object-fit: cover;
+            object-position: center;
+        }
+
+        .brand-copy {
+            position: relative;
+            z-index: 2;
+            max-width: 360px;
+            margin-top: 40px;
+        }
+
+        .portal-label {
+            display: inline-flex;
+            align-items: center;
+            padding: 5px 12px;
+            color: #fff;
+            background: rgba(255, 255, 255, .14);
+            border: 1px solid rgba(255, 255, 255, .35);
+            border-radius: 999px;
+            font-size: .68rem;
+            font-weight: 700;
+            letter-spacing: .04em;
+        }
+
+        .brand-heading {
+            margin: 16px 0 0;
+            color: #fff;
+            font-size: clamp(1.3rem, 2.2vw, 1.8rem);
+            font-weight: 800;
+            line-height: 1.17;
+            letter-spacing: -.03em;
+        }
+
+        .login-vector {
+            position: absolute;
+            z-index: 1;
+            right: -3%;
+            bottom: -2%;
+            width: 106%;
+            height: 67%;
+            object-fit: cover;
+            object-position: center bottom;
+            pointer-events: none;
+            -webkit-mask-image: linear-gradient(to bottom, transparent 0%, rgba(0, 0, 0, .18) 8%, #000 34%, #000 100%);
+            mask-image: linear-gradient(to bottom, transparent 0%, rgba(0, 0, 0, .18) 8%, #000 34%, #000 100%);
+        }
+
+        .login-form-panel {
+            min-width: 0;
+            padding: 48px;
+        }
+
+        .login-form-content {
+            width: 100%;
+            max-width: 390px;
+        }
+
+        .login-title {
+            margin-bottom: 5px;
+            font-size: 1.55rem;
+            text-align: left;
+        }
+
+        .login-subtitle {
+            margin-bottom: 22px;
+            font-size: .8rem;
+            text-align: left;
+        }
+
+        .login-field label {
+            color: #334155;
+            font-size: .76rem;
+        }
+
+        .login-input-group {
+            min-height: 46px;
+            background: #f4f8ff;
+            border: 1px solid #dce8f8;
+            border-radius: 10px;
+        }
+
+        .login-input-group:focus-within {
+            border-color: #80b5ff;
+            box-shadow: 0 0 0 3px rgba(22, 119, 255, .12);
+        }
+
+        .login-input-group input {
+            height: 44px;
+            color: #334155;
+            font-size: .8rem;
+        }
+
+        .login-input-group input::placeholder {
+            color: #8a9ab0;
+        }
+
+        .login-password-toggle {
+            border-radius: 8px;
+        }
+
+        .login-button {
+            min-height: 48px;
+            margin-top: 5px;
+            color: #fff;
+            background: linear-gradient(105deg, #0d58d2 0%, #1677f5 58%, #38a0ff 100%);
+            border: 0;
+            border-radius: 10px;
+            box-shadow: 0 10px 20px -12px rgba(11, 92, 213, .8);
+            font-size: .8rem;
+        }
+
+        .login-button:hover,
+        .login-button:focus {
+            color: #fff;
+            background: linear-gradient(105deg, #0b4fbf 0%, #126be0 58%, #278eea 100%);
+            box-shadow: 0 14px 24px -12px rgba(11, 92, 213, .85);
+        }
+
+        .login-forgot {
+            margin: 15px 0 0;
+            font-size: .75rem;
+            text-align: center;
+        }
+
+        .login-forgot a {
+            color: #1768d2;
+            font-weight: 700;
+            text-decoration: none;
+        }
+
+        .login-forgot a:hover {
+            text-decoration: underline;
+        }
+
+        .login-footer {
+            margin: 20px 0 0;
+            color: #8a9ab0;
+            font-size: .7rem;
+            text-align: center;
+        }
+
+        @media (max-width: 700px) {
+            body.login-page {
+                padding: 18px 14px;
+            }
+
+            .login-stage {
+                min-height: calc(100vh - 36px);
+                padding: 0;
+            }
+
+            .login-card {
+                grid-template-columns: 1fr;
+                width: min(100%, 480px);
+                min-height: 0;
+                border-radius: 20px;
+            }
+
+            .login-brand-panel {
+                min-height: 370px;
+                padding: 24px;
+            }
+
+            .brand-copy {
+                margin-top: 30px;
+            }
+
+            .brand-heading {
+                font-size: 1.55rem;
+            }
+
+            .login-vector {
+                right: -3%;
+                width: 106%;
+                height: 65%;
+            }
+
+            .login-form-panel {
+                padding: 30px 26px;
+            }
+
+            .login-form-content {
+                max-width: none;
+            }
+
+            .login-options {
+                font-size: .7rem;
+            }
+        }
+
+        @media (max-width: 380px) {
+            .login-brand-panel {
+                min-height: 330px;
+                padding: 20px;
+            }
+
+            .login-form-panel {
+                padding: 26px 20px;
+            }
+        }
     </style>
+    <link rel="stylesheet" href="<?= $e($assetBaseUrl) ?>/css/admin-login-background.css">
 </head>
-<body class="login-page">
+<body class="login-page admin-login-background">
 
     <main class="login-stage">
 
@@ -379,13 +650,23 @@ $e = static fn ($value): string => htmlspecialchars((string) $value, ENT_QUOTES 
 
             <!-- PANEL KIRI -->
             <aside class="login-brand-panel">
-
+                <div class="login-brand">
+                    <img
+                        src="<?= $e($assetBaseUrl) ?>/img/logo_e-pkl.png"
+                        alt="Logo E-PKL"
+                        class="app-logo"
+                    >
+                </div>
+                <div class="brand-copy">
+                    <span class="portal-label">PORTAL ADMIN</span>
+                    <h2 class="brand-heading">Data Rapi,<br>Kontrol Pasti</h2>
+                </div>
                 <img
-                    src="<?= $e($assetBaseUrl) ?>/img/logo_e-pkl.png"
-                    alt="Logo E-PKL"
-                    class="app-logo"
+                    class="login-vector"
+                    src="<?= $e($assetBaseUrl) ?>/img/login-admin-vector.png"
+                    alt=""
+                    aria-hidden="true"
                 >
-
             </aside>
 
 
@@ -394,9 +675,7 @@ $e = static fn ($value): string => htmlspecialchars((string) $value, ENT_QUOTES 
 
                 <div class="login-form-content">
 
-                    <h1 class="login-title">
-                        Login Admin
-                    </h1>
+                    <h1 class="login-title">Selamat datang</h1>
 
                     <p class="login-subtitle">
                         Masuk untuk mengakses dashboard E-PKL
@@ -486,7 +765,7 @@ $e = static fn ($value): string => htmlspecialchars((string) $value, ENT_QUOTES 
 
                         </button>
 
-                        <p class="login-subtitle mt-3 mb-0">
+                        <p class="login-forgot">
                             <a href="<?= $e($routerUrl) ?>?page=forgot-password">Lupa kata sandi?</a>
                         </p>
 
@@ -497,6 +776,7 @@ $e = static fn ($value): string => htmlspecialchars((string) $value, ENT_QUOTES 
                         <?php endif; ?>
                     </form>
 
+                    <p class="login-footer">E-PKL</p>
                 </div>
 
             </section>

@@ -413,12 +413,12 @@
 
         <section class="login-panel" aria-labelledby="loginTitle">
             <h2 id="loginTitle">Selamat datang</h2>
-            <p class="login-description">Masuk menggunakan NISN, email, atau username yang terdaftar.</p>
+            <p class="login-description">Masuk menggunakan username yang terdaftar.</p>
 
             <form class="login-form" method="POST" action="<?= e(url('login')) ?>" aria-labelledby="loginTitle">
                 <input type="hidden" name="csrf_token" value="<?= e($csrfToken) ?>">
                 <div class="login-field">
-                    <label for="loginIdentifier">NISN, email, atau username</label>
+                    <label for="loginIdentifier">Username</label>
                     <input
                         class="login-input"
                         id="loginIdentifier"
@@ -426,7 +426,7 @@
                         type="text"
                         value="<?= e($identifier ?? '') ?>"
                         autocomplete="username"
-                        placeholder="Masukkan NISN, email, atau username"
+                        placeholder="Masukkan username"
                         aria-describedby="identifierError"
                         required
                     >
