@@ -1,10 +1,13 @@
 <?php
 
-use App\Http\Controllers\JurnalNativeController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
-    return view('welcome');
+    return response()->json([
+        'app' => 'E-PKL API',
+        'status' => 'running',
+        'api_base' => url('/api/v1'),
+    ]);
 });
 
 Route::get('/verify-account', function () {
@@ -27,5 +30,7 @@ Route::get('/password-reset/guru', function () {
     ]);
 });
 
-Route::get('/jurnal', [JurnalNativeController::class, 'index'])->name('jurnal.index');
-Route::post('/jurnal', [JurnalNativeController::class, 'store'])->name('jurnal.store');
+// Dimatikan: JurnalNativeController butuh public/koneksi.php & view jurnal.index yang tidak ada.
+// Jurnal siswa sudah lewat API: /api/v1/siswa/jurnal
+// Route::get('/jurnal', [JurnalNativeController::class, 'index'])->name('jurnal.index');
+// Route::post('/jurnal', [JurnalNativeController::class, 'store'])->name('jurnal.store');
