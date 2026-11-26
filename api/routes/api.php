@@ -9,6 +9,7 @@ use App\Http\Controllers\AdminUserController;
 
 use App\Http\Controllers\Api\V1\Admin\GuruController as AdminGuruController;
 use App\Http\Controllers\Api\V1\Admin\LaporanController;
+use App\Http\Controllers\Api\V1\Guru\DeviceTokenController;
 
 use App\Http\Controllers\Api\V1\Guru\AgendaController;
 use App\Http\Controllers\Api\V1\Guru\EmailChangeController;
@@ -241,6 +242,20 @@ Route::prefix('v1/guru')->middleware([
     Route::post(
         '/penilaian',
         [PenilaianController::class, 'store']
+    );
+
+    // ----------------------------------------------
+    // DEVICE TOKEN FCM
+    // ----------------------------------------------
+    
+    Route::post(
+        '/device-token',
+        [DeviceTokenController::class, 'store']
+    );
+
+    Route::delete(
+        '/device-token',
+        [DeviceTokenController::class, 'destroy']
     );
 
 
