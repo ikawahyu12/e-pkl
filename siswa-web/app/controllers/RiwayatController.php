@@ -1,7 +1,7 @@
 <?php
 require_once APP_PATH . '/services/ApiClient.php';
 
-/** Riwayat - mengambil presensi dan jurnal dari API Laravel (GET /siswa/riwayat). */
+/** Riwayat - mengambil presensi, jurnal, dan izin dari API Laravel */
 class RiwayatController extends Controller
 {
     public function __construct()
@@ -9,11 +9,6 @@ class RiwayatController extends Controller
         $this->requireLogin();
     }
 
-    /**
-     * Token API yang disimpan saat login.
-     * SESUAIKAN dengan kunci session yang dipakai proses login-mu
-     * (cari dengan: findstr /s /i "token" siswa-web\app\*.php).
-     */
     private function tokenApi(): string
     {
         return (string) (
@@ -36,9 +31,11 @@ class RiwayatController extends Controller
             $apiError = 'Token API tidak ditemukan di session. Silakan keluar lalu masuk kembali.';
         } else {
             $api  = new ApiClient();
+            
+            // ==========================================
+            // 1. AMBIL DATA PRESENSI & JURNAL
+            // ==========================================
             $page = 1;
-
-            // Ambil semua halaman (maks. 100 item per halaman), karena filter dikerjakan JS di browser
             do {
                 $res = $api->get('siswa/riwayat?per_page=100&page=' . $page, $token);
 
@@ -52,14 +49,36 @@ class RiwayatController extends Controller
                 }
 
                 foreach ($res['data'] ?? [] as $r) {
+                    $type = (string) ($r['tipe'] ?? '');
                     $badge = (string) ($r['badge'] ?? '');
+
+                    $historyType = match ($type) {
+                        'jurnal' => 'journal',
+                        'izin' => 'izin',
+                        default => 'attendance',
+                    };
+
+                    $pill = 'pill-info';
+                    if (in_array($badge, ['Masuk', 'Pulang', 'Disetujui', 'Terkirim'], true)) {
+                        $pill = 'pill-ok';
+                    } elseif ($badge === 'Menunggu') {
+                        $pill = 'pill-warn';
+                    } elseif ($badge === 'Ditolak') {
+                        $pill = 'pill-danger';
+                    }
+
+                    $title = (string) ($r['judul'] ?? '');
+                    if ($type === 'izin' && !empty($r['keterangan'])) {
+                        $title .= ': ' . $r['keterangan'];
+                    }
+
                     $riwayat[] = [
-                        'type'  => ($r['tipe'] ?? '') === 'jurnal' ? 'journal' : 'attendance',
+                        'type'  => $historyType,
                         'date'  => (string) ($r['tanggal'] ?? ''),
                         'label' => (string) ($r['tanggal_label'] ?? ''),
-                        'title' => (string) ($r['judul'] ?? ''),
+                        'title' => $title,
                         'badge' => $badge,
-                        'pill'  => in_array($badge, ['Masuk', 'Pulang'], true) ? 'pill-ok' : 'pill-info',
+                        'pill'  => $pill,
                         'jam'   => !empty($r['jam']) ? $r['jam'] . ' WIB' : '',
                     ];
                 }
@@ -67,6 +86,11 @@ class RiwayatController extends Controller
                 $lastPage = (int) ($res['meta']['last_page'] ?? 1);
                 $page++;
             } while ($page <= $lastPage && $page <= 10);
+
+            // Urutkan berdasarkan tanggal terbaru (descending)
+            usort($riwayat, function($a, $b) {
+                return strtotime($b['date']) - strtotime($a['date']);
+            });
         }
 
         $this->render('siswa/riwayat/riwayat', [

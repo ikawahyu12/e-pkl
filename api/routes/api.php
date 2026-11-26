@@ -15,6 +15,7 @@ use App\Http\Controllers\Api\V1\Guru\AgendaController;
 use App\Http\Controllers\Api\V1\Guru\EmailChangeController;
 use App\Http\Controllers\Api\V1\Guru\InstansiController as GuruInstansiController;
 use App\Http\Controllers\Api\V1\Guru\PresensiController as GuruPresensiController;
+use App\Http\Controllers\Api\V1\Guru\IzinController as GuruIzinController;
 use App\Http\Controllers\Api\V1\Guru\JurnalController as GuruJurnalController;
 use App\Http\Controllers\Api\V1\Guru\ProfilController as GuruProfilController;
 use App\Http\Controllers\Api\V1\Guru\SiswaBimbinganController;
@@ -223,6 +224,18 @@ Route::prefix('v1/guru')->middleware([
         '/siswa-bimbingan/{id}',
         [SiswaBimbinganController::class, 'show']
     )->whereNumber('id');
+
+    // ----------------------------------------------
+    // IZIN SISWA
+    // ----------------------------------------------
+
+    Route::get('/izin', [GuruIzinController::class, 'index']);
+
+    Route::get(
+        '/izin/{izin}/lampiran/{lampiran}',
+        [GuruIzinController::class, 'showAttachment']
+    )->whereNumber('izin')
+        ->whereNumber('lampiran');
 
 
     // ----------------------------------------------

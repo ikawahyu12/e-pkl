@@ -132,11 +132,29 @@ class SiswaIzinJurnalTest extends TestCase
 
         $this->assertDatabaseHas('pengajuan_izin', [
             'penempatan_id' => $this->penempatan->id,
-            'status' => 'menunggu',
+            'status' => 'disetujui',
         ]);
         $this->assertDatabaseMissing('pengajuan_izin', [
             'penempatan_id' => $otherPlacement->id,
         ]);
+    }
+
+    public function test_submitted_izin_is_returned_in_student_history(): void
+    {
+        $this->postJson('/api/v1/siswa/izin', $this->izinPayload([
+            'tanggal_mulai' => now()->addDay()->toDateString(),
+            'tanggal_selesai' => now()->addDays(2)->toDateString(),
+        ]))->assertOk();
+
+        $this->getJson('/api/v1/siswa/riwayat?tipe=izin')
+            ->assertOk()
+            ->assertJsonFragment([
+                'tipe' => 'izin',
+                'jenis' => 'sakit',
+                'judul' => 'Pengajuan Sakit',
+                'badge' => 'Disetujui',
+                'keterangan' => 'Pemeriksaan uji',
+            ]);
     }
 
     public function test_jurnal_uses_the_authenticated_students_placement_only(): void

@@ -5,6 +5,7 @@
             <p>Lengkapi informasi perizinan dan lampirkan surat bukti jika tersedia.</p>
         </div>
 
+        <!-- Notifikasi sukses/gagal akan muncul di sini -->
         <div id="izin-notif" class="alert" role="status" aria-live="polite" hidden></div>
 
         <form id="form-izin" action="<?= e(url('izin/kirim')) ?>" method="POST" enctype="multipart/form-data">
@@ -12,25 +13,25 @@
             <div class="activity-fields">
             <div class="activity-field">
                 <label for="jenis-izin">Jenis Perizinan</label>
-                <select id="jenis-izin" name="jenis" required>
+                <select id="jenis-izin" name="jenis">
                     <option value="sakit">Sakit</option>
                     <option value="izin">Izin</option>
                 </select>
             </div>
             <div class="activity-field">
                 <label for="izin-mulai">Mulai Tanggal</label>
-                <input id="izin-mulai" name="tanggal_mulai" type="date" required>
+                <input id="izin-mulai" name="tanggal_mulai" type="date">
             </div>
             <div class="activity-field">
                 <label for="izin-selesai">Hingga Tanggal</label>
-                <input id="izin-selesai" name="tanggal_selesai" type="date" required>
+                <input id="izin-selesai" name="tanggal_selesai" type="date">
             </div>
             <div class="activity-field activity-field-wide">
                 <label for="alasan-izin">Keterangan / Alasan</label>
-                <textarea id="alasan-izin" name="alasan" rows="4" placeholder="Berikan alasan jelas ketidakhadiran Anda..." required></textarea>
+                <textarea id="alasan-izin" name="alasan" rows="4" placeholder="Berikan alasan jelas ketidakhadiran Anda..."></textarea>
             </div>
             <div class="activity-field activity-field-wide">
-                <label for="izin-file">Surat Bukti (Wajib)</label>
+                <label for="izin-file">Surat Bukti</label>
                 <div class="activity-upload">
                     <span class="activity-upload-icon" aria-hidden="true">&#128196;</span>
                     <input class="activity-file-input" id="izin-file" name="lampiran" type="file" accept=".jpg,.jpeg,.png,.pdf" data-file-input data-file-name="izin-file-name">
@@ -45,21 +46,6 @@
             </div>
         </form>
     </div>
-
-    <aside class="activity-card activity-status">
-        <div class="activity-heading">
-            <h2>Status Pengajuan Terbaru</h2>
-            <p>Pantau status permohonan izin Anda.</p>
-        </div>
-        <div id="izin-status-kosong" class="history-empty">Pengajuan yang berhasil dikirim akan muncul di sini.</div>
-        <div id="izin-status-terbaru" class="activity-record" hidden>
-            <div>
-                <strong id="izin-status-tanggal"></strong>
-                <p id="izin-status-jenis"></p>
-            </div>
-            <span class="pill pill-warn" id="izin-status-label">Menunggu</span>
-        </div>
-    </aside>
 </section>
 
 <script>
@@ -88,26 +74,13 @@
             });
             const result = await response.json();
 
+            // Menampilkan notifikasi sukses atau gagal
             notification.className = 'alert ' + (result.success ? 'alert-success' : 'alert-danger');
             notification.textContent = result.message || 'Pengajuan gagal dikirim.';
             notification.hidden = false;
 
             if (result.success) {
-                const start = new Date(document.getElementById('izin-mulai').value + 'T00:00:00');
-                const end = new Date(document.getElementById('izin-selesai').value + 'T00:00:00');
-                const formatDate = date => new Intl.DateTimeFormat('id-ID', {
-                    day: 'numeric',
-                    month: 'short',
-                    year: 'numeric'
-                }).format(date);
-
-                document.getElementById('izin-status-tanggal').textContent =
-                    formatDate(start) + ' - ' + formatDate(end);
-                document.getElementById('izin-status-jenis').textContent =
-                    'Keterangan: ' + document.getElementById('jenis-izin').selectedOptions[0].text;
-                document.getElementById('izin-status-terbaru').hidden = false;
-                document.getElementById('izin-status-kosong').hidden = true;
-
+                // Hanya reset form jika berhasil
                 this.reset();
                 izinFileName.textContent = 'Belum ada file dipilih';
             }
