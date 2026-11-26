@@ -180,7 +180,6 @@ $geofence = [
     let userLng = null;
     let map = null;
     let marker = null;
-    let targetMarker = null;
     let radiusCircle = null;
     let tileLayer = null;
     let leafletPromise = null;
@@ -446,19 +445,16 @@ $geofence = [
             if (!validCoordinates(target[0], target[1]) || !Number.isFinite(GEOFENCE.radius) || GEOFENCE.radius <= 0) {
                 throw new Error('Koordinat atau radius geofence instansi tidak valid.');
             }
-            if (!targetMarker) {
-                targetMarker = window.L.marker(target).bindPopup('Lokasi instansi dari Admin').addTo(map);
+            if (!radiusCircle) {
                 radiusCircle = window.L.circle(target, {
                     radius: GEOFENCE.radius,
                     color: '#2563eb',
                     fillOpacity: 0.12
                 }).addTo(map);
             } else {
-                targetMarker.setLatLng(target);
                 radiusCircle.setLatLng(target);
                 radiusCircle.setRadius(GEOFENCE.radius);
             }
-            mapBounds.push(targetMarker.getLatLng());
             mapBounds.push(radiusCircle.getBounds().getNorthEast());
             mapBounds.push(radiusCircle.getBounds().getSouthWest());
             map.fitBounds(window.L.latLngBounds(mapBounds), { padding: [20, 20], maxZoom: 16 });
