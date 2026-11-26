@@ -9,6 +9,7 @@ use App\Http\Controllers\AdminUserController;
 
 use App\Http\Controllers\Api\V1\Admin\GuruController as AdminGuruController;
 use App\Http\Controllers\Api\V1\Admin\LaporanController;
+use App\Http\Controllers\Api\V1\Admin\DashboardMonitoringController;
 
 use App\Http\Controllers\Api\V1\Guru\AgendaController;
 use App\Http\Controllers\Api\V1\Guru\EmailChangeController;
@@ -580,6 +581,16 @@ Route::prefix('v1/admin/laporan')->middleware([
         '/arsip/{id}/unduh',
         [LaporanController::class, 'unduh']
     )->whereNumber('id');
+});
+
+Route::prefix('v1/admin')->middleware([
+    EnsureSanctumTokenStorage::class,
+    'auth:sanctum',
+    EnsureAdminRole::class,
+    EnsurePasswordChanged::class,
+    'throttle:60,1',
+])->group(function (): void {
+    Route::get('/dashboard-monitoring', [DashboardMonitoringController::class, 'index']);
 });
 
 

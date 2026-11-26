@@ -398,6 +398,11 @@ final class AdminApiClient
         return $this->request('GET', '/api/v1/admin/laporan/jurnal' . $this->laporanQuery($filters), null, $token);
     }
 
+    public function dashboardMonitoring(string $token): array
+    {
+        return $this->request('GET', '/api/v1/admin/dashboard-monitoring', null, $token);
+    }
+
     public function laporanArsip(string $token, array $filters = []): array
     {
         return $this->request('GET', '/api/v1/admin/laporan/arsip' . $this->laporanQuery($filters), null, $token);

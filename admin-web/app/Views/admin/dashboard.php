@@ -18,6 +18,7 @@
  * }|null $selectedInstansi Disediakan oleh DashboardController.
  */
 /** @var string $geofenceEndpoint Disediakan oleh DashboardController. */
+/** @var string $monitoringEndpoint Disediakan oleh DashboardController. */
 $pageTitle = 'Dashboard Monitoring PKL';
 $pageSubtitle = 'Pantau aktivitas PKL secara realtime';
 $pageStatusLabel = 'Realtime';
@@ -26,83 +27,32 @@ $activePage = 'dashboard';
 $statistics = [
     [
         'label' => 'TOTAL SISWA PKL',
-        'value' => '348',
-        'description' => 'Seluruh siswa terdaftar',
+        'value' => '—',
+        'description' => 'Siswa aktif terdaftar',
         'icon' => 'fas fa-users',
         'color' => 'primary',
     ],
     [
         'label' => 'HADIR HARI INI',
-        'value' => '312',
+        'value' => '—',
         'description' => 'Siswa hadir di instansi',
         'icon' => 'fas fa-check-circle',
         'color' => 'success',
     ],
     [
         'label' => 'IZIN HARI INI',
-        'value' => '19',
-        'description' => 'Siswa dengan keterangan izin',
+        'value' => '—',
+        'description' => 'Siswa dengan izin hari ini',
         'icon' => 'fas fa-clipboard-list',
         'color' => 'warning',
     ],
     [
         'label' => 'TIDAK HADIR HARI INI',
-        'value' => '17',
-        'description' => 'Belum tercatat hadir',
+        'value' => '—',
+        'description' => 'Presensi alpha atau sesi ditutup',
         'icon' => 'fas fa-user-times',
         'color' => 'danger',
     ],
-];
-
-$attendanceRecords = [
-    [
-        'name' => 'Alya Putri Ramadhani',
-        'nis' => '2301042',
-        'company' => 'PT. Informatika Solusi Nusantara',
-        'time' => '07:42',
-        'status' => 'Hadir',
-    ],
-    [
-        'name' => 'Bima Pratama',
-        'nis' => '2301058',
-        'company' => 'CV. Karya Digital Mandiri',
-        'time' => '07:51',
-        'status' => 'Hadir',
-    ],
-    [
-        'name' => 'Citra Lestari',
-        'nis' => '2301071',
-        'company' => 'PT. Informatika Solusi Nusantara',
-        'time' => '—',
-        'status' => 'Izin',
-    ],
-    [
-        'name' => 'Dimas Saputra',
-        'nis' => '2301093',
-        'company' => 'Bengkel Teknologi Jaya',
-        'time' => '—',
-        'status' => 'Tidak Hadir',
-    ],
-    [
-        'name' => 'Nadia Aulia Salsabila',
-        'nis' => '2301116',
-        'company' => 'CV. Karya Digital Mandiri',
-        'time' => '07:36',
-        'status' => 'Hadir',
-    ],
-    [
-        'name' => 'Rizky Maulana',
-        'nis' => '2301130',
-        'company' => 'Bengkel Teknologi Jaya',
-        'time' => '—',
-        'status' => 'Izin',
-    ],
-];
-
-$statusBadgeClasses = [
-    'Hadir' => 'badge-success',
-    'Izin' => 'badge-warning',
-    'Tidak Hadir' => 'badge-danger',
 ];
 
 $e = static fn($value): string => htmlspecialchars((string) $value, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
@@ -439,7 +389,7 @@ ob_start();
             <h2 class="dashboard-table-title mb-1" id="attendanceTitle">Presensi Harian</h2>
             <div class="dashboard-date-label">
                 <i class="far fa-calendar-alt text-info mr-1" aria-hidden="true"></i>
-                <time id="attendanceDate"><?= $e(date('d M Y')) ?></time>
+                <time id="attendanceDate">Memuat tanggal...</time>
             </div>
         </div>
 
@@ -459,7 +409,9 @@ ob_start();
                 <option value="">Semua Status</option>
                 <option value="Hadir">Hadir</option>
                 <option value="Izin">Izin</option>
+                <option value="Sakit">Sakit</option>
                 <option value="Tidak Hadir">Tidak Hadir</option>
+                <option value="Belum Presensi">Belum Presensi</option>
             </select>
         </div>
     </div>
@@ -477,25 +429,9 @@ ob_start();
                         <th scope="col">Status</th>
                     </tr>
                 </thead>
-                <tbody>
-                    <?php foreach ($attendanceRecords as $index => $record): ?>
-                        <tr data-status="<?= $e($record['status']) ?>">
-                            <td class="text-center"><?= $index + 1 ?></td>
-                            <td class="dashboard-student-name"><?= $e($record['name']) ?></td>
-                            <td><?= $e($record['nis']) ?></td>
-                            <td class="dashboard-company-name"><?= $e($record['company']) ?></td>
-                            <td><?= $e($record['time']) ?></td>
-                            <td>
-                                <span class="badge <?= $e($statusBadgeClasses[$record['status']]) ?>">
-                                    <?= $e($record['status']) ?>
-                                </span>
-                            </td>
-                        </tr>
-                    <?php endforeach; ?>
-                    <tr class="dashboard-no-results" id="attendanceNoResults">
-                        <td colspan="6" class="py-4 text-center text-muted">
-                            Tidak ada data presensi yang sesuai.
-                        </td>
+                <tbody id="attendanceTableBody">
+                    <tr class="dashboard-no-results" id="attendanceNoResults" style="display: table-row;">
+                        <td colspan="6" class="py-4 text-center text-muted">Memuat data presensi...</td>
                     </tr>
                 </tbody>
             </table>
@@ -503,9 +439,10 @@ ob_start();
     </div>
     <div class="card-footer bg-white py-2">
         <small class="text-muted" id="attendanceResultCount">
-            Menampilkan <?= count($attendanceRecords) ?> data dummy
+            Memuat data presensi...
         </small>
     </div>
+    <div class="card-footer bg-white py-2 text-danger" id="monitoringError" role="alert" hidden></div>
 </section>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -705,49 +642,185 @@ ob_start();
     })();
 
     (() => {
+        const endpoint = <?= json_encode($monitoringEndpoint, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>;
         const searchInput = document.getElementById('attendanceSearch');
         const statusFilter = document.getElementById('attendanceStatusFilter');
-        const tableRows = Array.from(document.querySelectorAll('#attendanceTable tbody tr[data-status]'));
+        const tableBody = document.getElementById('attendanceTableBody');
         const noResultsRow = document.getElementById('attendanceNoResults');
         const resultCount = document.getElementById('attendanceResultCount');
         const dateElement = document.getElementById('attendanceDate');
-        const today = new Date();
-
-        const localDate = [
-            today.getFullYear(),
-            String(today.getMonth() + 1).padStart(2, '0'),
-            String(today.getDate()).padStart(2, '0')
-        ].join('-');
-        dateElement.dateTime = localDate;
-        dateElement.textContent = new Intl.DateTimeFormat('id-ID', {
-            weekday: 'long',
-            day: 'numeric',
-            month: 'long',
-            year: 'numeric'
-        }).format(today);
+        const errorElement = document.getElementById('monitoringError');
+        const statisticElements = Array.from(document.querySelectorAll('.dashboard-stat-value'));
+        const badgeClasses = {
+            Hadir: 'badge-success',
+            Izin: 'badge-warning',
+            Sakit: 'badge-info',
+            'Tidak Hadir': 'badge-danger',
+            'Belum Presensi': 'badge-secondary'
+        };
+        let rows = [];
+        let loaded = false;
+        let fetching = false;
 
         const filterAttendance = () => {
             const query = searchInput.value.trim().toLocaleLowerCase('id-ID');
             const selectedStatus = statusFilter.value;
+            const tableRows = Array.from(tableBody.querySelectorAll('tr[data-status]'));
             let visibleCount = 0;
 
             tableRows.forEach((row) => {
-                const matchesQuery = row.textContent.toLocaleLowerCase('id-ID').includes(query);
+                const matchesQuery = row.dataset.search.includes(query);
                 const matchesStatus = selectedStatus === '' || row.dataset.status === selectedStatus;
-                const isVisible = matchesQuery && matchesStatus;
-
-                row.hidden = !isVisible;
-                if (isVisible) {
+                row.hidden = !(matchesQuery && matchesStatus);
+                if (!row.hidden) {
                     visibleCount += 1;
+                    row.cells[0].textContent = String(visibleCount);
                 }
             });
 
             noResultsRow.style.display = visibleCount === 0 ? 'table-row' : 'none';
-            resultCount.textContent = `Menampilkan ${visibleCount} dari ${tableRows.length} data dummy`;
+            noResultsRow.querySelector('td').textContent = rows.length === 0
+                ? 'Belum ada data presensi untuk hari ini.'
+                : 'Tidak ada data presensi yang sesuai.';
+            resultCount.textContent = `Menampilkan ${visibleCount} dari ${rows.length} data`;
+        };
+
+        const renderRows = () => {
+            tableBody.querySelectorAll('tr[data-status]').forEach((row) => row.remove());
+
+            rows.forEach((record, index) => {
+                const row = document.createElement('tr');
+                row.dataset.status = record.status;
+                row.dataset.search = [record.name, record.nis, record.company]
+                    .join(' ')
+                    .toLocaleLowerCase('id-ID');
+
+                const cells = [
+                    {value: String(index + 1), className: 'text-center'},
+                    {value: record.name, className: 'dashboard-student-name'},
+                    {value: record.nis || '—', className: ''},
+                    {value: record.company, className: 'dashboard-company-name'},
+                    {value: record.time || '—', className: ''}
+                ];
+
+                cells.forEach(({value, className}) => {
+                    const cell = document.createElement('td');
+                    cell.textContent = value;
+                    if (className !== '') {
+                        cell.className = className;
+                    }
+                    row.appendChild(cell);
+                });
+
+                const statusCell = document.createElement('td');
+                const badge = document.createElement('span');
+                badge.className = `badge ${badgeClasses[record.status] || 'badge-secondary'}`;
+                badge.textContent = record.status;
+                statusCell.appendChild(badge);
+                row.appendChild(statusCell);
+                tableBody.insertBefore(row, noResultsRow);
+            });
+
+            filterAttendance();
+        };
+
+        const updateDate = (date) => {
+            const parsedDate = new Date(`${date}T00:00:00+07:00`);
+            dateElement.dateTime = date;
+            dateElement.textContent = new Intl.DateTimeFormat('id-ID', {
+                weekday: 'long',
+                day: 'numeric',
+                month: 'long',
+                year: 'numeric',
+                timeZone: 'Asia/Jakarta'
+            }).format(parsedDate);
+        };
+
+        const loadMonitoringData = async () => {
+            if (fetching || document.hidden) {
+                return;
+            }
+            fetching = true;
+
+            try {
+                const response = await fetch(endpoint, {
+                    headers: {Accept: 'application/json'},
+                    credentials: 'same-origin',
+                    cache: 'no-store'
+                });
+                const payload = await response.json();
+                if (
+                    !response.ok
+                    || payload.success !== true
+                    || !payload.data
+                    || !Array.isArray(payload.data.rows)
+                    || !payload.data.statistics
+                ) {
+                    throw new Error(payload.message || 'Data monitoring tidak dapat dimuat.');
+                }
+
+                const nextRows = payload.data.rows.map((record) => {
+                    if (
+                        !record
+                        || typeof record.name !== 'string'
+                        || typeof record.nis !== 'string'
+                        || typeof record.company !== 'string'
+                        || typeof record.time !== 'string'
+                        || !Object.prototype.hasOwnProperty.call(badgeClasses, record.status)
+                    ) {
+                        throw new Error('Data presensi monitoring tidak valid.');
+                    }
+
+                    return {
+                        name: record.name,
+                        nis: record.nis,
+                        company: record.company,
+                        time: record.time,
+                        status: record.status
+                    };
+                });
+                const statistics = payload.data.statistics;
+                const values = [
+                    statistics.total_siswa,
+                    statistics.hadir,
+                    statistics.izin,
+                    statistics.tidak_hadir
+                ];
+
+                if (
+                    values.length !== statisticElements.length
+                    || values.some((value) => typeof value !== 'number' || !Number.isInteger(value) || value < 0)
+                    || typeof payload.data.tanggal !== 'string'
+                    || !/^\d{4}-\d{2}-\d{2}$/.test(payload.data.tanggal)
+                ) {
+                    throw new Error('Data statistik monitoring tidak valid.');
+                }
+
+                rows = nextRows;
+                values.forEach((value, index) => {
+                    statisticElements[index].textContent = new Intl.NumberFormat('id-ID').format(value);
+                });
+                updateDate(payload.data.tanggal);
+                renderRows();
+                errorElement.hidden = true;
+                loaded = true;
+            } catch (error) {
+                errorElement.textContent = error.message || 'Data monitoring tidak dapat dimuat.';
+                errorElement.hidden = false;
+                if (!loaded) {
+                    noResultsRow.querySelector('td').textContent = 'Data presensi tidak dapat dimuat.';
+                    resultCount.textContent = 'Data monitoring tidak tersedia';
+                }
+            } finally {
+                fetching = false;
+            }
         };
 
         searchInput.addEventListener('input', filterAttendance);
         statusFilter.addEventListener('change', filterAttendance);
+        document.addEventListener('visibilitychange', loadMonitoringData);
+        window.setInterval(loadMonitoringData, 30000);
+        loadMonitoringData();
     })();
 </script>
 <?php

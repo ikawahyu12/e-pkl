@@ -7,7 +7,7 @@ use Throwable;
 
 class DashboardController
 {
-    public function index(string $geofenceEndpoint): void
+    public function index(string $geofenceEndpoint, string $monitoringEndpoint): void
     {
         try {
             $geofenceData = new GeofenceData();
@@ -23,6 +23,40 @@ class DashboardController
 
         $extraHead = '<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">';
         require dirname(__DIR__) . '/Views/admin/dashboard.php';
+    }
+
+    public function monitoringData(): void
+    {
+        header('Content-Type: application/json; charset=utf-8');
+        header('Cache-Control: no-store');
+
+        $token = $_SESSION['admin_token'] ?? null;
+        if (!is_string($token) || $token === '') {
+            $this->respond(['success' => false, 'message' => 'Sesi Admin tidak ditemukan.'], 401);
+        }
+
+        try {
+            $result = (new \AdminApiClient())->dashboardMonitoring($token);
+        } catch (Throwable $exception) {
+            error_log('Admin dashboard monitoring API error: ' . $exception->getMessage());
+            $this->respond([
+                'success' => false,
+                'message' => 'Data monitoring tidak dapat dimuat dari server.',
+            ], 502);
+        }
+
+        $status = (int) ($result['status'] ?? 0);
+        $payload = is_array($result['body'] ?? null) ? $result['body'] : [];
+        if ($status !== 200 || ($payload['success'] ?? false) !== true || !is_array($payload['data'] ?? null)) {
+            $this->respond([
+                'success' => false,
+                'message' => in_array($status, [401, 403], true)
+                    ? 'Sesi Admin berakhir atau tidak memiliki akses.'
+                    : 'Data monitoring tidak dapat dimuat dari server.',
+            ], in_array($status, [401, 403], true) ? $status : 502);
+        }
+
+        $this->respond($payload, 200);
     }
 
     public function instanceDetails(): void

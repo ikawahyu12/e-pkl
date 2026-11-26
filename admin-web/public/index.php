@@ -1950,7 +1950,15 @@ switch ($routePage) {
     case 'dashboard':
         require_once $adminRoot . '/app/Models/GeofenceData.php';
         require_once $adminRoot . '/app/Controllers/DashboardController.php';
-        (new App\Controllers\DashboardController())->index($routerUrl . '?page=dashboard-instansi');
+        (new App\Controllers\DashboardController())->index(
+            $routerUrl . '?page=dashboard-instansi',
+            $routerUrl . '?page=dashboard-monitoring-data'
+        );
+        break;
+
+    case 'dashboard-monitoring-data':
+        require_once $adminRoot . '/app/Controllers/DashboardController.php';
+        (new App\Controllers\DashboardController())->monitoringData();
         break;
 
     case 'dashboard-instansi':
