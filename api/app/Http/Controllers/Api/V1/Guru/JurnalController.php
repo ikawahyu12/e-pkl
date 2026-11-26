@@ -93,16 +93,16 @@ class JurnalController extends Controller
             ->where('jurnal_id', $jurnal)
             ->first();
 
-        if (! $file || ! Storage::disk('public')->exists($file->path_file)) {
+        if (! $file || ! Storage::disk('local')->exists($file->path_file)) {
             return response()->json([
                 'success' => false,
                 'message' => 'Dokumentasi tidak ditemukan.',
             ], 404);
         }
 
-        return Storage::disk('public')->response(
-            $file->path_file,
-            $file->nama_file,
+        return response()->make(
+            Storage::disk('local')->get($file->path_file),
+            200,
             [
                 'Content-Type' => $file->mime_type ?: 'application/octet-stream',
                 'Cache-Control' => 'private, max-age=300',
