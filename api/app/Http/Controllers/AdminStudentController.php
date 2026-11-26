@@ -101,7 +101,7 @@ class AdminStudentController extends Controller
             'nisn' => ['sometimes', 'required', 'string', 'max:20', Rule::unique('siswa', 'nisn')],
             'nis' => ['sometimes', 'nullable', 'string', 'max:30', Rule::unique('siswa', 'nis')],
             'email' => ['sometimes', 'nullable', 'email', 'max:150', Rule::unique('users', 'email')],
-            'password' => ['required', 'string', 'min:12', 'max:255'],
+            'password' => ['required', 'string', 'min:8', 'max:255'],
             'kelas_id' => [$classIsRequired ? 'required' : 'nullable', 'integer', Rule::exists('kelas', 'id')],
             'jenis_kelamin' => ['sometimes', 'nullable', Rule::in(['L', 'P'])],
             'no_hp' => ['sometimes', 'nullable', 'string', 'max:25'],
@@ -175,7 +175,7 @@ class AdminStudentController extends Controller
                 Rule::unique('siswa', 'nis')->ignore($student->id),
             ],
             'password' => $pendingAccountId === null
-                ? ['sometimes', 'nullable', 'string', 'min:12', 'max:255']
+                ? ['sometimes', 'nullable', 'string', 'min:8', 'max:255']
                 : ['prohibited'],
             'kelas_id' => ['sometimes', 'nullable', 'integer', Rule::exists('kelas', 'id')],
             'jenis_kelamin' => ['sometimes', 'nullable', Rule::in(['L', 'P'])],

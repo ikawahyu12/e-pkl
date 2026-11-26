@@ -79,6 +79,19 @@ class AdminUserManagementTest extends TestCase
         $this->assertNotNull($managedUsers->json('data.users.0.terakhir_login_at'));
     }
 
+    public function test_admin_logout_revokes_the_current_access_token(): void
+    {
+        $admin = $this->createUser('admin', 'aktif', 'root-admin');
+        $plainTextToken = $admin->createToken('web-admin', ['admin'])->plainTextToken;
+
+        $this->withToken($plainTextToken)
+            ->postJson('/api/v1/admin/auth/logout')
+            ->assertOk()
+            ->assertJsonPath('success', true);
+
+        $this->assertSame(0, $admin->tokens()->count());
+    }
+
     public function test_admin_can_create_an_account_and_password_is_hashed(): void
     {
         $admin = $this->createUser('admin', 'aktif', 'root-admin');

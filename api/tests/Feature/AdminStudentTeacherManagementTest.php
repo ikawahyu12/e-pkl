@@ -155,7 +155,7 @@ class AdminStudentTeacherManagementTest extends TestCase
         $created = $this->postJson('/api/v1/admin/students', [
             'nama' => 'Siswa Baru',
             'username' => '1234567890',
-            'password' => 'password-siswa-aman',
+            'password' => 'Pass1234',
             'kelas_id' => $classId,
             'status' => 'Aktif',
         ])->assertCreated()
@@ -166,7 +166,7 @@ class AdminStudentTeacherManagementTest extends TestCase
         $studentId = $created->json('data.id');
         $studentUser = User::query()->findOrFail($studentId);
         $this->assertSame('siswa', $studentUser->role->nama);
-        $this->assertTrue(Hash::check('password-siswa-aman', $studentUser->password_hash));
+        $this->assertTrue(Hash::check('Pass1234', $studentUser->password_hash));
 
         $this->getJson('/api/v1/admin/students?search=Siswa')
             ->assertOk()
@@ -185,6 +185,7 @@ class AdminStudentTeacherManagementTest extends TestCase
             'alamat' => 'Alamat siswa',
             'nama_orang_tua' => 'Nama Wali',
             'no_hp_orang_tua' => '08129876543',
+            'password' => 'Pass1234',
         ])->assertOk()
             ->assertJsonPath('data.nama', 'Nama Siswa Diperbarui')
             ->assertJsonPath('data.nisn', '1234567891')
@@ -209,6 +210,7 @@ class AdminStudentTeacherManagementTest extends TestCase
             'no_hp_orang_tua' => '08129876543',
         ]);
         $this->assertDatabaseHas('users', ['id' => $studentId, 'status' => 'aktif']);
+        $this->assertTrue(Hash::check('Pass1234', $studentUser->fresh()->password_hash));
         $studentUser->createToken('student-delete-test');
         $studentProfileId = \DB::table('siswa')->where('user_id', $studentId)->value('id');
         $placementId = \DB::table('penempatan_pkl')->insertGetId([

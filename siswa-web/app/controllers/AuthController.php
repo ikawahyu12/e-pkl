@@ -24,8 +24,8 @@ class AuthController extends Controller
                 if ($nisn === '' || $nama === '' || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
                     $message = 'Lengkapi NISN, nama, dan email dengan benar.';
                     $messageType = 'error';
-                } elseif (!is_string($password) || strlen($password) < 12) {
-                    $message = 'Kata sandi minimal 12 karakter.';
+                } elseif (!is_string($password) || strlen($password) < 8) {
+                    $message = 'Kata sandi minimal 8 karakter.';
                     $messageType = 'error';
                 } elseif (!is_string($confirmation) || $password !== $confirmation) {
                     $message = 'Konfirmasi kata sandi tidak cocok.';

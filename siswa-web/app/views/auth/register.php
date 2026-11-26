@@ -30,10 +30,10 @@ $messageType = ($messageType ?? '') === 'success' ? 'success' : 'error';
             <input id="nama_lengkap" name="nama_lengkap" type="text" autocomplete="name" maxlength="120" required>
             <label for="email">Email</label>
             <input id="email" name="email" type="email" autocomplete="email" maxlength="150" required>
-            <label for="password">Kata sandi (minimal 12 karakter)</label>
-            <input id="password" name="password" type="password" autocomplete="new-password" minlength="12" required>
+            <label for="password">Kata sandi (minimal 8 karakter)</label>
+            <input id="password" name="password" type="password" autocomplete="new-password" minlength="8" required>
             <label for="password_confirmation">Ulangi kata sandi</label>
-            <input id="password_confirmation" name="password_confirmation" type="password" autocomplete="new-password" minlength="12" required>
+            <input id="password_confirmation" name="password_confirmation" type="password" autocomplete="new-password" minlength="8" required>
             <button type="submit">Daftar dan kirim verifikasi</button>
         </form>
         <p><a href="<?= e(url('auth/resendVerification')) ?>">Kirim ulang email verifikasi</a></p>

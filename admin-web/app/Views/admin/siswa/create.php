@@ -50,8 +50,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             || !in_array($statusSiswa, ['aktif', 'nonaktif'], true)
         ) {
             $pesanError = 'Lengkapi NISN, nama, username, password, kelas, jenis kelamin, dan status dengan nilai yang valid.';
-        } elseif (strlen($password) < 12) {
-            $pesanError = 'Password awal harus terdiri dari minimal 12 karakter.';
+        } elseif (strlen($password) < 8) {
+            $pesanError = 'Password awal harus terdiri dari minimal 8 karakter.';
         } elseif (
             mb_strlen($nisn, 'UTF-8') > 20
             || mb_strlen($nis, 'UTF-8') > 30
@@ -219,7 +219,7 @@ ob_start();
                 </div>
                 <div class="col-md-6 form-group">
                     <label class="sf-label" for="password">Password awal <span class="req">*</span></label>
-                    <input class="sf-input" type="password" id="password" name="password" minlength="12" maxlength="255" required>
+                    <input class="sf-input" type="password" id="password" name="password" minlength="8" maxlength="255" required>
                 </div>
             </div>
             <div class="row">

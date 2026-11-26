@@ -131,8 +131,8 @@ class SelfRegistrationTest extends TestCase
             $email = $role.'@example.test';
             $response = $this->postJson('/api/v1/'.$role.'/auth/register', $identity + [
                 'email' => $email,
-                'password' => 'SecurePassword123',
-                'password_confirmation' => 'SecurePassword123',
+                'password' => 'Pass1234',
+                'password_confirmation' => 'Pass1234',
             ]);
             $response->assertAccepted()->assertJsonPath('success', true);
 
@@ -179,7 +179,7 @@ class SelfRegistrationTest extends TestCase
             $this->assertDatabaseMissing('pending_account_verifications', ['user_id' => $user->id]);
             $this->postJson('/api/v1/'.$role.'/auth/login', [
                 'login' => $user->username,
-                'password' => 'SecurePassword123',
+                'password' => 'Pass1234',
             ])->assertOk()->assertJsonPath('success', true);
             $this->postJson('/api/v1/'.$role.'/auth/verify-email', ['token' => $token])
                 ->assertUnprocessable()
@@ -774,6 +774,24 @@ class SelfRegistrationTest extends TestCase
 
         $this->assertNull($student->fresh()->email_terverifikasi_at);
         $this->assertNull($teacher->fresh()->email_terverifikasi_at);
+    }
+
+    public function test_siswa_can_login_using_nisn_when_username_is_different(): void
+    {
+        $student = $this->createAccount('siswa', 'student-username', 'Siswa Uji');
+        DB::table('siswa')->insert([
+            'user_id' => $student->id,
+            'nisn' => '1234567890',
+            'nis' => 'S-100',
+            'nama_lengkap' => 'Siswa Uji',
+            'status_siswa' => 'aktif',
+        ]);
+
+        $this->postJson('/api/v1/siswa/auth/login', [
+            'login' => '1234567890',
+            'password' => 'LegacyPassword123',
+        ])->assertOk()
+            ->assertJsonPath('data.user.username', 'student-username');
     }
 
     public function test_teacher_with_nonactive_mentoring_status_cannot_login(): void

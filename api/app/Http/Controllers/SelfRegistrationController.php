@@ -23,7 +23,7 @@ class SelfRegistrationController extends Controller
             $identity => ['required', 'string', 'max:'.$maxIdentity],
             'nama_lengkap' => ['required', 'string', 'max:120'],
             'email' => ['required', 'email', 'max:150'],
-            'password' => ['required', 'string', 'min:12', 'max:255', 'confirmed'],
+            'password' => ['required', 'string', 'min:8', 'max:255', 'confirmed'],
         ]);
 
         try {
