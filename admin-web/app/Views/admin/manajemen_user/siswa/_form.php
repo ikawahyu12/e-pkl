@@ -35,6 +35,26 @@ $reasonDetail = (string) ($formInput['alasan_detail'] ?? '');
         </div>
     </div>
 
+    <?php if (!$isEditing): ?>
+        <div class="col-md-6 form-group mb-3">
+            <label class="sf-label" for="email">Email Pemulihan <span class="req">*</span></label>
+            <div class="sf-ic">
+                <i class="far fa-envelope"></i>
+                <input class="sf-input" type="email" id="email" name="email" value="<?= $e($formInput['email'] ?? '') ?>" maxlength="150" placeholder="Email aktif siswa" required>
+            </div>
+            <small class="form-text text-muted">Gunakan alamat email siswa yang aktif untuk pemulihan kata sandi.</small>
+        </div>
+    <?php elseif ($status !== 'pending'): ?>
+        <div class="col-md-6 form-group mb-3">
+            <label class="sf-label" for="email_akun">Email Pemulihan <span class="req">*</span></label>
+            <div class="sf-ic">
+                <i class="far fa-envelope"></i>
+                <input class="sf-input" type="email" id="email_akun" name="email_akun" value="<?= $e($formInput['email_akun'] ?? $s['email_akun'] ?? '') ?>" maxlength="150" placeholder="Email aktif siswa" required>
+            </div>
+            <small class="form-text text-muted">Email ini dipakai untuk pemulihan kata sandi.</small>
+        </div>
+    <?php endif; ?>
+
     <!-- Password + Show/Hide + Generate Auto -->
     <div class="col-md-6 form-group mb-3">
         <div class="d-flex justify-content-between align-items-center mb-1">
@@ -46,12 +66,15 @@ $reasonDetail = (string) ($formInput['alasan_detail'] ?? '');
         </div>
         <div class="sf-ic" style="position: relative;">
             <i class="fas fa-key"></i>
-            <input class="sf-input" type="password" id="password" name="password" value="" placeholder="<?= $isEditing ? 'Kosongkan jika tidak diganti' : 'Minimal 12 karakter' ?>" <?= $isEditing ? '' : 'required' ?> minlength="12" maxlength="255" style="padding-right: 45px;">
+            <input class="sf-input" type="password" id="password" name="password" value="" placeholder="<?= $isEditing ? 'Kosongkan jika tidak diganti' : 'Minimal 8 karakter' ?>" <?= $isEditing ? '' : 'required' ?> minlength="8" maxlength="255" style="padding-right: 45px;">
             <!-- Tombol Lihat Password -->
             <button type="button" id="togglePassword" style="position: absolute; right: 12px; top: 50%; transform: translateY(-50%); border: none; background: none; cursor: pointer; color: #64748b; padding: 0; outline: none;" title="Tampilkan/Sembunyikan Password">
                 <i class="fas fa-eye" id="eyeIcon"></i>
             </button>
         </div>
+        <?php if (!$isEditing): ?>
+            <small class="form-text text-muted">Ini password awal; siswa wajib menggantinya saat login pertama kali.</small>
+        <?php endif; ?>
     </div>
 
     <!-- Kelas -->
@@ -157,9 +180,20 @@ document.addEventListener('DOMContentLoaded', function () {
     if (btnGeneratePass) {
         btnGeneratePass.addEventListener('click', function () {
             const chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789@#$!";
+            const passwordLength = 12;
+            const maxByte = Math.floor(256 / chars.length) * chars.length;
             let newPass = "";
-            for (let i = 0; i < 10; i++) {
-                newPass += chars.charAt(Math.floor(Math.random() * chars.length));
+            while (newPass.length < passwordLength) {
+                const randomValues = new Uint8Array(passwordLength - newPass.length + 8);
+                window.crypto.getRandomValues(randomValues);
+                for (const value of randomValues) {
+                    if (value < maxByte) {
+                        newPass += chars.charAt(value % chars.length);
+                        if (newPass.length === passwordLength) {
+                            break;
+                        }
+                    }
+                }
             }
             passwordInput.value = newPass;
             

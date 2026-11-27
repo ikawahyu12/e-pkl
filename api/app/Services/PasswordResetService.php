@@ -86,6 +86,7 @@ class PasswordResetService
                 ->where('token_hash', $tokenHash)->delete();
             Log::error('Password reset email delivery failed.', [
                 'exception' => $exception::class,
+                'error' => $exception->getMessage(),
                 'role' => $role,
             ]);
         }
@@ -147,7 +148,7 @@ class PasswordResetService
         }
 
         return match ($role) {
-            'guru' => $user->guru !== null,
+            'guru' => $user->guru !== null && $user->guru->status_bimbingan === 'aktif',
             'siswa' => $user->siswa !== null && $user->siswa->status_siswa === 'aktif',
             default => true,
         };

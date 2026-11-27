@@ -2,10 +2,9 @@
 
 namespace App\Providers;
 
-use Illuminate\Cache\RateLimiting\Limit;
-use Illuminate\Http\Request;
+use App\Mail\Transport\GmailApiTransport;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\ServiceProvider;
-use Illuminate\Support\Facades\RateLimiter;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -22,20 +21,6 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
-        RateLimiter::for(
-            'self-registration-register',
-            fn (Request $request) => Limit::perMinute(5)
-                ->by('self-registration-register|'.$request->ip().'|'.$request->route('role')),
-        );
-        RateLimiter::for(
-            'self-registration-resend',
-            fn (Request $request) => Limit::perMinute(3)
-                ->by('self-registration-resend|'.$request->ip().'|'.$request->route('role')),
-        );
-        RateLimiter::for(
-            'self-registration-verify',
-            fn (Request $request) => Limit::perMinute(10)
-                ->by('self-registration-verify|'.$request->ip().'|'.$request->route('role')),
-        );
+        Mail::extend('gmail-api', fn () => new GmailApiTransport);
     }
 }

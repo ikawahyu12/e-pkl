@@ -20,7 +20,8 @@ class SiswaAuthService
                 $query->where('username', $login)
                     ->orWhere('email', $login)
                     ->orWhereHas('siswa', function ($siswaQuery) use ($login): void {
-                        $siswaQuery->where('nis', $login);
+                        $siswaQuery->where('nis', $login)
+                            ->orWhere('nisn', $login);
                     });
             })
             ->first();

@@ -31,6 +31,7 @@ class AdminStudentTeacherManagementTest extends TestCase
             $table->unsignedBigInteger('role_id');
             $table->string('username', 60)->nullable()->unique();
             $table->string('email', 150)->nullable()->unique();
+            $table->timestamp('email_terverifikasi_at')->nullable();
             $table->string('password_hash')->nullable();
             $table->string('nama_tampilan', 120);
             $table->string('status')->default('aktif');
@@ -155,18 +156,20 @@ class AdminStudentTeacherManagementTest extends TestCase
         $created = $this->postJson('/api/v1/admin/students', [
             'nama' => 'Siswa Baru',
             'username' => '1234567890',
-            'password' => 'password-siswa-aman',
+            'email' => 'siswa.baru@example.test',
+            'password' => 'Pass1234',
             'kelas_id' => $classId,
             'status' => 'Aktif',
         ])->assertCreated()
             ->assertJsonPath('data.nama', 'Siswa Baru')
+            ->assertJsonPath('data.email_akun', 'siswa.baru@example.test')
             ->assertJsonPath('data.kelas', 'XII RPL 1')
             ->assertJsonMissingPath('data.password_hash');
 
         $studentId = $created->json('data.id');
         $studentUser = User::query()->findOrFail($studentId);
         $this->assertSame('siswa', $studentUser->role->nama);
-        $this->assertTrue(Hash::check('password-siswa-aman', $studentUser->password_hash));
+        $this->assertTrue(Hash::check('Pass1234', $studentUser->password_hash));
 
         $this->getJson('/api/v1/admin/students?search=Siswa')
             ->assertOk()
@@ -185,6 +188,7 @@ class AdminStudentTeacherManagementTest extends TestCase
             'alamat' => 'Alamat siswa',
             'nama_orang_tua' => 'Nama Wali',
             'no_hp_orang_tua' => '08129876543',
+            'password' => 'Pass1234',
         ])->assertOk()
             ->assertJsonPath('data.nama', 'Nama Siswa Diperbarui')
             ->assertJsonPath('data.nisn', '1234567891')
@@ -209,6 +213,7 @@ class AdminStudentTeacherManagementTest extends TestCase
             'no_hp_orang_tua' => '08129876543',
         ]);
         $this->assertDatabaseHas('users', ['id' => $studentId, 'status' => 'aktif']);
+        $this->assertTrue(Hash::check('Pass1234', $studentUser->fresh()->password_hash));
         $studentUser->createToken('student-delete-test');
         $studentProfileId = \DB::table('siswa')->where('user_id', $studentId)->value('id');
         $placementId = \DB::table('penempatan_pkl')->insertGetId([
@@ -239,6 +244,28 @@ class AdminStudentTeacherManagementTest extends TestCase
         $this->assertDatabaseHas('users', ['id' => $studentId, 'status' => 'nonaktif']);
     }
 
+    public function test_admin_must_provide_recovery_email_for_new_student_and_teacher_accounts(): void
+    {
+        $admin = $this->createUser('admin', 'account-email-required-admin');
+        $this->actingAs($admin, 'sanctum');
+
+        $this->postJson('/api/v1/admin/students', [
+            'nama' => 'Tanpa Email Siswa',
+            'username' => 'student-no-email',
+            'password' => 'password-siswa-aman',
+            'status' => 'aktif',
+        ])->assertUnprocessable()
+            ->assertJsonValidationErrors('email');
+
+        $this->postJson('/api/v1/admin/teachers', [
+            'nama' => 'Tanpa Email Guru',
+            'username' => 'teacher-no-email',
+            'password' => 'password-guru-aman',
+            'status' => 'aktif',
+        ])->assertUnprocessable()
+            ->assertJsonValidationErrors('email');
+    }
+
     public function test_new_inactive_student_account_has_a_nonactive_profile(): void
     {
         $admin = $this->createUser('admin', 'create-inactive-student-admin');
@@ -247,6 +274,7 @@ class AdminStudentTeacherManagementTest extends TestCase
         $response = $this->postJson('/api/v1/admin/students', [
             'nama' => 'Siswa Nonaktif',
             'username' => 'inactive-student',
+            'email' => 'inactive-student@example.test',
             'password' => 'password-siswa-aman',
             'status' => 'nonaktif',
         ])->assertCreated();
@@ -302,6 +330,52 @@ class AdminStudentTeacherManagementTest extends TestCase
         $this->assertDatabaseMissing('personal_access_tokens', [
             'tokenable_type' => User::class,
             'tokenable_id' => $student->id,
+        ]);
+    }
+
+    public function test_admin_can_update_student_account_email_separately_from_school_email(): void
+    {
+        $admin = $this->createUser('admin', 'student-email-admin');
+        $student = $this->createStudentAccount('student-email-update');
+        $student->email = 'old-student@example.test';
+        $student->email_terverifikasi_at = now();
+        $student->save();
+        $this->actingAs($admin, 'sanctum');
+
+        $this->patchJson('/api/v1/admin/students/'.$student->id, [
+            'email_akun' => 'ikawah227@gmail.com',
+        ])->assertOk()
+            ->assertJsonPath('data.email_akun', 'ikawah227@gmail.com')
+            ->assertJsonPath('data.email_sekolah', null);
+
+        $this->assertDatabaseHas('users', [
+            'id' => $student->id,
+            'email' => 'ikawah227@gmail.com',
+        ]);
+        $this->assertNull($student->fresh()->email_terverifikasi_at);
+        $this->assertDatabaseHas('siswa', [
+            'user_id' => $student->id,
+            'email_sekolah' => null,
+        ]);
+    }
+
+    public function test_student_account_email_must_be_unique(): void
+    {
+        $admin = $this->createUser('admin', 'student-email-unique-admin');
+        $student = $this->createStudentAccount('student-email-unique');
+        $otherStudent = $this->createStudentAccount('other-student-email-unique');
+        $otherStudent->email = 'used-email@example.test';
+        $otherStudent->save();
+
+        $this->actingAs($admin, 'sanctum')
+            ->patchJson('/api/v1/admin/students/'.$student->id, [
+                'email_akun' => 'used-email@example.test',
+            ])->assertUnprocessable()
+                ->assertJsonValidationErrors('email_akun');
+
+        $this->assertDatabaseMissing('users', [
+            'id' => $student->id,
+            'email' => 'used-email@example.test',
         ]);
     }
 
@@ -398,11 +472,13 @@ class AdminStudentTeacherManagementTest extends TestCase
         $created = $this->postJson('/api/v1/admin/teachers', [
             'nama' => 'Guru Baru',
             'username' => '19870001',
+            'email' => 'guru.baru@example.test',
             'password' => 'password-guru-aman',
             'status' => 'Aktif',
         ])->assertCreated()
             ->assertJsonPath('data.nama', 'Guru Baru')
             ->assertJsonPath('data.username', '19870001')
+            ->assertJsonPath('data.email_akun', 'guru.baru@example.test')
             ->assertJsonMissingPath('data.password_hash');
 
         $teacherId = $created->json('data.id');
@@ -416,8 +492,14 @@ class AdminStudentTeacherManagementTest extends TestCase
 
         $this->patchJson('/api/v1/admin/teachers/'.$teacherId, [
             'username' => '19870002',
+            'email_akun' => 'guru.diperbarui@example.test',
         ])->assertOk()
-            ->assertJsonPath('data.username', '19870002');
+            ->assertJsonPath('data.username', '19870002')
+            ->assertJsonPath('data.email_akun', 'guru.diperbarui@example.test');
+        $this->assertDatabaseHas('users', [
+            'id' => $teacherId,
+            'email' => 'guru.diperbarui@example.test',
+        ]);
 
         $this->assertDatabaseHas('users', ['id' => $teacherId, 'status' => 'aktif']);
         $teacherUser->createToken('teacher-delete-test');
@@ -457,6 +539,7 @@ class AdminStudentTeacherManagementTest extends TestCase
         $response = $this->postJson('/api/v1/admin/teachers', [
             'nama' => 'Guru Nonaktif',
             'username' => 'inactive-teacher',
+            'email' => 'inactive-teacher@example.test',
             'password' => 'password-guru-aman',
             'status' => 'nonaktif',
         ])->assertCreated();
@@ -890,6 +973,7 @@ class AdminStudentTeacherManagementTest extends TestCase
         $created = $this->postJson('/api/v1/admin/students', [
             'nama' => 'Siswa Tanpa Kelas',
             'username' => '1234567891',
+            'email' => 'student-without-class@example.test',
             'password' => 'password-siswa-aman',
             'status' => 'aktif',
         ])->assertCreated()

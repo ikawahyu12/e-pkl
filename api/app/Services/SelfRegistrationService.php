@@ -412,6 +412,7 @@ class SelfRegistrationService
         } catch (\Throwable $exception) {
             Log::error('Self-registration verification email delivery failed.', [
                 'exception' => $exception::class,
+                'error' => $exception->getMessage(),
                 'role' => $roleName,
             ]);
             throw new VerificationEmailDeliveryFailed('Email verifikasi gagal dikirim.', previous: $exception);

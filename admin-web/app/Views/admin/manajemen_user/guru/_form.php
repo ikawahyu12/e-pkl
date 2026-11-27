@@ -30,6 +30,26 @@ $teacherStatusChangeAllowed = !$isEditing || ($teacherResponsibilitiesLoaded ?? 
         </div>
     </div>
 
+    <?php if (!$isEditing): ?>
+        <div class="col-md-6 form-group mb-3">
+            <label class="sf-label" for="email">Email Pemulihan <span class="req">*</span></label>
+            <div class="sf-ic">
+                <i class="far fa-envelope"></i>
+                <input class="sf-input" type="email" id="email" name="email" value="<?= $e($g['email'] ?? '') ?>" maxlength="150" placeholder="Email aktif guru" required>
+            </div>
+            <small class="form-text text-muted">Email ini dipakai untuk pemulihan kata sandi.</small>
+        </div>
+    <?php elseif ($status !== 'pending'): ?>
+        <div class="col-md-6 form-group mb-3">
+            <label class="sf-label" for="email_akun">Email Pemulihan <span class="req">*</span></label>
+            <div class="sf-ic">
+                <i class="far fa-envelope"></i>
+                <input class="sf-input" type="email" id="email_akun" name="email_akun" value="<?= $e($g['email_akun'] ?? '') ?>" maxlength="150" placeholder="Email aktif guru" required>
+            </div>
+            <small class="form-text text-muted">Email ini dipakai untuk pemulihan kata sandi.</small>
+        </div>
+    <?php endif; ?>
+
     <!-- Password + Show/Hide + Generate Auto -->
     <div class="col-md-6 form-group mb-3">
         <div class="d-flex justify-content-between align-items-center mb-1">
@@ -47,6 +67,9 @@ $teacherStatusChangeAllowed = !$isEditing || ($teacherResponsibilitiesLoaded ?? 
                 <i class="fas fa-eye" id="eyeIcon"></i>
             </button>
         </div>
+        <?php if (!$isEditing): ?>
+            <small class="form-text text-muted">Ini password awal; guru wajib menggantinya saat login pertama kali.</small>
+        <?php endif; ?>
     </div>
 
     <!-- Status Akun -->

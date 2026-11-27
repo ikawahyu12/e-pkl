@@ -29,7 +29,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $nis = trim((string) ($_POST['nis'] ?? ''));
         $namaSiswa = trim((string) ($_POST['nama'] ?? ''));
         $username = trim((string) ($_POST['username'] ?? ''));
-        $email = trim((string) ($_POST['email'] ?? ''));
+        $email = mb_strtolower(trim((string) ($_POST['email'] ?? '')));
         $password = (string) ($_POST['password'] ?? '');
         $kelasId = filter_var($_POST['kelas'] ?? null, FILTER_VALIDATE_INT);
         $jenisKelamin = (string) ($_POST['jk'] ?? '');
@@ -43,15 +43,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $nisn === ''
             || $namaSiswa === ''
             || $username === ''
+            || $email === ''
             || $password === ''
             || $kelasId === false
             || $kelasId < 1
             || !in_array($jenisKelamin, ['L', 'P'], true)
             || !in_array($statusSiswa, ['aktif', 'nonaktif'], true)
         ) {
-            $pesanError = 'Lengkapi NISN, nama, username, password, kelas, jenis kelamin, dan status dengan nilai yang valid.';
-        } elseif (strlen($password) < 12) {
-            $pesanError = 'Password awal harus terdiri dari minimal 12 karakter.';
+            $pesanError = 'Lengkapi NISN, nama, username, email, password, kelas, jenis kelamin, dan status dengan nilai yang valid.';
+        } elseif (strlen($password) < 8) {
+            $pesanError = 'Password awal harus terdiri dari minimal 8 karakter.';
         } elseif (
             mb_strlen($nisn, 'UTF-8') > 20
             || mb_strlen($nis, 'UTF-8') > 30
@@ -64,8 +65,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             || strlen($password) > 255
         ) {
             $pesanError = 'Panjang salah satu isian melebihi batas kolom database.';
-        } elseif ($email !== '' && !filter_var($email, FILTER_VALIDATE_EMAIL)) {
-            $pesanError = 'Masukkan alamat email yang valid atau kosongkan kolom email.';
+        } elseif (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+            $pesanError = 'Masukkan alamat email akun yang valid.';
         } else {
             try {
                 $token = $_SESSION['admin_token'] ?? '';
@@ -78,7 +79,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     'username' => $username,
                     'nisn' => $nisn,
                     'nis' => $nis === '' ? null : $nis,
-                    'email' => $email === '' ? null : $email,
+                    'email' => $email,
                     'password' => $password,
                     'kelas_id' => $kelasId,
                     'jenis_kelamin' => $jenisKelamin,
@@ -214,12 +215,13 @@ ob_start();
                     <input class="sf-input" type="text" id="username" name="username" maxlength="20" value="<?= $e($_POST['username'] ?? '') ?>" required>
                 </div>
                 <div class="col-md-6 form-group">
-                    <label class="sf-label" for="email">Email akun</label>
-                    <input class="sf-input" type="email" id="email" name="email" maxlength="150" value="<?= $e($_POST['email'] ?? '') ?>">
+                    <label class="sf-label" for="email">Email Pemulihan <span class="req">*</span></label>
+                    <input class="sf-input" type="email" id="email" name="email" maxlength="150" value="<?= $e($_POST['email'] ?? '') ?>" autocomplete="email" required>
+                    <small class="form-text text-muted">Email ini digunakan untuk reset kata sandi akun.</small>
                 </div>
                 <div class="col-md-6 form-group">
                     <label class="sf-label" for="password">Password awal <span class="req">*</span></label>
-                    <input class="sf-input" type="password" id="password" name="password" minlength="12" maxlength="255" required>
+                    <input class="sf-input" type="password" id="password" name="password" minlength="8" maxlength="255" required>
                 </div>
             </div>
             <div class="row">

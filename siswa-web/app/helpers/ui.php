@@ -179,7 +179,9 @@ function flash_render()
     if (empty($_SESSION['flash'])) return '';
     $f = $_SESSION['flash'];
     unset($_SESSION['flash']);
-    return '<div class="toast toast-' . e($f['type']) . '" role="status">' . e($f['msg']) . '</div>';
+    $type = $f['type'] ?? 'info';
+    $message = $f['msg'] ?? $f['message'] ?? '';
+    return '<div class="toast toast-' . e($type) . '" role="status">' . e($message) . '</div>';
 }
 
 // ---------- dialog / modal ----------
