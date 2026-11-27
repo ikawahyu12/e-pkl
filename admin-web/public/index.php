@@ -882,7 +882,7 @@ if (
         : [];
     $formInput = [];
 
-    foreach (['nama', 'nama_tampilan', 'username', 'email', 'kelas_id', 'status', 'alasan_kode', 'alasan_detail'] as $field) {
+    foreach (['nama', 'nama_tampilan', 'username', 'email', 'email_akun', 'kelas_id', 'status', 'alasan_kode', 'alasan_detail'] as $field) {
         if (isset($_POST[$field]) && is_string($_POST[$field])) {
             $formInput[$field] = $_POST[$field];
         }
@@ -924,14 +924,14 @@ if (
 
             $result = $api->updateAdminUser($token, $userId, $payload);
         } elseif ($accountType === 'student' && $operation === 'create') {
-            $payload = array_intersect_key($_POST, array_flip(['nama', 'username', 'password', 'kelas_id', 'status']));
+            $payload = array_intersect_key($_POST, array_flip(['nama', 'username', 'email', 'password', 'kelas_id', 'status']));
             $result = $api->createAdminStudent($token, $payload);
         } elseif ($accountType === 'student' && $operation === 'update') {
             if ($userId === false) {
                 throw new InvalidArgumentException('ID siswa tidak valid.');
             }
 
-            $payload = array_intersect_key($_POST, array_flip(['nama', 'username', 'kelas_id']));
+            $payload = array_intersect_key($_POST, array_flip(['nama', 'username', 'email_akun', 'kelas_id']));
             if (isset($_POST['password']) && is_string($_POST['password']) && $_POST['password'] !== '') {
                 $payload['password'] = $_POST['password'];
             }
@@ -958,14 +958,14 @@ if (
                 );
             }
         } elseif ($accountType === 'teacher' && $operation === 'create') {
-            $payload = array_intersect_key($_POST, array_flip(['nama', 'username', 'password', 'status']));
+            $payload = array_intersect_key($_POST, array_flip(['nama', 'username', 'email', 'password', 'status']));
             $result = $api->createAdminTeacher($token, $payload);
         } elseif ($accountType === 'teacher' && $operation === 'update') {
             if ($userId === false) {
                 throw new InvalidArgumentException('ID guru tidak valid.');
             }
 
-            $payload = array_intersect_key($_POST, array_flip(['nama', 'username', 'status']));
+            $payload = array_intersect_key($_POST, array_flip(['nama', 'username', 'email_akun', 'status']));
             if (isset($_POST['password']) && is_string($_POST['password']) && $_POST['password'] !== '') {
                 $payload['password'] = $_POST['password'];
             }

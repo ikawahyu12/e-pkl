@@ -465,8 +465,8 @@
                 <button class="login-submit" id="loginSubmit" type="submit">Masuk</button>
                 <div class="login-help-actions">
                     <a class="login-help-button" href="<?= e(url('auth/lupaPassword')) ?>">Lupa kata sandi?</a>
-                    <a class="login-help-button login-help-button-primary" href="<?= e(url('auth/register')) ?>">Belum punya akun? Daftar</a>
                 </div>
+                <p class="login-message">Belum punya akun? Hubungi admin sekolah untuk dibuatkan akun.</p>
 
                 <?php if (!empty($error)): ?>
                     <p class="login-message" role="alert"><?= e($error) ?></p>

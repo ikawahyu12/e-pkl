@@ -32,7 +32,6 @@ use App\Http\Controllers\Api\V1\Siswa\RiwayatController;
 use App\Http\Controllers\GuruAuthController;
 use App\Http\Controllers\PasswordController;
 use App\Http\Controllers\PasswordResetController;
-use App\Http\Controllers\SelfRegistrationController;
 use App\Http\Controllers\SiswaAuthController;
 
 use App\Http\Middleware\EnsureAdminRole;
@@ -104,29 +103,6 @@ Route::prefix('v1/{role}/auth')
             [PasswordResetController::class, 'reset']
         )->middleware('throttle:10,1');
     });
-
-
-// ======================================================
-// REGISTRASI DAN VERIFIKASI
-// ======================================================
-
-Route::prefix('v1/{role}/auth')->group(function (): void {
-
-    Route::post(
-        '/register',
-        [SelfRegistrationController::class, 'register']
-    )->middleware('throttle:self-registration-register');
-
-    Route::post(
-        '/resend-verification',
-        [SelfRegistrationController::class, 'resend']
-    )->middleware('throttle:self-registration-resend');
-
-    Route::post(
-        '/verify-email',
-        [SelfRegistrationController::class, 'verify']
-    )->middleware('throttle:self-registration-verify');
-});
 
 
 // ======================================================

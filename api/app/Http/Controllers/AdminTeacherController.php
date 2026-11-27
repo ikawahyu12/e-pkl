@@ -85,9 +85,14 @@ class AdminTeacherController extends Controller
         if (is_string($status)) {
             $request->merge(['status' => strtolower(trim($status))]);
         }
+        $email = $request->input('email');
+        if (is_string($email)) {
+            $request->merge(['email' => mb_strtolower(trim($email))]);
+        }
         $data = $request->validate([
             'nama' => ['required', 'string', 'max:120'],
             'username' => ['required', 'string', 'max:30', Rule::unique('users', 'username'), Rule::unique('guru', 'nip')],
+            'email' => ['required', 'email', 'max:150', Rule::unique('users', 'email')],
             'password' => ['required', 'string', 'min:8', 'max:255'],
             'status' => ['required', Rule::in(['aktif', 'nonaktif'])],
         ]);
@@ -102,6 +107,7 @@ class AdminTeacherController extends Controller
             $user = new User;
             $user->role_id = $role->id;
             $user->username = $data['username'];
+            $user->email = $data['email'];
             $user->nama_tampilan = $data['nama'];
             $user->password_hash = Hash::make($data['password']);
             $user->status = $data['status'];
@@ -137,12 +143,24 @@ class AdminTeacherController extends Controller
         }
 
         $pendingAccountId = $teacher->user?->status === 'pending' ? $teacher->user->id : null;
+        $email = $request->input('email_akun');
+        if (is_string($email)) {
+            $request->merge(['email_akun' => mb_strtolower(trim($email))]);
+        }
         $data = $request->validate([
             'nama' => ['sometimes', 'required', 'string', 'max:120'],
             'username' => [
                 'sometimes', 'required', 'string', 'max:30',
                 Rule::unique('users', 'username')->ignore($pendingAccountId ?? $teacher->user_id),
                 Rule::unique('guru', 'nip')->ignore($teacher->id),
+            ],
+            'email_akun' => [
+                'sometimes',
+                Rule::prohibitedIf($pendingAccountId !== null),
+                'required',
+                'email',
+                'max:150',
+                Rule::unique('users', 'email')->ignore($teacher->user_id),
             ],
             'password' => $pendingAccountId === null
                 ? ['sometimes', 'nullable', 'string', 'min:8', 'max:255']
@@ -263,6 +281,14 @@ class AdminTeacherController extends Controller
                 $user->username = $data['username'];
                 $teacher->nip = $data['username'];
                 $credentialsChanged = true;
+            }
+
+            if (array_key_exists('email_akun', $data)) {
+                $email = mb_strtolower(trim($data['email_akun']));
+                if ($user->email !== $email) {
+                    $user->email = $email;
+                    $user->email_terverifikasi_at = null;
+                }
             }
 
             if (isset($data['password']) && $data['password'] !== '') {
@@ -461,6 +487,7 @@ class AdminTeacherController extends Controller
             'username' => $teacher->user_id === null
                 ? $teacher->nip
                 : ($teacher->user?->username ?? $teacher->nip),
+            'email_akun' => $teacher->user?->email,
             'status' => $teacher->user?->status,
             'status_bimbingan' => $teacher->status_bimbingan,
             'terakhir_login_at' => $teacher->user?->terakhir_login_at,

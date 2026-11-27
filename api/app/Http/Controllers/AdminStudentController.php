@@ -94,13 +94,17 @@ class AdminStudentController extends Controller
         if (is_string($status)) {
             $request->merge(['status' => strtolower(trim($status))]);
         }
+        $email = $request->input('email');
+        if (is_string($email)) {
+            $request->merge(['email' => mb_strtolower(trim($email))]);
+        }
         $classIsRequired = Kelas::query()->exists();
         $data = $request->validate([
             'nama' => ['required', 'string', 'max:120'],
             'username' => ['required', 'string', 'max:20', Rule::unique('users', 'username'), Rule::unique('siswa', 'nisn')],
             'nisn' => ['sometimes', 'required', 'string', 'max:20', Rule::unique('siswa', 'nisn')],
             'nis' => ['sometimes', 'nullable', 'string', 'max:30', Rule::unique('siswa', 'nis')],
-            'email' => ['sometimes', 'nullable', 'email', 'max:150', Rule::unique('users', 'email')],
+            'email' => ['required', 'email', 'max:150', Rule::unique('users', 'email')],
             'password' => ['required', 'string', 'min:8', 'max:255'],
             'kelas_id' => [$classIsRequired ? 'required' : 'nullable', 'integer', Rule::exists('kelas', 'id')],
             'jenis_kelamin' => ['sometimes', 'nullable', Rule::in(['L', 'P'])],
@@ -121,7 +125,7 @@ class AdminStudentController extends Controller
             $user = new User;
             $user->role_id = $role->id;
             $user->username = $data['username'];
-            $user->email = $data['email'] ?? null;
+            $user->email = $data['email'];
             $user->nama_tampilan = $data['nama'];
             $user->password_hash = Hash::make($data['password']);
             $user->status = $data['status'];
@@ -159,6 +163,10 @@ class AdminStudentController extends Controller
         }
 
         $pendingAccountId = $student->user?->status === 'pending' ? $student->user->id : null;
+        $email = $request->input('email_akun');
+        if (is_string($email)) {
+            $request->merge(['email_akun' => mb_strtolower(trim($email))]);
+        }
         $data = $request->validate([
             'nama' => ['sometimes', 'required', 'string', 'max:120'],
             'username' => [
@@ -173,6 +181,14 @@ class AdminStudentController extends Controller
             'nis' => [
                 'sometimes', 'nullable', 'string', 'max:30',
                 Rule::unique('siswa', 'nis')->ignore($student->id),
+            ],
+            'email_akun' => [
+                'sometimes',
+                Rule::prohibitedIf($pendingAccountId !== null),
+                'required',
+                'email',
+                'max:150',
+                Rule::unique('users', 'email')->ignore($student->user_id),
             ],
             'password' => $pendingAccountId === null
                 ? ['sometimes', 'nullable', 'string', 'min:8', 'max:255']
@@ -303,6 +319,13 @@ class AdminStudentController extends Controller
                 $user->username = $data['username'];
                 $student->nisn = $data['username'];
                 $credentialsChanged = true;
+            }
+            if (array_key_exists('email_akun', $data)) {
+                $email = mb_strtolower(trim($data['email_akun']));
+                if ($user->email !== $email) {
+                    $user->email = $email;
+                    $user->email_terverifikasi_at = null;
+                }
             }
             if (array_key_exists('nisn', $data)) {
                 $student->nisn = $data['nisn'];
@@ -496,6 +519,7 @@ class AdminStudentController extends Controller
             $data += [
                 'nisn' => $student->nisn,
                 'nis' => $student->nis,
+                'email_akun' => $student->user?->email,
                 'jenis_kelamin' => $student->jenis_kelamin,
                 'no_hp' => $student->no_hp,
                 'email_sekolah' => $student->email_sekolah,

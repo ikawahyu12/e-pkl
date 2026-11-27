@@ -145,6 +145,24 @@ class PasswordResetTest extends TestCase
         Mail::assertSent(PasswordResetMail::class, 3);
     }
 
+    public function test_reset_link_is_not_sent_for_a_nonactive_teacher_profile(): void
+    {
+        Mail::fake();
+        $teacher = $this->createAccount('guru');
+        DB::table('guru')->where('user_id', $teacher->id)->update([
+            'status_bimbingan' => 'nonaktif',
+        ]);
+
+        $this->postJson('/api/v1/guru/auth/forgot-password', [
+            'email' => $teacher->email,
+        ])->assertAccepted();
+
+        Mail::assertNothingSent();
+        $this->assertDatabaseMissing('epkl_password_reset_tokens', [
+            'user_id' => $teacher->id,
+        ]);
+    }
+
     public function test_valid_reset_changes_password_once_and_revokes_old_auth_tokens_for_all_roles(): void
     {
         foreach (['admin', 'guru', 'siswa'] as $role) {

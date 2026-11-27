@@ -24,6 +24,7 @@ $sql = "SELECT
             s.nama_lengkap AS nama_siswa,
             s.status_siswa AS status,
             u.status AS status_akun,
+            u.email AS email_akun,
             k.nama AS kelas,
             (
                 SELECT i.nama
@@ -48,6 +49,7 @@ if (!$result || mysqli_num_rows($result) === 0) {
 }
 $s = mysqli_fetch_assoc($result);
 mysqli_stmt_close($loadStatement);
+$emailAkun = mb_strtolower(trim((string) ($s['email_akun'] ?? '')));
 
 // ==========================================
 // 2. PROSES SIMPAN PERUBAHAN (UPDATE)
@@ -65,18 +67,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $jenisKelamin = (string) ($_POST['jk'] ?? '');
         $noHp = trim((string) ($_POST['wa'] ?? ''));
         $alamat = trim((string) ($_POST['alamat'] ?? ''));
+        $emailInput = $_POST['email_akun'] ?? '';
+        $emailAkun = is_string($emailInput) ? mb_strtolower(trim($emailInput)) : '';
 
         if (
             $namaSiswa === ''
             || $kelasId === false
             || $kelasId < 1
             || !in_array($jenisKelamin, ['L', 'P'], true)
+            || !filter_var($emailAkun, FILTER_VALIDATE_EMAIL)
         ) {
-            $pesanError = 'Lengkapi nama, kelas, dan jenis kelamin dengan nilai yang valid.';
+            $pesanError = 'Lengkapi nama, kelas, jenis kelamin, dan email pemulihan yang valid.';
         } elseif (
             mb_strlen($nis, 'UTF-8') > 30
             || mb_strlen($namaSiswa, 'UTF-8') > 120
             || mb_strlen($noHp, 'UTF-8') > 25
+            || mb_strlen($emailAkun, 'UTF-8') > 150
         ) {
             $pesanError = 'Panjang salah satu isian melebihi batas kolom database.';
         } else {
@@ -90,6 +96,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $result = $api->updateAdminStudent($token, $userId, [
                     'nis' => $nis === '' ? null : $nis,
                     'nama' => $namaSiswa,
+                    'email_akun' => $emailAkun,
                     'kelas_id' => $kelasId,
                     'jenis_kelamin' => $jenisKelamin,
                     'no_hp' => $noHp === '' ? null : $noHp,
@@ -240,6 +247,11 @@ ob_start();
                     <label class="ed-label">Status Akun dan Profil</label>
                     <div class="ed-input" aria-readonly="true"><?= $e(ucfirst((string) ($s['status_akun'] ?? 'tidak diketahui'))) ?></div>
                     <small class="form-text text-muted">Ubah status melalui halaman Manajemen Siswa agar akun, profil, dan penempatan tetap tersinkron.</small>
+                </div>
+                <div class="col-md-6 form-group">
+                    <label class="ed-label" for="email_akun">Email Pemulihan <span class="req">*</span></label>
+                    <input class="ed-input" type="email" id="email_akun" name="email_akun" maxlength="150" value="<?= $e($emailAkun) ?>" autocomplete="email" required>
+                    <small class="form-text text-muted">Email ini disimpan pada akun login dan digunakan untuk reset kata sandi.</small>
                 </div>
             </div>
 

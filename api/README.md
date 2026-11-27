@@ -7,6 +7,39 @@
 <a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
 </p>
 
+## Gmail API Mail Delivery
+
+The API can send password-reset messages through Gmail's HTTPS API when direct SMTP is blocked. Configure these values in the local `api/.env` file:
+
+```dotenv
+MAIL_MAILER=gmail-api
+MAIL_FROM_ADDRESS=your-gmail-address@gmail.com
+GOOGLE_MAIL_CLIENT_ID=
+GOOGLE_MAIL_CLIENT_SECRET=
+GOOGLE_MAIL_REFRESH_TOKEN=
+```
+
+To obtain OAuth credentials for your Gmail account:
+
+1. Open Google's [Personal mode onboarding page](https://console.cloud.google.com/auth/overview/personal), create/select a Personal mode project, choose **Web application**, and add `https://developers.google.com/oauthplayground` as an authorized redirect URI.
+2. Enable the Gmail API for that project in the Google API Library, then copy the OAuth client ID and secret.
+3. In OAuth 2.0 Playground settings, enable **Use your own OAuth credentials** and enter that client's ID and secret.
+4. Authorize the scope `https://www.googleapis.com/auth/gmail.send`, exchange the authorization code, and copy the returned refresh token into `GOOGLE_MAIL_REFRESH_TOKEN`.
+5. Put the client ID and secret into the matching `.env` values. Keep all three values private and out of source control. The `MAIL_FROM_ADDRESS` must be the authorized Gmail account or a Gmail send-as alias.
+6. Clear cached configuration and restart the API process so it reloads `.env`:
+
+   ```powershell
+   php artisan config:clear
+   ```
+
+OAuth Playground is hosted by Google and sends the OAuth client credentials to Google's service to perform the token exchange. Use only the official `https://developers.google.com/oauthplayground/` site; never paste credentials or refresh tokens into chat or an unrelated website.
+
+Personal mode limits authorization to the Google account that created the project. Google documents that it does not require app verification and is not subject to the seven-day test-user token expiry.
+
+The password-reset URLs in `.env` must also be reachable from the device opening the email. Private LAN IPs only work while that device is on the same network.
+
+Student and teacher accounts are created by an Admin; public self-registration and email-verification endpoints are disabled. Admins must provide a unique recovery email when creating an account. The initial password is temporary and the account requires a password change on first login. Password-reset emails are sent only for active accounts with eligible profiles.
+
 ## Admin User Management API
 
 All endpoints below require an active Admin bearer token:
@@ -46,7 +79,7 @@ These endpoints also require an active Admin bearer token:
 | `PATCH` | `/api/v1/admin/teachers/{userId}` | Update a teacher account and profile. |
 | `DELETE` | `/api/v1/admin/teachers/{userId}` | Delete a teacher profile and account. |
 
-Both create endpoints require `nama`, `username`, `password`, and `status`. Student creation accepts a valid `kelas_id` when classes exist; if no classes are configured, `kelas_id` may be omitted. Student passwords must be at least 12 characters and teacher passwords at least 8. Updates leave omitted fields unchanged, and an omitted or empty password does not change the existing password. Passwords are hashed and never returned.
+Both create endpoints require `nama`, `username`, a unique `email`, and `password`; `status` defaults to `aktif`. Student creation accepts a valid `kelas_id` when classes exist; if no classes are configured, `kelas_id` may be omitted. Updates leave omitted fields unchanged; `email_akun` can update the recovery email, and an omitted or empty password does not change the existing password. Passwords are hashed and never returned.
 
 ## About Laravel
 
