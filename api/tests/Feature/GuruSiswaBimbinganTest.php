@@ -128,6 +128,7 @@ class GuruSiswaBimbinganTest extends TestCase
         $this->getJson('/api/v1/guru/siswa-bimbingan')
             ->assertOk()
             ->assertJsonPath('data.0.persentase_kehadiran', 75)
+            ->assertJsonPath('data.0.jumlah_hadir', 3)
             ->assertJsonPath('data.0.status', 'alpha'); // sesi hari ini ditutup tanpa presensi
     }
 

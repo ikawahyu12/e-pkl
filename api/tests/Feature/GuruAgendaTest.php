@@ -133,7 +133,6 @@ class GuruAgendaTest extends TestCase
             $table->string('status');
             $table->unsignedBigInteger('dibuat_oleh')->nullable();
             $table->timestamps();
-            $table->unique(['pengaturan_id', 'tanggal', 'nama_shift']);
         });
         Schema::create('sesi_presensi_penempatan', function (Blueprint $table): void {
             $table->unsignedBigInteger('sesi_id');
@@ -228,7 +227,7 @@ class GuruAgendaTest extends TestCase
             ->assertJsonPath('data.0.siswa.0.kelas', 'XI RPL');
     }
 
-    public function test_guru_can_open_presensi_session_for_selected_students(): void
+    public function test_guru_can_open_multiple_presensi_sessions_for_selected_students_on_same_day(): void
     {
         $settingsId = DB::table('pengaturan_presensi')->insertGetId([
             'instansi_id' => $this->instansi->id,
@@ -272,6 +271,29 @@ class GuruAgendaTest extends TestCase
             'sesi_id' => $sessionId,
             'penempatan_id' => $this->penempatanId,
         ]);
+
+        $secondResponse = $this->postJson('/api/v1/guru/presensi/sesi', [
+            'instansi_id' => $this->instansi->id,
+            'siswa_ids' => [$this->siswa->id],
+            'tanggal' => $tanggal,
+            'jam_masuk_mulai' => '09:30',
+            'jam_masuk_selesai' => '10:30',
+            'jam_pulang_mulai' => '13:00',
+            'jam_pulang_selesai' => '15:00',
+        ])->assertCreated()
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('data.nama_shift', 'Reguler')
+            ->assertJsonPath('data.jumlah_siswa', 1);
+
+        $this->assertNotSame($sessionId, $secondResponse->json('data.id'));
+        $this->assertSame(
+            2,
+            DB::table('sesi_presensi')
+                ->where('pengaturan_id', $settingsId)
+                ->where('tanggal', $tanggal)
+                ->where('nama_shift', 'Reguler')
+                ->count(),
+        );
     }
 
     public function test_agenda_is_created_and_cancellation_is_recorded_without_deleting_it(): void

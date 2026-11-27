@@ -168,6 +168,9 @@ class SiswaBimbinganController extends Controller
                         rekap.total_presensi
                     )
                 END AS persentase_kehadiran
+            ")
+            ->selectRaw("
+                COALESCE(rekap.jumlah_hadir, 0) AS jumlah_hadir
             ");
     }
 }

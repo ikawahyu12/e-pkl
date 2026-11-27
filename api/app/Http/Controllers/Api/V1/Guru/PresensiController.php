@@ -108,14 +108,6 @@ class PresensiController extends Controller
                 );
             }
 
-            if (DB::table('sesi_presensi')
-                ->where('pengaturan_id', $settings->id)
-                ->where('tanggal', $data['tanggal'])
-                ->where('nama_shift', self::SESSION_NAME)
-                ->exists()) {
-                $this->fail('tanggal', 'Sesi presensi Reguler untuk tanggal ini sudah tersedia.');
-            }
-
             $sessionId = DB::table('sesi_presensi')->insertGetId([
                 'pengaturan_id' => $settings->id,
                 'tanggal' => $data['tanggal'],
