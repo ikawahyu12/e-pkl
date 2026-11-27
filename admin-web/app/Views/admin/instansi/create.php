@@ -245,7 +245,8 @@ ob_start();
                     <label class="sl-form-label">Latitude <span class="text-danger">*</span></label>
                     <div class="sl-input-group">
                         <i class="fas fa-map-marker-alt"></i>
-                        <input type="number" name="latitude" class="sl-form-control" step="0.0000001"
+                        <!-- Ditambahkan id="input-latitude" -->
+                        <input type="number" name="latitude" id="input-latitude" class="sl-form-control" step="0.0000001"
                                min="-90" max="90" placeholder="Contoh: -7.7543000"
                                value="<?= $e($createForm['latitude'] ?? '') ?>" required>
                     </div>
@@ -254,7 +255,8 @@ ob_start();
                     <label class="sl-form-label">Longitude <span class="text-danger">*</span></label>
                     <div class="sl-input-group">
                         <i class="fas fa-map-marker-alt"></i>
-                        <input type="number" name="longitude" class="sl-form-control" step="0.0000001"
+                        <!-- Ditambahkan id="input-longitude" -->
+                        <input type="number" name="longitude" id="input-longitude" class="sl-form-control" step="0.0000001"
                                min="-180" max="180" placeholder="Contoh: 111.9025000"
                                value="<?= $e($createForm['longitude'] ?? '') ?>" required>
                     </div>
@@ -307,6 +309,49 @@ ob_start();
         </form>
     </div>
 </div>
+
+<!-- SCRIPT UNTUK MEMOTONG ANGKA DESIMAL OTOMATIS -->
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Fungsi untuk membatasi jumlah angka di belakang koma
+    function limitDecimals(inputElement, maxDecimals) {
+        if (!inputElement) return;
+
+        // Event saat user mengetik atau paste
+        inputElement.addEventListener('input', function(e) {
+            let value = e.target.value;
+            
+            // Cek jika ada titik desimal
+            if (value.includes('.')) {
+                let parts = value.split('.');
+                // Jika angka di belakang koma melebihi batas, potong
+                if (parts[1].length > maxDecimals) {
+                    parts[1] = parts[1].substring(0, maxDecimals);
+                    e.target.value = parts.join('.');
+                }
+            }
+        });
+
+        // Event saat input kehilangan fokus (opsional, untuk memastikan)
+        inputElement.addEventListener('blur', function(e) {
+            let value = e.target.value;
+            if (value.includes('.')) {
+                let parts = value.split('.');
+                if (parts[1].length > maxDecimals) {
+                    parts[1] = parts[1].substring(0, maxDecimals);
+                    e.target.value = parts.join('.');
+                }
+            }
+        });
+    }
+
+    // Terapkan pada Latitude (maksimal 7 desimal)
+    limitDecimals(document.getElementById('input-latitude'), 7);
+    
+    // Terapkan pada Longitude (maksimal 7 desimal)
+    limitDecimals(document.getElementById('input-longitude'), 7);
+});
+</script>
 
 <?php
 // panggil layout utama

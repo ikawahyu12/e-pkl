@@ -72,7 +72,7 @@ class IzinController extends Controller
                     'tanggal_mulai' => $data['tanggal_mulai'],
                     'tanggal_selesai' => $data['tanggal_selesai'],
                     'alasan' => $data['alasan'],
-                    'status' => 'menunggu',
+                    'status' => 'disetujui',
                     'created_at' => $now,
                     'updated_at' => $now,
                 ]);
@@ -100,7 +100,7 @@ class IzinController extends Controller
 
         return response()->json([
             'success' => true,
-            'message' => 'Pengajuan izin berhasil dikirim.',
+            'message' => 'Pengajuan izin berhasil dikirim dan langsung disetujui.',
             'data' => ['id' => $pengajuanId],
         ]);
     }

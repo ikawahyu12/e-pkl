@@ -31,7 +31,7 @@ class RiwayatController extends Controller
     ];
 
     /**
-     * GET /v1/siswa/riwayat?tipe=semua|presensi|jurnal&minggu=1-5&bulan=1-12&tahun=&page=&per_page=
+     * GET /v1/siswa/riwayat?tipe=semua|presensi|jurnal|izin&minggu=1-5&bulan=1-12&tahun=&page=&per_page=
      */
     public function index(Request $request): JsonResponse
     {
@@ -41,7 +41,7 @@ class RiwayatController extends Controller
         }
 
         $tipe  = $request->query('tipe');
-        $tipe  = in_array($tipe, ['presensi', 'jurnal'], true) ? $tipe : 'semua';
+        $tipe  = in_array($tipe, ['presensi', 'jurnal', 'izin'], true) ? $tipe : 'semua';
         $bulan = (int) $request->query('bulan');
         $bulan = ($bulan >= 1 && $bulan <= 12) ? $bulan : null;
         $tahun = (int) $request->query('tahun') ?: ($bulan ? (int) now()->year : null);
@@ -64,7 +64,7 @@ class RiwayatController extends Controller
 
         $items = collect();
 
-        if ($tipe !== 'jurnal') {
+        if ($tipe === 'semua' || $tipe === 'presensi') {
             $presensi = $filter(
                 DB::table('presensi as pr')
                     ->join('penempatan_pkl as p', 'p.id', '=', 'pr.penempatan_id')
@@ -102,7 +102,7 @@ class RiwayatController extends Controller
             }
         }
 
-        if ($tipe !== 'presensi') {
+        if ($tipe === 'semua' || $tipe === 'jurnal') {
             $jurnal = $filter(
                 DB::table('jurnal as j')
                     ->join('penempatan_pkl as p', 'p.id', '=', 'j.penempatan_id')
@@ -116,6 +116,38 @@ class RiwayatController extends Controller
                     "jurnal-{$r->id}", 'jurnal', 'jurnal', 'Laporan Jurnal Harian',
                     $r->tanggal, $r->created_at, 'Terkirim',
                     $r->judul, $r->id
+                ));
+            }
+        }
+
+        if ($tipe === 'semua' || $tipe === 'izin') {
+            $izin = $filter(
+                DB::table('pengajuan_izin as i')
+                    ->join('penempatan_pkl as p', 'p.id', '=', 'i.penempatan_id')
+                    ->where('p.siswa_id', $siswaId)
+                    ->select([
+                        'i.id', 'i.jenis', 'i.tanggal_mulai', 'i.tanggal_selesai',
+                        'i.alasan', 'i.status', 'i.created_at',
+                    ]),
+                'i.tanggal_mulai'
+            )->get();
+
+            foreach ($izin as $r) {
+                $jenis = in_array($r->jenis, ['izin', 'sakit'], true) ? $r->jenis : 'izin';
+                $status = in_array($r->status, ['menunggu', 'disetujui', 'ditolak'], true)
+                    ? $r->status
+                    : 'menunggu';
+                $labelStatus = match ($status) {
+                    'disetujui' => 'Disetujui',
+                    'ditolak' => 'Ditolak',
+                    default => 'Menunggu',
+                };
+                $judul = 'Pengajuan ' . ucfirst($jenis);
+
+                $items->push($this->item(
+                    "izin-{$r->id}", 'izin', $jenis, $judul,
+                    $r->tanggal_mulai, null, $labelStatus,
+                    $r->alasan, $r->id
                 ));
             }
         }

@@ -154,8 +154,8 @@ class GuruJurnalReadTest extends TestCase
 
     public function test_teacher_can_read_full_journal_detail_and_documentation_url(): void
     {
-        Storage::fake('public');
-        Storage::disk('public')->put('jurnal/kegiatan.jpg', 'image');
+        Storage::fake('local');
+        Storage::disk('local')->put('jurnal/kegiatan.jpg', 'image');
         $lampiranId = DB::table('jurnal_lampiran')->insertGetId([
             'jurnal_id' => $this->jurnalId,
             'nama_file' => 'kegiatan.jpg',
@@ -184,8 +184,8 @@ class GuruJurnalReadTest extends TestCase
 
     public function test_teacher_can_read_documentation_through_an_authorized_file_endpoint(): void
     {
-        Storage::fake('public');
-        Storage::disk('public')->put('jurnal/kegiatan.jpg', 'image-bytes');
+        Storage::fake('local');
+        Storage::disk('local')->put('jurnal/kegiatan.jpg', 'image-bytes');
         $lampiranId = DB::table('jurnal_lampiran')->insertGetId([
             'jurnal_id' => $this->jurnalId,
             'nama_file' => 'kegiatan.jpg',
@@ -202,8 +202,8 @@ class GuruJurnalReadTest extends TestCase
 
     public function test_teacher_cannot_read_documentation_for_another_teachers_journal(): void
     {
-        Storage::fake('public');
-        Storage::disk('public')->put('jurnal/other.jpg', 'image-bytes');
+        Storage::fake('local');
+        Storage::disk('local')->put('jurnal/other.jpg', 'image-bytes');
         $otherJournalId = DB::table('jurnal')
             ->where('judul', 'Jurnal milik Guru lain')
             ->value('id');

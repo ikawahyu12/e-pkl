@@ -188,7 +188,8 @@ ob_start();
                     <label class="sl-form-label">Latitude <span class="text-danger">*</span></label>
                     <div class="sl-input-group">
                         <i class="fas fa-map-marker-alt"></i>
-                        <input type="number" name="latitude" class="sl-form-control" step="0.0000001"
+                        <!-- Ditambahkan id="edit-latitude" -->
+                        <input type="number" name="latitude" id="edit-latitude" class="sl-form-control" step="0.0000001"
                                min="-90" max="90" placeholder="Contoh: -7.7543"
                                value="<?= $e($form['latitude']) ?>" required>
                     </div>
@@ -197,17 +198,18 @@ ob_start();
                     <label class="sl-form-label">Longitude <span class="text-danger">*</span></label>
                     <div class="sl-input-group">
                         <i class="fas fa-map-marker-alt"></i>
-                        <input type="number" name="longitude" class="sl-form-control" step="0.0000001"
+                        <!-- Ditambahkan id="edit-longitude" -->
+                        <input type="number" name="longitude" id="edit-longitude" class="sl-form-control" step="0.0000001"
                                min="-180" max="180" placeholder="Contoh: 111.9025"
                                value="<?= $e($form['longitude']) ?>" required>
                     </div>
                 </div>
                 <div class="col-md-3 mb-4">
-                    <label class="sl-form-label">Radius Geofence (Meter) <span class="text-danger">*</span></label>
+                    <label class="sl-form-label">Radius Geofence (meter) <span class="text-danger">*</span></label>
                     <div class="sl-input-group">
                         <i class="fas fa-location-crosshairs"></i>
                         <input type="number" name="radius_geofence_meter" class="sl-form-control"
-                               min="1" step="1" placeholder="Contoh: 100"
+                               min="50" step="1" placeholder="Contoh: 100"
                                value="<?= $e($form['radius_geofence_meter']) ?>" required>
                     </div>
                 </div>
@@ -274,8 +276,10 @@ ob_start();
     </div>
 </div>
 
+<!-- SCRIPT UNTUK MEMOTONG ANGKA DESIMAL OTOMATIS -->
 <script>
     document.addEventListener('DOMContentLoaded', function () {
+        // --- Logika Periode & Kuota (Asli) ---
         var period = document.getElementById('editPeriodeId');
         var quota = document.getElementById('editKuotaSiswa');
         if (period && quota) {
@@ -284,6 +288,39 @@ ob_start();
                 quota.value = option ? option.getAttribute('data-quota') || '' : '';
             });
         }
+
+        // --- Logika Memotong Desimal Latitude & Longitude ---
+        function limitDecimals(inputElement, maxDecimals) {
+            if (!inputElement) return;
+
+            // Saat mengetik / paste
+            inputElement.addEventListener('input', function(e) {
+                let value = e.target.value;
+                if (value.includes('.')) {
+                    let parts = value.split('.');
+                    if (parts[1].length > maxDecimals) {
+                        parts[1] = parts[1].substring(0, maxDecimals);
+                        e.target.value = parts.join('.');
+                    }
+                }
+            });
+
+            // Saat kehilangan fokus (opsional, memastikan data benar sebelum submit)
+            inputElement.addEventListener('blur', function(e) {
+                let value = e.target.value;
+                if (value.includes('.')) {
+                    let parts = value.split('.');
+                    if (parts[1].length > maxDecimals) {
+                        parts[1] = parts[1].substring(0, maxDecimals);
+                        e.target.value = parts.join('.');
+                    }
+                }
+            });
+        }
+
+        // Terapkan pada input edit-latitude dan edit-longitude (maksimal 7 desimal)
+        limitDecimals(document.getElementById('edit-latitude'), 7);
+        limitDecimals(document.getElementById('edit-longitude'), 7);
     });
 </script>
 
